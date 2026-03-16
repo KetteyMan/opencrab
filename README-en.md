@@ -9,45 +9,45 @@
 </p>
 
 <p align="center">
-  中文 README ｜ <a href="./README-en.md">English</a>
+  <a href="./README.md">中文</a> ｜ English
 </p>
 
-OpenCrab 是一个面向普通用户的、本地优先的 Codex 工作台。
+OpenCrab is a local-first Codex workspace for everyday users.
 
-它尽量把产品表面做简单：聊天是主入口，Codex 是执行引擎，Telegram 和飞书等渠道可以直接接入同一套工作空间，而不需要用户先学习一整套开发者工具链。
+It keeps the product surface simple: chat is the main entry, Codex is the execution engine, and channels let Telegram or Feishu users talk to the same workspace without learning a developer toolchain first.
 
-## 产品截图
+## Screenshots
 
-| 首页 | 对话 |
+| Home | Conversations |
 | --- | --- |
 | ![OpenCrab home](./docs/screenshots/homepage.png) | ![Conversation thread](./docs/screenshots/conversation-thread.png) |
 
-| Channels | Telegram |
+| Channels | Telegram channel |
 | --- | --- |
 | ![Channels overview](./docs/screenshots/channels-overview.png) | ![Telegram channel page](./docs/screenshots/telegram-channel.png) |
 
-| 设置 |
+| Settings |
 | --- |
 | ![Settings page](./docs/screenshots/settings.png) |
 
-## 主要能力
+## Highlights
 
-- 以聊天为主入口，支持流式 Codex 回复和持久化历史对话
-- 支持文件夹管理对话，整体交互接近大家熟悉的 ChatGPT 形态
-- 支持图片、文件上传，以及常见文档格式的文本提取
-- 支持浏览器工具接入，覆盖 current-browser 和 managed-browser 两种模式
-- 已支持 Telegram 和飞书渠道接入，包括 webhook 入站、会话绑定和消息回推
-- 运行时数据和 secret 默认保存在仓库之外
+- Chat-first product flow with streaming Codex replies and persistent conversation history
+- Folder-based conversation organization with a familiar ChatGPT-style layout
+- File and image uploads, plus text extraction for common document formats
+- Browser tool integration for current-browser and managed-browser workflows
+- Channel support for Telegram and Feishu, including webhook intake, conversation binding, and reply delivery
+- Local runtime data and secrets stored outside the repository by default
 
-## 快速开始
+## Getting Started
 
-### 环境要求
+### Requirements
 
 - macOS
 - Node.js `20.9+`
-- 已安装 `codex`，并完成 `codex login`
+- `codex` installed and authenticated with `codex login`
 
-### 启动
+### Quick Start
 
 ```bash
 npm install
@@ -56,9 +56,9 @@ codex login
 npm run dev
 ```
 
-打开 [http://127.0.0.1:3000](http://127.0.0.1:3000) 即可。
+Open the app at [http://127.0.0.1:3000](http://127.0.0.1:3000).
 
-### 建议检查
+### Recommended Checks
 
 ```bash
 npm run lint
@@ -66,9 +66,9 @@ npm run typecheck
 npm run build
 ```
 
-## 配置
+## Configuration
 
-大多数情况下，你可以先直接从 UI 开始用；只有在需要接渠道时，再补 secret。
+Most users can start from the UI, then add secrets only when they need channels.
 
 ```bash
 OPENCRAB_CODEX_MODEL=gpt-5.4
@@ -84,22 +84,22 @@ OPENCRAB_FEISHU_APP_SECRET=
 OPENCRAB_FEISHU_VERIFICATION_TOKEN=
 ```
 
-也可以直接在这些页面里配置：
+Channel configuration also works directly from:
 
 - `/channels/telegram`
 - `/channels/feishu`
 
-## 运行时数据
+## Runtime Data
 
-OpenCrab 的运行时数据存放在 `OPENCRAB_HOME`。
+OpenCrab stores runtime data in `OPENCRAB_HOME`.
 
-如果没有显式设置，macOS 默认路径是：
+If `OPENCRAB_HOME` is not set, macOS defaults to:
 
 ```bash
 $HOME/Library/Application Support/OpenCrab
 ```
 
-当前运行时目录结构：
+Current runtime files:
 
 ```text
 $OPENCRAB_HOME/
@@ -111,21 +111,21 @@ $OPENCRAB_HOME/
   chrome-debug-profile/
 ```
 
-这意味着对话、附件、浏览器状态和渠道 secret 默认都不会落进代码仓库。
+This keeps conversations, attachments, browser state, and channel secrets out of the repository by default.
 
-## 文档
+## Documentation
 
 - [Product Scope](./docs/product-scope.md)
 - [Architecture](./docs/architecture.md)
 - [Development Guide](./docs/development.md)
 - [Codex Integration](./docs/codex-sdk-integration.md)
 
-## 当前状态
+## Current Status
 
-目前最完整的部分还是对话主链路。
+The conversation workflow is the most complete part of the product today.
 
-`Channels` 已经支持 Telegram 和飞书的一版可用接入流程。`任务` 和 `Skills` 目前还主要是产品骨架，还不是完整功能区。
+`Channels` already supports Telegram and Feishu in a usable V1 flow. `任务` and `Skills` still exist as product skeletons and are not yet complete feature areas.
 
-## 许可证
+## License
 
 [MIT](./LICENSE)
