@@ -18,6 +18,7 @@ type ConversationDetailScreenProps = {
 export function ConversationDetailScreen({ conversationId }: ConversationDetailScreenProps) {
   const {
     conversations,
+    conversationMessages,
     codexModels,
     codexStatus,
     browserSessionStatus,
@@ -40,6 +41,7 @@ export function ConversationDetailScreen({ conversationId }: ConversationDetailS
     [conversationId, conversations],
   );
   const isCurrentConversationSending = isConversationStreaming(conversationId);
+  const hasConversationMessages = Boolean(conversationMessages[conversationId]);
 
   if (!isHydrated) {
     return (
@@ -50,6 +52,14 @@ export function ConversationDetailScreen({ conversationId }: ConversationDetailS
   }
 
   if (!activeConversation) {
+    if (hasConversationMessages || isCurrentConversationSending) {
+      return (
+        <div className="flex min-h-screen items-center justify-center px-6 text-center lg:h-full lg:min-h-0">
+          <p className="text-[14px] text-muted-strong">正在准备对话...</p>
+        </div>
+      );
+    }
+
     return (
       <div className="flex min-h-screen items-center justify-center px-6 text-center lg:h-full lg:min-h-0">
         <div className="space-y-3">

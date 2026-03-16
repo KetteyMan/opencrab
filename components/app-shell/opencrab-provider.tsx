@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { flushSync } from "react-dom";
 import type { ConversationItem, ConversationMessage, FolderItem } from "@/lib/seed-data";
 import { buildConversationTitle } from "@/lib/conversations/utils";
 import {
@@ -553,7 +554,9 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
     async (input?: { title?: string; folderId?: string | null }) => {
       return runMutation(async () => {
         const result = await createConversationResource(input);
-        applySnapshot(result.snapshot);
+        flushSync(() => {
+          applySnapshot(result.snapshot);
+        });
         return result.conversationId;
       });
     },
@@ -622,10 +625,12 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
 
       try {
         let conversationId = input.conversationId;
+        let createdConversation = false;
 
         if (!conversationId || !conversations.some((item) => item.id === conversationId)) {
           const titleSource = content || attachments[0]?.name || "带附件的新对话";
           conversationId = await createConversation({ title: buildConversationTitle(titleSource) });
+          createdConversation = true;
         }
 
         const userMessageId = `message-${crypto.randomUUID()}`;
@@ -642,36 +647,46 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
         syncStreamingState();
 
         const preview = buildUserMessagePreview(content, attachments.map((attachment) => attachment.name));
-        patchConversation(conversationId, {
-          preview,
-          timeLabel: "刚刚",
-        });
-        appendMessages(conversationId, [
-          {
-            id: userMessageId,
-            role: "user",
-            content: preview,
-            timestamp: new Date().toISOString(),
-            attachments: attachments.map((attachment) => ({
-              id: attachment.id,
-              name: attachment.name,
-              kind: attachment.kind,
-              size: attachment.size,
-              mimeType: attachment.mimeType,
-            })),
-            meta: formatClientMessageTime(),
-            status: "done",
-          },
-          {
-            id: assistantMessageId,
-            role: "assistant",
-            content: "",
-            timestamp: new Date().toISOString(),
-            thinking: ["OpenCrab 正在思考和整理上下文..."],
-            meta: `OpenCrab 正在回复中... · ${selectedModel}`,
-            status: "pending",
-          },
-        ]);
+        const applyOptimisticMessageState = () => {
+          patchConversation(conversationId, {
+            preview,
+            timeLabel: "刚刚",
+          });
+          appendMessages(conversationId, [
+            {
+              id: userMessageId,
+              role: "user",
+              content: preview,
+              timestamp: new Date().toISOString(),
+              attachments: attachments.map((attachment) => ({
+                id: attachment.id,
+                name: attachment.name,
+                kind: attachment.kind,
+                size: attachment.size,
+                mimeType: attachment.mimeType,
+              })),
+              meta: formatClientMessageTime(),
+              status: "done",
+            },
+            {
+              id: assistantMessageId,
+              role: "assistant",
+              content: "",
+              timestamp: new Date().toISOString(),
+              thinking: ["OpenCrab 正在思考和整理上下文..."],
+              meta: `OpenCrab 正在回复中... · ${selectedModel}`,
+              status: "pending",
+            },
+          ]);
+        };
+
+        if (createdConversation) {
+          flushSync(() => {
+            applyOptimisticMessageState();
+          });
+        } else {
+          applyOptimisticMessageState();
+        }
 
         void streamReplyToConversation(
           conversationId,

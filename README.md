@@ -1,29 +1,113 @@
 # OpenCrab
 
-`OpenCrab` 是一个面向普通用户的开源 Web 助手，主入口是聊天，底层执行能力直接复用 Codex。
+<p align="center">
+  <a href="https://github.com/KetteyMan/opencrab"><img alt="OpenCrab Repo" src="https://img.shields.io/badge/GitHub-opencrab-black?logo=github"></a>
+  <a href="./LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/License-MIT-green.svg"></a>
+  <img alt="Next.js 16" src="https://img.shields.io/badge/Next.js-16-black?logo=nextdotjs">
+  <img alt="React 19" src="https://img.shields.io/badge/React-19-149eca?logo=react&logoColor=white">
+  <img alt="Codex SDK" src="https://img.shields.io/badge/OpenAI-Codex%20SDK-412991?logo=openai&logoColor=white">
+</p>
 
-当前仓库已经完成：
+OpenCrab is a local-first Codex workspace for everyday users.
 
-- 对话主链路
-- 历史对话与文件夹管理
-- 图片 / 文件上传
-- Codex 模型与推理强度选择
-- 流式回复与思考过程展示
-- 浏览器工具接入
-- Telegram / 飞书 channel webhook 接入
-- 设置页中的默认模型、推理强度、权限模式、浏览器模式
+It keeps the product surface simple: chat is the main entry, Codex is the execution engine, and channels let Telegram or Feishu users talk to the same workspace without learning a developer toolchain first.
 
-## Quick Start
+## Screenshots
+
+| Home | Conversations |
+| --- | --- |
+| ![OpenCrab home](./docs/screenshots/homepage.png) | ![Conversation thread](./docs/screenshots/conversation-thread.png) |
+
+| Channels | Telegram channel |
+| --- | --- |
+| ![Channels overview](./docs/screenshots/channels-overview.png) | ![Telegram channel page](./docs/screenshots/telegram-channel.png) |
+
+| Settings |
+| --- |
+| ![Settings page](./docs/screenshots/settings.png) |
+
+## Highlights
+
+- Chat-first product flow with streaming Codex replies and persistent conversation history
+- Folder-based conversation organization with a familiar ChatGPT-style layout
+- File and image uploads, plus text extraction for common document formats
+- Browser tool integration for current-browser and managed-browser workflows
+- Channel support for Telegram and Feishu, including webhook intake, conversation binding, and reply delivery
+- Local runtime data and secrets stored outside the repository by default
+
+## Getting Started
+
+### Requirements
+
+- macOS
+- Node.js `20.9+`
+- `codex` installed and authenticated with `codex login`
+
+### Quick Start
 
 ```bash
 npm install
+cp .env.example .env.local
 codex login
 npm run dev
 ```
 
-开发地址：
+Open the app at [http://127.0.0.1:3000](http://127.0.0.1:3000).
 
-- [http://127.0.0.1:3000](http://127.0.0.1:3000)
+### Recommended Checks
+
+```bash
+npm run lint
+npm run typecheck
+npm run build
+```
+
+## Configuration
+
+Most users can start from the UI, then add secrets only when they need channels.
+
+```bash
+OPENCRAB_CODEX_MODEL=gpt-5.4
+OPENCRAB_CODEX_REASONING_EFFORT=medium
+OPENCRAB_CODEX_SANDBOX_MODE=read-only
+OPENCRAB_CODEX_NETWORK_ACCESS=false
+OPENCRAB_PUBLIC_BASE_URL=http://127.0.0.1:3000
+
+OPENCRAB_TELEGRAM_BOT_TOKEN=
+OPENCRAB_TELEGRAM_WEBHOOK_SECRET=
+OPENCRAB_FEISHU_APP_ID=
+OPENCRAB_FEISHU_APP_SECRET=
+OPENCRAB_FEISHU_VERIFICATION_TOKEN=
+```
+
+Channel configuration also works directly from:
+
+- `/channels/telegram`
+- `/channels/feishu`
+
+## Runtime Data
+
+OpenCrab stores runtime data in `OPENCRAB_HOME`.
+
+If `OPENCRAB_HOME` is not set, macOS defaults to:
+
+```bash
+$HOME/Library/Application Support/OpenCrab
+```
+
+Current runtime files:
+
+```text
+$OPENCRAB_HOME/
+  local-store.json
+  channels.json
+  channel-secrets.json
+  uploads/
+  uploads/index.json
+  chrome-debug-profile/
+```
+
+This keeps conversations, attachments, browser state, and channel secrets out of the repository by default.
 
 ## Documentation
 
@@ -34,60 +118,10 @@ npm run dev
 
 ## Current Status
 
-当前最完整的是对话能力；`Channels` 已支持 Telegram / 飞书的第一版 webhook 对接，`任务` 和 `Skills` 仍以页面骨架为主。
+The conversation workflow is the most complete part of the product today.
 
-## Useful Scripts
+`Channels` already supports Telegram and Feishu in a usable V1 flow. `任务` and `Skills` still exist as product skeletons and are not yet complete feature areas.
 
-```bash
-npm run lint
-npm run typecheck
-npm run build
-npm run clean:runtime
-```
+## License
 
-## Runtime Data
-
-OpenCrab 的运行时数据根目录由 `OPENCRAB_HOME` 决定。
-
-如果没有显式设置 `OPENCRAB_HOME`，macOS 默认会使用：
-
-```bash
-$HOME/Library/Application Support/OpenCrab
-```
-
-目录结构如下：
-
-```text
-$OPENCRAB_HOME/
-  local-store.json          # 对话、消息、文件夹、设置等本地快照
-  channels.json             # 渠道状态、绑定关系、最近事件
-  channel-secrets.json      # 渠道密钥（服务端私有）
-  uploads/                  # 上传的原始附件与提取后的文本
-    index.json              # 附件索引
-  chrome-debug-profile/     # 独立浏览器模式使用的 Chrome profile
-```
-
-补充说明：
-
-- OpenCrab 自己的对话内容、上传文件、浏览器 profile 都会写到 `$OPENCRAB_HOME`，不会默认写进代码仓库。
-- 渠道 secret 不会进入前端 snapshot，只会保存在 `$OPENCRAB_HOME/channel-secrets.json` 或环境变量里。
-- 仓库里的 `.playwright-cli/` 只在用浏览器调试技能时才会生成，不属于 OpenCrab 对话运行时数据。
-- 如果你想把运行时数据放到别的目录，可以在启动前设置 `OPENCRAB_HOME`。
-
-## Channels
-
-当前 `Channels` 第一版支持：
-
-- `Telegram`：Bot webhook 入站、去重、自动创建会话绑定、文本消息回推
-- `飞书`：事件订阅 challenge 校验、文本消息入站、自动创建会话绑定、文本消息回推
-
-配置方式：
-
-- 在 UI 的 `/channels/telegram` 或 `/channels/feishu` 页面中填写
-- 或通过 `.env` / 环境变量注入
-
-如果你希望页面里直接显示完整 webhook 地址，请设置：
-
-```bash
-OPENCRAB_PUBLIC_BASE_URL=https://your-public-host
-```
+[MIT](./LICENSE)

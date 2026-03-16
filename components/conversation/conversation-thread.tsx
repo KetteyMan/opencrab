@@ -15,7 +15,10 @@ type ConversationThreadProps = {
 
 export function ConversationThread({ conversationId, title }: ConversationThreadProps) {
   const { conversations, conversationMessages } = useOpenCrabApp();
+  const threadRef = useRef<HTMLDivElement | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const shouldStickToBottomRef = useRef(true);
+  const previousConversationIdRef = useRef<string | null>(null);
   const [thinkingOverrides, setThinkingOverrides] = useState<Record<string, boolean>>({});
   const activeConversation = useMemo(
     () => conversations.find((item) => item.id === conversationId),
@@ -29,13 +32,61 @@ export function ConversationThread({ conversationId, title }: ConversationThread
       }),
     [activeConversation?.title, conversationId, conversationMessages, title],
   );
+  const tailKey = useMemo(() => {
+    const lastMessage = detailViewModel.messages.at(-1);
+
+    if (!lastMessage) {
+      return `${conversationId}:0`;
+    }
+
+    return [
+      conversationId,
+      detailViewModel.messages.length,
+      lastMessage.id,
+      lastMessage.status,
+      lastMessage.content.length,
+      lastMessage.thinking?.length || 0,
+    ].join(":");
+  }, [conversationId, detailViewModel.messages]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: "end" });
-  }, [detailViewModel.messages]);
+    const container = threadRef.current?.parentElement;
+
+    if (!container) {
+      return;
+    }
+
+    const updateStickiness = () => {
+      const distanceToBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight;
+      shouldStickToBottomRef.current = distanceToBottom <= 80;
+    };
+
+    updateStickiness();
+    container.addEventListener("scroll", updateStickiness, { passive: true });
+
+    return () => {
+      container.removeEventListener("scroll", updateStickiness);
+    };
+  }, [conversationId]);
+
+  useEffect(() => {
+    const switchedConversation = previousConversationIdRef.current !== conversationId;
+    const shouldScroll = switchedConversation || shouldStickToBottomRef.current;
+
+    previousConversationIdRef.current = conversationId;
+
+    if (!shouldScroll) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      bottomRef.current?.scrollIntoView({ block: "end" });
+    });
+  }, [conversationId, tailKey]);
 
   return (
-    <div className="flex flex-col px-6 pt-8 pb-10 lg:px-8">
+    <div ref={threadRef} className="flex flex-col px-6 pt-8 pb-10 lg:px-8">
       <div className="w-full max-w-[1180px]">
         <div className="mb-8">
           <div>

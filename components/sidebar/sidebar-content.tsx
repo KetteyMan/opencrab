@@ -484,23 +484,23 @@ function ConversationRow({
       draggable
       onDragStart={() => onDragStart(conversation.id)}
       onDragEnd={onDragEnd}
-      className={`group/row relative flex min-h-8 items-center justify-between gap-2 rounded-xl pl-3 pr-2 text-[13px] transition ${
+      className={`group/row relative flex min-h-8 min-w-0 items-center justify-between gap-2 rounded-xl pl-3 pr-2 text-[13px] transition ${
         isActive ? "bg-surface text-text" : "text-text hover:bg-surface-muted"
       }`}
     >
       <Link
         href={`/conversations/${conversation.id}`}
-        className="flex min-h-8 flex-1 items-center justify-between gap-3"
+        className="flex min-h-8 min-w-0 flex-1 items-center gap-3 overflow-hidden"
       >
-        <span className="flex min-w-0 items-center gap-2">
+        <span className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
           {conversation.source && conversation.source !== "local" ? (
             <span className="shrink-0 rounded-full border border-line bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-strong">
               {conversation.source === "telegram" ? "TG" : "FS"}
             </span>
           ) : null}
-          <span className="truncate text-[13px]">{conversation.title}</span>
+          <span className="block min-w-0 truncate text-[13px]">{conversation.title}</span>
         </span>
-        <span className="shrink-0 text-[12px] text-muted">{conversation.timeLabel}</span>
+        <span className="shrink-0 pl-2 text-[12px] text-muted">{conversation.timeLabel}</span>
       </Link>
       <RowActionMenu
         label={conversation.title}
