@@ -1,4 +1,6 @@
-# OpenCrab
+<p align="center">
+  <img src="./public/opencrab-logo.svg" alt="OpenCrab" width="320">
+</p>
 
 <p align="center">
   <a href="https://github.com/KetteyMan/opencrab"><img alt="OpenCrab Repo" src="https://img.shields.io/badge/GitHub-opencrab-black?logo=github"></a>
