@@ -8,7 +8,7 @@ import type {
   SkillStatus,
 } from "@/lib/resources/opencrab-api-types";
 import {
-  OPENCRAB_RUNTIME_DIR,
+  OPENCRAB_STATE_DIR,
   OPENCRAB_SKILLS_STORE_PATH,
 } from "@/lib/resources/runtime-paths";
 
@@ -40,7 +40,7 @@ type SkillStoreState = {
   items: Record<string, StoredSkillState>;
 };
 
-const STORE_DIR = OPENCRAB_RUNTIME_DIR;
+const STORE_DIR = OPENCRAB_STATE_DIR;
 const STORE_PATH = OPENCRAB_SKILLS_STORE_PATH;
 const CODEX_SKILLS_ROOT = path.join(process.env.HOME || process.cwd(), ".codex", "skills");
 

@@ -53,6 +53,10 @@ export function buildFeishuStatusSummary(channel: ChannelDetail) {
     return "还没开始连接。先填入 App ID 和 App Secret，OpenCrab 会自动校验飞书凭证并启动长连接。";
   }
 
+  if (channel.status === "disconnected") {
+    return "当前已经断开连接。App ID 和 App Secret 还保留着，但 OpenCrab 重启后也不会自动恢复飞书长连接。";
+  }
+
   if (channel.configSummary.socketConnected) {
     return "已经连上了。飞书消息会通过长连接直接进入 OpenCrab，不需要再配置公网 Webhook。";
   }

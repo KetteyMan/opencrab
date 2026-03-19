@@ -44,21 +44,24 @@ scripts/
 运行时数据全部落到本地目录，不属于源码的一部分：
 
 - `$OPENCRAB_HOME/`
-  - `local-store.json`：本地会话快照
-  - `channels.json`：渠道状态、最近事件、远程会话绑定
-  - `channel-secrets.json`：渠道密钥，服务端私有
-  - `runtime-config.json`：公网地址与隧道状态
-  - `skills.json`：OpenCrab 自己维护的技能状态
+  - `state/local-store.json`：本地会话快照
+  - `state/channels.json`：渠道状态、最近事件、远程会话绑定
+  - `state/channel-secrets.json`：渠道密钥，服务端私有
+  - `state/runtime-config.json`：公网地址与隧道状态
+  - `state/skills.json`：OpenCrab 自己维护的技能状态
+  - `state/tasks.json`：定时任务与运行记录
   - `uploads/`：上传的附件与提取后的文本
-  - `tunnels/`：自动公网隧道日志
-  - `chrome-debug-profile/`：独立浏览器模式的 Chrome profile
+  - `logs/tunnels/`：自动公网隧道日志
+  - `browser/chrome-debug-profile/`：独立浏览器模式的 Chrome profile
+  - `skills/`：OpenCrab 自建技能目录与后续扩展保留位置
 - `.playwright-cli/`：调试浏览器技能时生成的记录
 
 这些目录都已加入 `.gitignore`。
 
 说明：
 
-- 如果没有显式设置 `OPENCRAB_HOME`，macOS 默认使用 `$HOME/Library/Application Support/OpenCrab/`
+- 如果没有显式设置 `OPENCRAB_HOME`，macOS 默认使用 `$HOME/.opencrab/`
+- 首次启动时会自动把旧的 `~/Library/Application Support/OpenCrab/` 迁移到新的目录结构
 - OpenCrab 自己的会话、附件和浏览器 profile 都不会默认落到代码仓库里
 
 ## Core Flows
@@ -70,7 +73,7 @@ scripts/
 3. 服务端调用 `app/api/conversations/[conversationId]/reply/stream/route.ts`。
 4. 路由内部通过 `lib/codex/sdk.ts` 调用 Codex SDK。
 5. 同一个 OpenCrab 对话会复用同一个 Codex thread id。
-6. 流式事件回写到消息区，最终快照持久化到 `$OPENCRAB_HOME/local-store.json`。
+6. 流式事件回写到消息区，最终快照持久化到 `$OPENCRAB_HOME/state/local-store.json`。
 
 ## 2. Attachment Flow
 
@@ -99,7 +102,7 @@ scripts/
 3. 各渠道 adapter 负责协议解析、secret 校验和回推接口调用
 4. `lib/channels/dispatcher.ts` 负责去重、远程 chat 和 OpenCrab conversation 的绑定
 5. `lib/conversations/run-conversation-turn.ts` 复用现有 Codex 对话能力，产出最终回复
-6. 渠道发送成功后，把最近事件、错误和绑定关系写入 `$OPENCRAB_HOME/channels.json`
+6. 渠道发送成功后，把最近事件、错误和绑定关系写入 `$OPENCRAB_HOME/state/channels.json`
 
 补充：
 
@@ -109,8 +112,34 @@ scripts/
 设计边界：
 
 - channel secret 不进入前端 `AppSnapshot`
-- 公开状态走 `channels.json`
-- 私密配置走 `channel-secrets.json` 或环境变量
+- 公开状态走 `state/channels.json`
+- 私密配置走 `state/channel-secrets.json` 或环境变量
+
+## 5. Startup Flow
+
+每次 OpenCrab 新进程启动后，当前会自动触发这些动作：
+
+1. `app/api/bootstrap/route.ts`
+   - 启动渠道 watchdog
+   - 强制跑一轮渠道启动同步
+   - 预热浏览器连接
+   - 启动任务执行器
+   - 同步渠道绑定会话的元数据
+
+2. `app/(app)/layout.tsx`
+   - 页面渲染时也会补一次浏览器预热
+
+3. `lib/channels/channel-startup.ts`
+   - 新进程第一次启动时，已配置且已启用的 Telegram / 飞书会强制重连
+   - 后续再通过 watchdog 做轻量巡检和修复
+
+4. `lib/tunnel/tunnel-watchdog.ts`
+   - 自动维护 Telegram 所需的本地公网隧道
+
+说明：
+
+- 这里的“自动连接”会尊重用户手动断开的状态
+- 旧的 `state/channels.json` 只作为状态参考，新进程第一次启动时不会盲信上次退出前的 `ready`
 
 ## State Boundaries
 
@@ -125,7 +154,7 @@ scripts/
 ## Current Limitations
 
 - `Channels` 当前只有 Telegram 具备附件链路；飞书仍以文本消息闭环为主
-- `任务` 目前还是稳定骨架页
+- `任务` 当前依赖 OpenCrab 服务进程在运行，不是系统级常驻调度
 - `Skills` 当前管理的是 OpenCrab 自己的本地技能状态，不会直接安装或修改 Codex app 的技能目录
 - 当前持久化层仍是本地 JSON store，不是正式数据库
 - 当前没有多人协作、鉴权、云同步

@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { getSnapshot } from "@/lib/resources/local-store";
 import {
   OPENCRAB_CHANNEL_STORE_PATH,
-  OPENCRAB_RUNTIME_DIR,
+  OPENCRAB_STATE_DIR,
 } from "@/lib/resources/runtime-paths";
 import { getStoredPublicBaseUrl } from "@/lib/runtime/runtime-config-store";
 import type {
@@ -16,7 +16,7 @@ import type {
   ChannelStoreState,
 } from "@/lib/channels/types";
 
-const STORE_DIR = OPENCRAB_RUNTIME_DIR;
+const STORE_DIR = OPENCRAB_STATE_DIR;
 const STORE_PATH = OPENCRAB_CHANNEL_STORE_PATH;
 const MAX_EVENTS = 200;
 

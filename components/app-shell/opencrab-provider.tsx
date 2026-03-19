@@ -61,6 +61,7 @@ type OpenCrabContextValue = {
   selectedModel: string;
   selectedReasoningEffort: CodexReasoningEffort;
   selectedSandboxMode: CodexSandboxMode;
+  allowOpenAiApiKeyForCommands: boolean;
   expandedFolders: Record<string, boolean>;
   isHydrated: boolean;
   isMutating: boolean;
@@ -75,6 +76,7 @@ type OpenCrabContextValue = {
   setSelectedReasoningEffort: (effort: CodexReasoningEffort) => Promise<void>;
   setSelectedSandboxMode: (mode: CodexSandboxMode) => Promise<void>;
   setSelectedBrowserConnectionMode: (mode: BrowserConnectionMode) => Promise<void>;
+  setAllowOpenAiApiKeyForCommands: (enabled: boolean) => Promise<void>;
   toggleFolder: (folderId: string) => void;
   createFolder: (name: string) => Promise<void>;
   renameFolder: (folderId: string, name: string) => Promise<void>;
@@ -119,6 +121,7 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
     useState<CodexReasoningEffort>("medium");
   const [selectedSandboxMode, setSelectedSandboxModeState] =
     useState<CodexSandboxMode>("workspace-write");
+  const [allowOpenAiApiKeyForCommands, setAllowOpenAiApiKeyForCommandsState] = useState(false);
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
   const [isHydrated, setIsHydrated] = useState(false);
   const [isMutating, setIsMutating] = useState(false);
@@ -222,6 +225,7 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
         setSelectedReasoningEffortState(snapshot.settings.defaultReasoningEffort || "medium");
         setSelectedSandboxModeState(snapshot.settings.defaultSandboxMode || "workspace-write");
         setSelectedBrowserConnectionModeState(snapshot.settings.browserConnectionMode || "current-browser");
+        setAllowOpenAiApiKeyForCommandsState(Boolean(snapshot.settings.allowOpenAiApiKeyForCommands));
       } catch (error) {
         if (active) {
           setErrorMessage(getUserFacingError(error, "初始化失败，请刷新后重试。"));
@@ -452,6 +456,26 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
       }
     },
     [applySnapshot, selectedModel, selectedReasoningEffort, selectedSandboxMode],
+  );
+
+  const setAllowOpenAiApiKeyForCommands = useCallback(
+    async (enabled: boolean) => {
+      setAllowOpenAiApiKeyForCommandsState(enabled);
+
+      try {
+        const result = await updateSettingsResource({
+          defaultModel: selectedModel,
+          defaultReasoningEffort: selectedReasoningEffort,
+          defaultSandboxMode: selectedSandboxMode,
+          browserConnectionMode: selectedBrowserConnectionMode,
+          allowOpenAiApiKeyForCommands: enabled,
+        });
+        applySnapshot(result.snapshot);
+      } catch (error) {
+        setErrorMessage(getUserFacingError(error, "保存设置失败，请稍后再试。"));
+      }
+    },
+    [applySnapshot, selectedBrowserConnectionMode, selectedModel, selectedReasoningEffort, selectedSandboxMode],
   );
 
   const runMutation = useCallback(async <T,>(action: () => Promise<T>) => {
@@ -793,6 +817,7 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
       selectedModel,
       selectedReasoningEffort,
       selectedSandboxMode,
+      allowOpenAiApiKeyForCommands,
       expandedFolders,
       isHydrated,
       isMutating,
@@ -807,6 +832,7 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
       setSelectedReasoningEffort,
       setSelectedSandboxMode,
       setSelectedBrowserConnectionMode,
+      setAllowOpenAiApiKeyForCommands,
       toggleFolder,
       createFolder,
       renameFolder,
@@ -830,6 +856,7 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
       selectedModel,
       selectedReasoningEffort,
       selectedSandboxMode,
+      allowOpenAiApiKeyForCommands,
       expandedFolders,
       isHydrated,
       isMutating,
@@ -844,6 +871,7 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
       setSelectedReasoningEffort,
       setSelectedSandboxMode,
       setSelectedBrowserConnectionMode,
+      setAllowOpenAiApiKeyForCommands,
       toggleFolder,
       createFolder,
       renameFolder,

@@ -7,10 +7,10 @@ import {
 } from "@/lib/channels/channel-store";
 import {
   OPENCRAB_CHANNEL_SECRET_STORE_PATH,
-  OPENCRAB_RUNTIME_DIR,
+  OPENCRAB_STATE_DIR,
 } from "@/lib/resources/runtime-paths";
 
-const STORE_DIR = OPENCRAB_RUNTIME_DIR;
+const STORE_DIR = OPENCRAB_STATE_DIR;
 const STORE_PATH = OPENCRAB_CHANNEL_SECRET_STORE_PATH;
 
 export function getTelegramSecrets(): TelegramSecrets {
@@ -53,14 +53,18 @@ export function getFeishuCredentialPreview() {
 
 export function getFeishuSecrets(): FeishuSecrets {
   const state = readState();
+  const appId = process.env.OPENCRAB_FEISHU_APP_ID?.trim() || state.feishu?.appId;
+  const appSecret = process.env.OPENCRAB_FEISHU_APP_SECRET?.trim() || state.feishu?.appSecret;
 
   return {
-    appId: process.env.OPENCRAB_FEISHU_APP_ID?.trim() || state.feishu?.appId,
-    appSecret: process.env.OPENCRAB_FEISHU_APP_SECRET?.trim() || state.feishu?.appSecret,
+    appId,
+    appSecret,
     verificationToken:
       process.env.OPENCRAB_FEISHU_VERIFICATION_TOKEN?.trim() || state.feishu?.verificationToken,
     encryptKey:
       process.env.OPENCRAB_FEISHU_ENCRYPT_KEY?.trim() || state.feishu?.encryptKey,
+    enabled:
+      typeof state.feishu?.enabled === "boolean" ? state.feishu.enabled : Boolean(appId && appSecret),
   };
 }
 
@@ -134,15 +138,19 @@ export function syncChannelConfigFromSecrets(channelId: ChannelId) {
   const hasAppId = Boolean(secrets.appId);
   const hasAppSecret = Boolean(secrets.appSecret);
   const isConfigured = hasAppId && hasAppSecret;
+  const isEnabled = secrets.enabled !== false;
   const current = getChannelDetail("feishu");
   const isReady =
     isConfigured &&
+    isEnabled &&
     current.configSummary.credentialsVerified === true &&
     current.configSummary.socketConnected === true;
 
   updateChannelRecord("feishu", {
     status: !isConfigured
       ? "not_configured"
+      : !isEnabled
+        ? "disconnected"
       : isReady
         ? "ready"
         : current.status === "error"
@@ -150,7 +158,7 @@ export function syncChannelConfigFromSecrets(channelId: ChannelId) {
           : current.configSummary.credentialsVerified === true
             ? "connecting"
           : "disconnected",
-    lastError: isConfigured ? current.lastError : null,
+    lastError: isConfigured && isEnabled ? current.lastError : null,
     configSummary: {
       appId: secrets.appId || null,
       connectionMode: "websocket",
@@ -184,6 +192,16 @@ export function setTelegramConnectionEnabled(enabled: boolean) {
   };
   writeState(state);
   syncChannelConfigFromSecrets("telegram");
+}
+
+export function setFeishuConnectionEnabled(enabled: boolean) {
+  const state = readState();
+  state.feishu = {
+    ...state.feishu,
+    enabled,
+  };
+  writeState(state);
+  syncChannelConfigFromSecrets("feishu");
 }
 
 function readState(): ChannelSecretsStore {
@@ -269,5 +287,6 @@ function pickNonEmptyFeishuSecrets(
     ...(typeof patch.encryptKey === "string" && patch.encryptKey.trim()
       ? { encryptKey: patch.encryptKey.trim() }
       : {}),
+    ...(typeof patch.enabled === "boolean" ? { enabled: patch.enabled } : {}),
   };
 }

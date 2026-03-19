@@ -13,6 +13,7 @@ declare global {
   var __opencrabFeishuSocketClient: Lark.WSClient | undefined;
   var __opencrabFeishuSocketKey: string | undefined;
   var __opencrabFeishuSocketMonitorTimer: ReturnType<typeof setTimeout> | undefined;
+  var __opencrabFeishuSocketStartedAt: number | undefined;
   var __opencrabFeishuSocketStartPromise:
     | Promise<{
         ok: boolean;
@@ -24,6 +25,7 @@ declare global {
 
 const FEISHU_SOCKET_CONNECT_TIMEOUT_MS = 8_000;
 const FEISHU_SOCKET_MONITOR_INTERVAL_MS = 1_000;
+const FEISHU_SOCKET_STALE_CONNECTING_MS = 20_000;
 
 type FeishuSocketLogger = {
   error: (...messages: unknown[]) => void;
@@ -57,15 +59,20 @@ export async function ensureFeishuSocketConnection(input: { forceRestart?: boole
     globalThis.__opencrabFeishuSocketClient
   ) {
     const connected = isFeishuSocketOpen(globalThis.__opencrabFeishuSocketClient);
-    updateFeishuSocketSummary(connected ? "connected" : "connecting");
 
-    return {
-      ok: true,
-      connected,
-      message: connected
-        ? "飞书长连接已就绪。"
-        : "飞书长连接正在恢复，请保持 OpenCrab 运行后稍等几秒。",
-    };
+    if (!connected && isFeishuSocketStale()) {
+      stopFeishuSocketConnection();
+    } else {
+      updateFeishuSocketSummary(connected ? "connected" : "connecting");
+
+      return {
+        ok: true,
+        connected,
+        message: connected
+          ? "飞书长连接已就绪。"
+          : "飞书长连接正在恢复，请保持 OpenCrab 运行后稍等几秒。",
+      };
+    }
   }
 
   if (globalThis.__opencrabFeishuSocketStartPromise) {
@@ -90,6 +97,7 @@ export async function ensureFeishuSocketConnection(input: { forceRestart?: boole
 export function stopFeishuSocketConnection() {
   globalThis.__opencrabFeishuSocketStartPromise = undefined;
   globalThis.__opencrabFeishuSocketKey = undefined;
+  globalThis.__opencrabFeishuSocketStartedAt = undefined;
 
   const client = globalThis.__opencrabFeishuSocketClient;
   globalThis.__opencrabFeishuSocketClient = undefined;
@@ -136,6 +144,7 @@ async function startFeishuSocketConnection(input: {
 
     globalThis.__opencrabFeishuSocketClient = client;
     globalThis.__opencrabFeishuSocketKey = input.connectionKey;
+    globalThis.__opencrabFeishuSocketStartedAt = Date.now();
     startFeishuSocketMonitor(client, input.connectionKey);
     const connected = await waitForFeishuSocketConnection(client, input.connectionKey);
 
@@ -229,6 +238,12 @@ function stopFeishuSocketMonitor() {
     clearTimeout(globalThis.__opencrabFeishuSocketMonitorTimer);
     globalThis.__opencrabFeishuSocketMonitorTimer = undefined;
   }
+}
+
+function isFeishuSocketStale() {
+  const startedAt = globalThis.__opencrabFeishuSocketStartedAt ?? 0;
+
+  return startedAt > 0 && Date.now() - startedAt >= FEISHU_SOCKET_STALE_CONNECTING_MS;
 }
 
 async function waitForFeishuSocketConnection(client: Lark.WSClient, connectionKey: string) {

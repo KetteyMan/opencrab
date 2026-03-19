@@ -10,7 +10,7 @@ export default function TasksPage() {
     <AppPage width="wide" contentClassName="space-y-8">
       <PageHeader
         title="任务"
-        description="让 OpenCrab 按固定时间自己做事。你只需要告诉它做什么、什么时候做。"
+        description="让 OpenCrab 按时间自己做事。"
       />
       <TasksScreen />
     </AppPage>

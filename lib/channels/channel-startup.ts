@@ -16,6 +16,7 @@ declare global {
   var __opencrabChannelStartupSyncPromise: Promise<void> | undefined;
   var __opencrabChannelStartupSyncLastRunAt: number | undefined;
   var __opencrabChannelWatchdogStarted: boolean | undefined;
+  var __opencrabChannelConnectionsPrimed: boolean | undefined;
 }
 
 export function ensureChannelStartupSync(input: { force?: boolean } = {}) {
@@ -58,18 +59,20 @@ export function ensureChannelWatchdog() {
 async function runChannelStartupSync() {
   syncAllChannelConfigsFromSecrets();
   ensureTunnelWatchdog();
+  const shouldForceReconnect = !globalThis.__opencrabChannelConnectionsPrimed;
 
   const telegramSecrets = getTelegramSecrets();
   const feishuSecrets = getFeishuSecrets();
 
   if (telegramSecrets.botToken && telegramSecrets.enabled !== false) {
-    const telegram = getChannelDetail("telegram");
-
     if (!process.env.OPENCRAB_PUBLIC_BASE_URL?.trim()) {
       await ensurePublicBaseUrl();
     }
 
+    const telegram = getChannelDetail("telegram");
+
     if (
+      shouldForceReconnect ||
       !telegram.configSummary.webhookConfigured ||
       telegram.status !== "ready" ||
       Boolean(telegram.lastError)
@@ -78,16 +81,25 @@ async function runChannelStartupSync() {
     }
   }
 
-  if (feishuSecrets.appId && feishuSecrets.appSecret) {
+  if (feishuSecrets.appId && feishuSecrets.appSecret && feishuSecrets.enabled !== false) {
     const feishu = getChannelDetail("feishu");
+    const shouldRestartFeishuSocket =
+      shouldForceReconnect ||
+      feishu.configSummary.socketStatus === "error" ||
+      Boolean(feishu.lastError);
 
     if (
+      shouldForceReconnect ||
       !feishu.configSummary.socketConnected ||
       !feishu.configSummary.credentialsVerified ||
       feishu.status !== "ready" ||
       Boolean(feishu.lastError)
     ) {
-      await syncFeishuChannelState();
+      await syncFeishuChannelState({
+        restartSocket: shouldRestartFeishuSocket,
+      });
     }
   }
+
+  globalThis.__opencrabChannelConnectionsPrimed = true;
 }

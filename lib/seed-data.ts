@@ -70,6 +70,7 @@ export type AppSettings = {
   defaultReasoningEffort: "minimal" | "low" | "medium" | "high" | "xhigh";
   defaultSandboxMode: "read-only" | "workspace-write" | "danger-full-access";
   browserConnectionMode: "current-browser" | "managed-browser";
+  allowOpenAiApiKeyForCommands: boolean;
 };
 
 export const folders: FolderItem[] = [
@@ -186,4 +187,5 @@ export const appSettings: AppSettings = {
   defaultReasoningEffort: "medium",
   defaultSandboxMode: "workspace-write",
   browserConnectionMode: "current-browser",
+  allowOpenAiApiKeyForCommands: false,
 };

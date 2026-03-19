@@ -8,7 +8,10 @@ import {
   ensureFeishuSocketConnection,
   stopFeishuSocketConnection,
 } from "@/lib/channels/feishu-socket-service";
-import { getFeishuSecrets } from "@/lib/channels/secret-store";
+import {
+  getFeishuSecrets,
+  setFeishuConnectionEnabled,
+} from "@/lib/channels/secret-store";
 
 export async function syncFeishuChannelState(input: { restartSocket?: boolean; disconnect?: boolean } = {}) {
   const feishuSecrets = getFeishuSecrets();
@@ -24,6 +27,7 @@ export async function syncFeishuChannelState(input: { restartSocket?: boolean; d
   try {
     if (input.disconnect) {
       stopFeishuSocketConnection();
+      setFeishuConnectionEnabled(false);
       updateChannelRecord("feishu", {
         status: "disconnected",
         lastError: null,
@@ -41,7 +45,16 @@ export async function syncFeishuChannelState(input: { restartSocket?: boolean; d
       };
     }
 
+    if (feishuSecrets.enabled === false) {
+      return {
+        ok: true,
+        detail: getChannelDetail("feishu"),
+        message: "飞书当前处于断开状态。",
+      };
+    }
+
     const app = await verifyFeishuApp();
+    setFeishuConnectionEnabled(true);
     const socket = await ensureFeishuSocketConnection({
       forceRestart: input.restartSocket,
     });

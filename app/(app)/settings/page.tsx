@@ -20,10 +20,12 @@ export default function SettingsPage() {
     selectedModel,
     selectedReasoningEffort,
     selectedSandboxMode,
+    allowOpenAiApiKeyForCommands,
     setSelectedBrowserConnectionMode,
     setSelectedModel,
     setSelectedReasoningEffort,
     setSelectedSandboxMode,
+    setAllowOpenAiApiKeyForCommands,
     errorMessage,
   } = useOpenCrabApp();
 
@@ -206,6 +208,41 @@ export default function SettingsPage() {
                 推荐使用“可写工作区”。它允许 OpenCrab 创建和修改项目文件，但不会把权限放得过宽。
               </p>
             </label>
+
+            <div className="space-y-3 rounded-[18px] border border-line bg-surface-muted px-4 py-4 md:col-span-2">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-[13px] font-medium text-text">
+                    允许命令继承 OPENAI_API_KEY
+                  </div>
+                  <p className="mt-2 text-[12px] leading-6 text-muted-strong">
+                    默认关闭。打开后，OpenCrab 在本机执行命令时会把你当前环境里的
+                    <code className="mx-1 rounded bg-surface px-1.5 py-0.5 text-[11px] text-text">
+                      OPENAI_API_KEY
+                    </code>
+                    一起传进去，适合你明确知道自己在受信环境里使用。
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={allowOpenAiApiKeyForCommands}
+                  onClick={() => void setAllowOpenAiApiKeyForCommands(!allowOpenAiApiKeyForCommands)}
+                  className={`relative h-7 w-12 rounded-full transition ${
+                    allowOpenAiApiKeyForCommands ? "bg-[#111111]" : "bg-[#d8d8d2]"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-1 h-5 w-5 rounded-full bg-white transition ${
+                      allowOpenAiApiKeyForCommands ? "left-6" : "left-1"
+                    }`}
+                  />
+                </button>
+              </div>
+              <p className="text-[12px] leading-6 text-muted">
+                建议只在你自己的本机、并且确实需要让命令直接访问 OpenAI API 时再打开。
+              </p>
+            </div>
           </div>
 
           {errorMessage ? <p className="mt-4 text-[13px] text-[#a34942]">{errorMessage}</p> : null}

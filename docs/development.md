@@ -40,19 +40,24 @@ OpenCrab 自己的运行时数据会写到：
 
 如果没有显式设置 `OPENCRAB_HOME`，macOS 默认使用：
 
-- `$HOME/Library/Application Support/OpenCrab/`
+- `$HOME/.opencrab/`
 
 `$OPENCRAB_HOME/` 当前会包含：
 
-- `local-store.json`
-- `channels.json`
-- `channel-secrets.json`
-- `runtime-config.json`
-- `skills.json`
+- `state/`
+- `state/local-store.json`
+- `state/channels.json`
+- `state/channel-secrets.json`
+- `state/runtime-config.json`
+- `state/skills.json`
+- `state/tasks.json`
 - `uploads/`
 - `uploads/index.json`
-- `tunnels/`
-- `chrome-debug-profile/`
+- `logs/tunnels/`
+- `browser/chrome-debug-profile/`
+- `skills/`
+
+首次启动时会自动把旧的 `~/Library/Application Support/OpenCrab/` 迁移到新目录。
 
 如果你想一键清理这些本地运行产物：
 
@@ -85,6 +90,28 @@ npm run clean:runtime
 
 - Telegram 仍然需要一个可被 Telegram 访问到的公网地址
 - 飞书长连接模式不需要公网地址
+
+## Startup And Restart
+
+OpenCrab 当前在重启后会自动做这些事：
+
+- 同步渠道配置到运行时状态
+- 自动恢复已启用的 Telegram / 飞书连接
+- 启动渠道 watchdog
+- 自动维护 Telegram 隧道
+- 预热浏览器 MCP 连接
+- 启动任务执行器
+- 修正渠道会话元数据
+
+补充说明：
+
+- Telegram / 飞书如果是用户手动断开的，重启后会保持断开
+- 浏览器远程调试的首次授权仍然可能需要用户点一次允许
+- 定时任务依赖 OpenCrab 服务进程处于运行状态
+
+更完整说明见：
+
+- [Startup Behavior](./startup-behavior.md)
 
 ## Debugging Codex
 

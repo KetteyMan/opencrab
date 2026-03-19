@@ -39,6 +39,7 @@ It keeps the product surface simple: chat is the main entry, and channels let Te
 - File and image uploads, plus text extraction for common document formats
 - Browser tool integration for current-browser and managed-browser workflows
 - Channel support for Telegram and Feishu: Telegram uses webhooks, while Feishu uses persistent socket connections by default
+- Simple scheduled task management, with the ability to create a recurring task directly from a conversation
 - Skills catalog browsing, detail pages, local status management, and custom skill entries
 - Local runtime data and secrets stored outside the repository by default
 
@@ -92,11 +93,13 @@ Channel configuration also works directly from:
 
 - `/channels/telegram`
 - `/channels/feishu`
+- `/settings`
 
 Notes:
 
 - Telegram needs a public URL for webhooks, and OpenCrab will try to automate that step
 - Feishu uses persistent socket connections by default and does not need a public callback URL; webhook compatibility mode needs both `OPENCRAB_FEISHU_VERIFICATION_TOKEN` and `OPENCRAB_FEISHU_ENCRYPT_KEY`
+- If you want command execution to inherit the local `OPENAI_API_KEY`, you can explicitly enable it in `/settings`; it stays off by default
 
 ## Runtime Data
 
@@ -105,23 +108,31 @@ OpenCrab stores runtime data in `OPENCRAB_HOME`.
 If `OPENCRAB_HOME` is not set, macOS defaults to:
 
 ```bash
-$HOME/Library/Application Support/OpenCrab
+$HOME/.opencrab
 ```
 
 Current runtime files:
 
 ```text
 $OPENCRAB_HOME/
-  local-store.json
-  channels.json
-  channel-secrets.json
-  runtime-config.json
-  skills.json
+  state/
+    local-store.json
+    channels.json
+    channel-secrets.json
+    runtime-config.json
+    skills.json
+    tasks.json
   uploads/
   uploads/index.json
-  tunnels/
-  chrome-debug-profile/
+  logs/
+    tunnels/
+  browser/
+    chrome-debug-profile/
+  skills/
 ```
+
+On first launch, OpenCrab automatically migrates the legacy
+`~/Library/Application Support/OpenCrab` layout into this new structure.
 
 This keeps conversations, attachments, browser state, and channel secrets out of the repository by default.
 
@@ -129,6 +140,7 @@ This keeps conversations, attachments, browser state, and channel secrets out of
 
 - [Product Scope](./docs/product-scope.md)
 - [Architecture](./docs/architecture.md)
+- [Startup Behavior](./docs/startup-behavior.md)
 - [Development Guide](./docs/development.md)
 - [Codex Integration](./docs/codex-sdk-integration.md)
 
@@ -136,7 +148,7 @@ This keeps conversations, attachments, browser state, and channel secrets out of
 
 The conversation workflow is the most complete part of the product today.
 
-`Channels` already supports Telegram and Feishu in a usable V1 flow. Telegram currently supports inbound and outbound text, image, and file handling; Feishu is still focused on text-message loops. `Skills` already supports catalog browsing, detail pages, local enable/disable state, and custom entries, while `任务` is still mostly a product skeleton.
+`Channels` already supports Telegram and Feishu in a usable V1 flow. Telegram currently supports inbound and outbound text, image, and file handling; Feishu is still focused on text-message loops. `Tasks` already supports create, pause, resume, run-now, result conversations, and creating a recurring task directly from an existing conversation. `Skills` already supports catalog browsing, detail pages, local enable/disable state, and custom entries.
 
 ## License
 

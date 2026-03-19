@@ -7,6 +7,7 @@ import {
 import { syncFeishuChannelState } from "@/lib/channels/feishu-channel-service";
 import {
   getFeishuSecrets,
+  setFeishuConnectionEnabled,
   getTelegramSecrets,
   setTelegramConnectionEnabled,
   syncAllChannelConfigsFromSecrets,
@@ -64,6 +65,7 @@ export async function saveChannelConfiguration(
       };
     }
 
+    setFeishuConnectionEnabled(true);
     const syncResult = await syncFeishuChannelState({
       restartSocket: true,
     });

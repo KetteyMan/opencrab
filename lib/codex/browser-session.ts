@@ -33,6 +33,7 @@ const CHROME_CANDIDATES = [
   path.join(process.env.HOME || "", "Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
 ];
 const BROWSER_WARMUP_COOLDOWN_MS = 5 * 60_000;
+const BROWSER_TOOL_PROBE_TIMEOUT_MS = 8_000;
 const WAIT_TIMEOUT_MS = 12_000;
 const POLL_INTERVAL_MS = 400;
 
@@ -168,6 +169,7 @@ export function ensureBrowserSessionWarmup(input: { force?: boolean } = {}) {
   globalThis.__opencrabBrowserWarmupLastRunAt = Date.now();
 
   const task = ensureBrowserSession()
+    .then(() => probeBrowserToolAccess())
     .then(() => undefined)
     .catch(() => undefined)
     .finally(() => {
@@ -176,6 +178,28 @@ export function ensureBrowserSessionWarmup(input: { force?: boolean } = {}) {
 
   globalThis.__opencrabBrowserWarmupPromise = task;
   return task;
+}
+
+async function probeBrowserToolAccess() {
+  const bridge = globalThis.__opencrabBrowserBridge;
+
+  if (!bridge) {
+    return;
+  }
+
+  const probeTool = bridge.tools.find((tool) => tool.name === "list_pages");
+
+  if (!probeTool) {
+    return;
+  }
+
+  await promiseWithTimeout(
+    bridge.client.callTool({
+      name: probeTool.name,
+      arguments: {},
+    }),
+    BROWSER_TOOL_PROBE_TIMEOUT_MS,
+  );
 }
 
 export async function handleBrowserMcpRequest(request: Request) {
@@ -509,4 +533,23 @@ function normalizeTools(tools: BrowserTool[]) {
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function promiseWithTimeout<T>(promise: Promise<T>, timeoutMs: number) {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error("Browser MCP probe timed out."));
+    }, timeoutMs);
+
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
 }

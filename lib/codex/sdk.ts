@@ -3,6 +3,8 @@ import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { promisify } from "node:util";
 import { buildChromeDevtoolsMcpConfig, ensureBrowserSession } from "@/lib/codex/browser-session";
+import { listSkills } from "@/lib/skills/skill-store";
+import { getSnapshot } from "@/lib/resources/local-store";
 import type { CodexReasoningEffort, CodexSandboxMode } from "@/lib/resources/opencrab-api-types";
 
 const execFileAsync = promisify(execFile);
@@ -247,24 +249,39 @@ export async function* streamCodexReply({
 }
 
 function getCodexClient() {
+  const runtimeSkillEntries = listSkills()
+    .filter((skill) => Boolean(skill.sourcePath))
+    .map((skill) => ({
+      path: skill.sourcePath!,
+      enabled: skill.status === "installed",
+    }));
+
   return new Codex({
     env: buildChatGptLoginEnv(),
     config: {
       show_raw_agent_reasoning: true,
       mcp_servers: buildChromeDevtoolsMcpConfig(),
+      skills: {
+        config: runtimeSkillEntries,
+      },
     },
   });
 }
 
 function buildChatGptLoginEnv() {
   const nextEnv: Record<string, string> = {};
+  const allowOpenAiApiKeyForCommands = getSnapshot().settings.allowOpenAiApiKeyForCommands === true;
 
   for (const [key, value] of Object.entries(process.env)) {
     if (typeof value !== "string") {
       continue;
     }
 
-    if (key === "OPENAI_API_KEY" || key === "CODEX_API_KEY") {
+    if (key === "CODEX_API_KEY") {
+      continue;
+    }
+
+    if (key === "OPENAI_API_KEY" && !allowOpenAiApiKeyForCommands) {
       continue;
     }
 
@@ -293,6 +310,14 @@ function buildThreadOptions(input?: {
 function buildPrompt(
   input: Pick<GenerateCodexReplyInput, "conversationTitle" | "content" | "textAttachments">,
 ) {
+  const skills = listSkills();
+  const enabledSkills = skills.filter(
+    (skill) => skill.status === "installed" && Boolean(skill.sourcePath),
+  );
+  const disabledSkills = skills.filter(
+    (skill) => skill.status === "disabled" && Boolean(skill.sourcePath),
+  );
+
   return [
     "你是 OpenCrab 自己的智能助手。",
     "默认使用简体中文回复，除非用户明确要求其他语言。",
@@ -300,6 +325,19 @@ function buildPrompt(
     "涉及浏览器、网页、页面交互、表单填写、点击、抓取页面可见内容时，优先使用 chrome-devtools MCP。",
     "只有在 chrome-devtools MCP 当前不可用、明确做不到，或者连续失败时，才降级到其他方式，例如命令行、Playwright 或直接请求网页。",
     "如果浏览器操作发生了降级，最终回复里用一句短话说明你改用了其他办法。",
+    enabledSkills.length > 0
+      ? [
+          "OpenCrab 当前已启用的 skills（只有这些算可用）：",
+          ...enabledSkills.map((skill) => `- ${skill.id}: ${skill.summary}`),
+        ].join("\n")
+      : "OpenCrab 当前没有启用任何 skills。",
+    disabledSkills.length > 0
+      ? [
+          "OpenCrab 当前已禁用的 skills（即使共享目录里仍然存在，也一律视为不可用）：",
+          ...disabledSkills.map((skill) => `- ${skill.id}: ${skill.summary}`),
+          "当用户询问你有哪些 skills、当前可用什么能力、或者让你选择一个 skill 时，不要列出这些已禁用 skills，也不要主动使用它们。",
+        ].join("\n")
+      : null,
     input.conversationTitle ? `当前对话标题：${input.conversationTitle}` : null,
     input.content ? `用户消息：${input.content}` : "用户本轮没有输入文字，请优先分析随附文件。",
     ...(input.textAttachments || []).map((file) => {

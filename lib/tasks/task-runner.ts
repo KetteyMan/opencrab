@@ -103,7 +103,11 @@ async function executeTask(taskId: string, options: { force?: boolean } = {}) {
         remoteUserLabel: task.name,
       });
       conversationId = created.conversationId;
-    } else if (taskFolder && targetConversation.folderId !== taskFolder.id) {
+    } else if (
+      taskFolder &&
+      targetConversation.source === "task" &&
+      targetConversation.folderId !== taskFolder.id
+    ) {
       updateConversation(targetConversation.id, {
         folderId: taskFolder.id,
         source: "task",

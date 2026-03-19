@@ -102,6 +102,7 @@ export async function createTask(input: {
   prompt: string;
   timezone?: string | null;
   schedule: TaskSchedule;
+  conversationId?: string | null;
 }) {
   return request<TaskDetailResponse>("/api/tasks", {
     method: "POST",
@@ -149,6 +150,7 @@ export async function updateSettings(
     defaultReasoningEffort: CodexReasoningEffort;
     defaultSandboxMode: CodexSandboxMode;
     browserConnectionMode: BrowserConnectionMode;
+    allowOpenAiApiKeyForCommands: boolean;
   }>,
 ) {
   return request<SnapshotMutationResult>("/api/settings", {

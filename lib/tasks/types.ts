@@ -64,6 +64,7 @@ export type TaskCreateInput = {
   prompt: string;
   timezone?: string | null;
   schedule: TaskSchedule;
+  conversationId?: string | null;
 };
 
 export type TaskUpdateInput = Partial<TaskCreateInput> & {

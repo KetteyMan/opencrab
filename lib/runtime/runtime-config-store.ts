@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import {
   OPENCRAB_RUNTIME_CONFIG_PATH,
-  OPENCRAB_RUNTIME_DIR,
+  OPENCRAB_STATE_DIR,
 } from "@/lib/resources/runtime-paths";
 
 type ManagedTunnelProvider = "cloudflared" | "localtunnel";
@@ -21,7 +21,7 @@ type RuntimeConfigState = {
   managedTunnel: ManagedTunnelConfig | null;
 };
 
-const STORE_DIR = OPENCRAB_RUNTIME_DIR;
+const STORE_DIR = OPENCRAB_STATE_DIR;
 const STORE_PATH = OPENCRAB_RUNTIME_CONFIG_PATH;
 
 export function getStoredPublicBaseUrl() {
@@ -110,4 +110,3 @@ function normalizeState(state: Partial<RuntimeConfigState>): RuntimeConfigState 
         : null,
   };
 }
-

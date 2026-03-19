@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { getSnapshot } from "@/lib/resources/local-store";
-import { OPENCRAB_RUNTIME_DIR, OPENCRAB_TASKS_STORE_PATH } from "@/lib/resources/runtime-paths";
+import { OPENCRAB_STATE_DIR, OPENCRAB_TASKS_STORE_PATH } from "@/lib/resources/runtime-paths";
 import type {
   TaskCreateInput,
   TaskDetail,
@@ -13,7 +13,7 @@ import type {
   TaskUpdateInput,
 } from "@/lib/tasks/types";
 
-const STORE_DIR = OPENCRAB_RUNTIME_DIR;
+const STORE_DIR = OPENCRAB_STATE_DIR;
 const STORE_PATH = OPENCRAB_TASKS_STORE_PATH;
 const MAX_RUNS = 120;
 const MAX_RUNS_PER_TASK = 20;
@@ -59,7 +59,7 @@ export function createTask(input: TaskCreateInput) {
     schedule: normalized.schedule,
     status: "active",
     isRunning: false,
-    conversationId: null,
+    conversationId: input.conversationId ?? null,
     nextRunAt: calculateNextRunAt(normalized.schedule, now),
     lastRunAt: null,
     lastRunStatus: null,

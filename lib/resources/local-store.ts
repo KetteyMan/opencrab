@@ -7,7 +7,7 @@ import {
 } from "@/lib/seed-data";
 import {
   OPENCRAB_LOCAL_STORE_PATH,
-  OPENCRAB_RUNTIME_DIR,
+  OPENCRAB_STATE_DIR,
 } from "@/lib/resources/runtime-paths";
 import type {
   AppSettings,
@@ -260,7 +260,7 @@ function ensureStoreFile() {
   }
 }
 
-const STORE_DIR = OPENCRAB_RUNTIME_DIR;
+const STORE_DIR = OPENCRAB_STATE_DIR;
 const STORE_PATH = OPENCRAB_LOCAL_STORE_PATH;
 
 function createSeedState(): AppSnapshot {

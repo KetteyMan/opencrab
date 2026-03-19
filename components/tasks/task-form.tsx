@@ -13,6 +13,8 @@ type TaskFormValue = {
 type TaskFormProps = {
   initialTask?: TaskDetail | null;
   initialValue?: Partial<TaskFormValue> | null;
+  title?: string;
+  description?: string;
   submitLabel: string;
   isSubmitting?: boolean;
   message?: string | null;
@@ -30,6 +32,8 @@ const PRESET_OPTIONS = [
 export function TaskForm({
   initialTask = null,
   initialValue = null,
+  title,
+  description,
   submitLabel,
   isSubmitting = false,
   message = null,
@@ -70,24 +74,19 @@ export function TaskForm({
     });
   }
 
-  const schedulePreview =
-    preset === "interval"
-      ? `OpenCrab 会每隔 ${intervalHours || 1} 小时执行一次，并把结果回流到这个任务的专属对话。`
-      : preset === "weekly"
-        ? `OpenCrab 会在每周${["日", "一", "二", "三", "四", "五", "六"][weekday] || "一"} ${time} 自动执行，并把结果回流到这个任务的专属对话。`
-        : preset === "weekdays"
-          ? `OpenCrab 会在每个工作日 ${time} 自动执行，并把结果回流到这个任务的专属对话。`
-          : `OpenCrab 会在每天 ${time} 自动执行，并把结果回流到这个任务的专属对话。`;
+  const resolvedTitle = title ?? (initialTask ? "任务设置" : "新建任务");
+  const resolvedDescription =
+    description ?? "只需要告诉 OpenCrab：做什么、什么时候做。";
 
   return (
     <section className="rounded-[24px] border border-line bg-surface p-6 shadow-soft">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="text-[18px] font-semibold tracking-[-0.03em] text-text">
-            {initialTask ? "任务设置" : "新建任务"}
+            {resolvedTitle}
           </h2>
           <p className="mt-2 text-[14px] leading-6 text-muted-strong">
-            只需要告诉 OpenCrab 两件事：要做什么、什么时候做。结果会自动回流到这条任务自己的对话里。
+            {resolvedDescription}
           </p>
         </div>
         <button
@@ -181,10 +180,6 @@ export function TaskForm({
               </div>
             </label>
           )}
-        </div>
-
-        <div className="rounded-[18px] border border-line bg-surface-muted px-4 py-4 text-[13px] leading-6 text-muted-strong">
-          {schedulePreview}
         </div>
       </div>
 

@@ -111,6 +111,7 @@ export type FeishuSecrets = {
   appSecret?: string;
   verificationToken?: string;
   encryptKey?: string;
+  enabled?: boolean;
 };
 
 export type ChannelSecretsStore = {
