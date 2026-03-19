@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Button, buttonClassName } from "@/components/ui/button";
 
 type ChannelDetailActionsProps = {
   channelId: "telegram" | "feishu";
@@ -128,53 +129,48 @@ export function ChannelDetailActions({
     <div className="mt-4">
       <div className="flex flex-wrap items-center gap-3">
         {channelId === "telegram" && !hasPublicBaseUrl ? (
-          <button
-            type="button"
+          <Button
             onClick={handleProvisionPublicUrl}
             disabled={isProvisioning}
-            className="rounded-full bg-text px-4 py-2 text-[13px] font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-60"
+            variant="primary"
           >
             {isProvisioning ? "连接中..." : "自动连接 Telegram"}
-          </button>
+          </Button>
         ) : null}
         {channelId === "telegram" && canRebind ? (
-          <button
-            type="button"
+          <Button
             onClick={handleRebind}
             disabled={isRebinding}
-            className="rounded-full border border-line bg-background px-4 py-2 text-[13px] font-medium text-text transition hover:border-text/20 disabled:cursor-not-allowed disabled:opacity-60"
+            variant="secondary"
           >
             {isRebinding ? "重连中..." : "重新连接 Telegram"}
-          </button>
+          </Button>
         ) : null}
         {channelId === "feishu" && canRebind ? (
-          <button
-            type="button"
+          <Button
             onClick={handleRebind}
             disabled={isRebinding}
-            className="rounded-full border border-line bg-background px-4 py-2 text-[13px] font-medium text-text transition hover:border-text/20 disabled:cursor-not-allowed disabled:opacity-60"
+            variant="secondary"
           >
             {isRebinding ? "重启中..." : "重启飞书长连接"}
-          </button>
+          </Button>
         ) : null}
         {canDisconnect ? (
-          <button
-            type="button"
+          <Button
             onClick={handleDisconnect}
             disabled={isDisconnecting}
-            className="rounded-full border border-[#f3d0cb] bg-[#fff8f7] px-4 py-2 text-[13px] font-medium text-[#b42318] transition hover:border-[#e7b3ab] disabled:cursor-not-allowed disabled:opacity-60"
+            variant="danger"
           >
             {isDisconnecting ? "断开中..." : "断开连接"}
-          </button>
+          </Button>
         ) : null}
-        <button
-          type="button"
+        <Button
           onClick={handleRefresh}
           disabled={isRefreshing}
-          className="rounded-full border border-line bg-background px-4 py-2 text-[13px] font-medium text-text transition hover:border-text/20 disabled:cursor-not-allowed disabled:opacity-60"
+          variant="secondary"
         >
           {isRefreshing ? "检查中..." : "检查状态"}
-        </button>
+        </Button>
         {copyMessage ? <span className="text-[12px] text-muted-strong">{copyMessage}</span> : null}
       </div>
       {actionMessage ? (
@@ -191,7 +187,11 @@ export function ChannelDetailActions({
           <button
             type="button"
             onClick={handleCopy}
-            className="text-[12px] text-muted transition hover:text-text"
+            className={buttonClassName({
+              variant: "ghost",
+              size: "sm",
+              className: "h-auto px-0 text-[12px] text-muted hover:bg-transparent hover:underline",
+            })}
           >
             {channelId === "telegram" ? "复制技术地址" : "复制兼容 Webhook 地址"}
           </button>

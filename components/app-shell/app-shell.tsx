@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useMemo, useState } from "react";
 import { OpenCrabMark, OpenCrabWordmark } from "@/components/branding/opencrab-brand";
 import { currentUser } from "@/lib/seed-data";
 import type { NavKey } from "@/lib/seed-data";
@@ -13,13 +14,36 @@ type AppShellProps = {
 
 const navItems: Array<{ key: NavKey; label: string; href: string; icon: React.ReactNode }> = [
   { key: "conversations", label: "对话", href: "/conversations", icon: <ConversationIcon /> },
-  { key: "channels", label: "Channels", href: "/channels", icon: <GridIcon /> },
-  { key: "tasks", label: "任务", href: "/tasks", icon: <TaskIcon /> },
-  { key: "skills", label: "Skills", href: "/skills", icon: <StarIcon /> },
+  { key: "channels", label: "渠道", href: "/channels", icon: <GridIcon /> },
+  { key: "tasks", label: "定时任务", href: "/tasks", icon: <TaskIcon /> },
+  { key: "skills", label: "技能", href: "/skills", icon: <StarIcon /> },
 ];
+
+const LAST_CONVERSATION_PATH_KEY = "opencrab:last-conversation-path";
 
 export function AppShell({ sidebar, children }: AppShellProps) {
   const pathname = usePathname();
+  const [lastConversationHref, setLastConversationHref] = useState(() => {
+    if (typeof window === "undefined") {
+      return "/conversations";
+    }
+
+    const stored = window.localStorage.getItem(LAST_CONVERSATION_PATH_KEY);
+    return stored?.startsWith("/conversations/") ? stored : "/conversations";
+  });
+
+  const resolvedNavItems = useMemo(
+    () =>
+      navItems.map((item) =>
+        item.key === "conversations"
+          ? {
+              ...item,
+              href: pathname.startsWith("/conversations/") ? pathname : lastConversationHref,
+            }
+          : item,
+      ),
+    [lastConversationHref, pathname],
+  );
 
   return (
     <div className="grid min-h-screen grid-cols-1 bg-background lg:grid-cols-[304px_1fr]">
@@ -40,16 +64,22 @@ export function AppShell({ sidebar, children }: AppShellProps) {
         </div>
 
         <nav className="mt-2 flex flex-col gap-0.5" aria-label="主导航">
-          {navItems.map((item) => {
+          {resolvedNavItems.map((item) => {
             const isActive =
+              (item.key === "conversations" && (pathname === "/" || pathname.startsWith("/conversations"))) ||
               pathname === item.href ||
-              pathname.startsWith(`${item.href}/`) ||
-              (item.href === "/conversations" && pathname === "/");
+              pathname.startsWith(`${item.href}/`);
 
             return (
               <Link
                 key={item.key}
                 href={item.href}
+                onClick={() => {
+                  if (pathname.startsWith("/conversations/")) {
+                    window.localStorage.setItem(LAST_CONVERSATION_PATH_KEY, pathname);
+                    setLastConversationHref(pathname);
+                  }
+                }}
                 className={`flex min-h-9 items-center gap-3 rounded-xl px-3 text-[14px] transition ${
                   isActive ? "bg-surface font-medium text-text" : "text-text hover:bg-surface-muted"
                 }`}

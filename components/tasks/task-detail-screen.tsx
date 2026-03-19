@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TaskForm } from "@/components/tasks/task-form";
+import { Button, buttonClassName } from "@/components/ui/button";
 import {
   createTask,
   deleteTask,
@@ -33,7 +34,7 @@ export function TaskDetailScreen({ taskId }: { taskId: string }) {
       setTask(response.task);
     } catch (error) {
       setMessageTone("error");
-      setMessage(error instanceof Error ? error.message : "加载任务失败。");
+      setMessage(error instanceof Error ? error.message : "加载定时任务失败。");
     } finally {
       setIsLoading(false);
     }
@@ -70,15 +71,15 @@ export function TaskDetailScreen({ taskId }: { taskId: string }) {
       const response = await updateTask(taskId, input);
 
       if (!response.task) {
-        throw new Error("任务不存在。");
+        throw new Error("定时任务不存在。");
       }
 
       setTask(response.task);
       setMessageTone("success");
-      setMessage("任务设置已保存。");
+      setMessage("定时任务设置已保存。");
     } catch (error) {
       setMessageTone("error");
-      setMessage(error instanceof Error ? error.message : "保存任务失败。");
+      setMessage(error instanceof Error ? error.message : "保存定时任务失败。");
     } finally {
       setIsSaving(false);
     }
@@ -92,16 +93,16 @@ export function TaskDetailScreen({ taskId }: { taskId: string }) {
       const response = await runTask(taskId);
 
       if (!response.task) {
-        throw new Error("任务不存在。");
+        throw new Error("定时任务不存在。");
       }
 
       setTask(response.task);
       setMessageTone("success");
-      setMessage("任务已经开始执行。执行完成后，结果会自动回流到对应对话。");
+      setMessage("定时任务已经开始执行。执行完成后，结果会自动回流到对应对话。");
       router.refresh();
     } catch (error) {
       setMessageTone("error");
-      setMessage(error instanceof Error ? error.message : "执行任务失败。");
+      setMessage(error instanceof Error ? error.message : "执行定时任务失败。");
     } finally {
       setPendingAction(null);
     }
@@ -121,22 +122,22 @@ export function TaskDetailScreen({ taskId }: { taskId: string }) {
       });
 
       if (!response.task) {
-        throw new Error("任务不存在。");
+        throw new Error("定时任务不存在。");
       }
 
       setTask(response.task);
       setMessageTone("success");
-      setMessage(task.status === "active" ? "任务已暂停。" : "任务已恢复自动执行。");
+      setMessage(task.status === "active" ? "定时任务已暂停。" : "定时任务已恢复自动执行。");
     } catch (error) {
       setMessageTone("error");
-      setMessage(error instanceof Error ? error.message : "更新任务失败。");
+      setMessage(error instanceof Error ? error.message : "更新定时任务失败。");
     } finally {
       setPendingAction(null);
     }
   }
 
   async function handleDelete() {
-    const confirmed = window.confirm("删除后会同时清空这条任务的执行记录。确定要删除吗？");
+    const confirmed = window.confirm("删除后会同时清空这条定时任务的执行记录。确定要删除吗？");
 
     if (!confirmed) {
       return;
@@ -152,7 +153,7 @@ export function TaskDetailScreen({ taskId }: { taskId: string }) {
     } catch (error) {
       setPendingAction(null);
       setMessageTone("error");
-      setMessage(error instanceof Error ? error.message : "删除任务失败。");
+      setMessage(error instanceof Error ? error.message : "删除定时任务失败。");
     }
   }
 
@@ -173,7 +174,7 @@ export function TaskDetailScreen({ taskId }: { taskId: string }) {
       });
 
       if (!response.task) {
-        throw new Error("复制任务失败。");
+        throw new Error("复制定时任务失败。");
       }
 
       router.push(`/tasks/${response.task.id}`);
@@ -181,22 +182,22 @@ export function TaskDetailScreen({ taskId }: { taskId: string }) {
     } catch (error) {
       setPendingAction(null);
       setMessageTone("error");
-      setMessage(error instanceof Error ? error.message : "复制任务失败。");
+      setMessage(error instanceof Error ? error.message : "复制定时任务失败。");
     }
   }
 
   if (isLoading) {
     return (
-      <div className="rounded-[24px] border border-line bg-surface p-6 shadow-soft text-[14px] text-muted-strong">
-        正在加载任务...
+        <div className="rounded-[24px] border border-line bg-surface p-6 shadow-soft text-[14px] text-muted-strong">
+        正在加载定时任务...
       </div>
     );
   }
 
   if (!task) {
     return (
-      <div className="rounded-[24px] border border-line bg-surface p-6 shadow-soft text-[14px] text-muted-strong">
-        这个任务不存在，可能已经被删除。
+        <div className="rounded-[24px] border border-line bg-surface p-6 shadow-soft text-[14px] text-muted-strong">
+        这个定时任务不存在，可能已经被删除。
       </div>
     );
   }
@@ -209,7 +210,7 @@ export function TaskDetailScreen({ taskId }: { taskId: string }) {
             href="/tasks"
             className="text-[13px] text-muted transition hover:text-text"
           >
-            返回任务列表
+            返回定时任务列表
           </Link>
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <h1 className="text-[28px] font-semibold tracking-[-0.04em] text-text">{task.name}</h1>
@@ -229,46 +230,41 @@ export function TaskDetailScreen({ taskId }: { taskId: string }) {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
+          <Button
             onClick={() => void loadTask()}
             disabled={pendingAction !== null}
-            className="rounded-full border border-line bg-background px-4 py-2 text-[13px] text-text transition hover:border-text/20 disabled:cursor-not-allowed disabled:opacity-60"
+            variant="secondary"
           >
             刷新状态
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
             onClick={() => void handleRun()}
             disabled={pendingAction !== null}
-            className="rounded-full bg-text px-4 py-2 text-[13px] font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-60"
+            variant="primary"
           >
             {pendingAction === "run" ? "启动中..." : "立即执行"}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
             onClick={() => void handleDuplicate()}
             disabled={pendingAction !== null}
-            className="rounded-full border border-line bg-background px-4 py-2 text-[13px] text-text transition hover:border-text/20 disabled:cursor-not-allowed disabled:opacity-60"
+            variant="secondary"
           >
-            {pendingAction === "duplicate" ? "复制中..." : "复制任务"}
-          </button>
-          <button
-            type="button"
+            {pendingAction === "duplicate" ? "复制中..." : "复制定时任务"}
+          </Button>
+          <Button
             onClick={() => void handleToggle()}
             disabled={pendingAction !== null}
-            className="rounded-full border border-line bg-background px-4 py-2 text-[13px] text-text transition hover:border-text/20 disabled:cursor-not-allowed disabled:opacity-60"
+            variant="secondary"
           >
-            {pendingAction === "toggle" ? "处理中..." : task.status === "active" ? "暂停任务" : "恢复任务"}
-          </button>
-          <button
-            type="button"
+            {pendingAction === "toggle" ? "处理中..." : task.status === "active" ? "暂停定时任务" : "恢复定时任务"}
+          </Button>
+          <Button
             onClick={() => void handleDelete()}
             disabled={pendingAction !== null}
-            className="rounded-full border border-[#f3d0cb] bg-[#fff8f7] px-4 py-2 text-[13px] text-[#b42318] transition disabled:cursor-not-allowed disabled:opacity-60"
+            variant="danger"
           >
-            {pendingAction === "delete" ? "删除中..." : "删除任务"}
-          </button>
+            {pendingAction === "delete" ? "删除中..." : "删除定时任务"}
+          </Button>
         </div>
       </div>
 
@@ -284,7 +280,7 @@ export function TaskDetailScreen({ taskId }: { taskId: string }) {
           <section className="rounded-[24px] border border-line bg-surface p-6 shadow-soft">
             <h2 className="text-[18px] font-semibold tracking-[-0.03em] text-text">结果回流</h2>
             <p className="mt-2 text-[14px] leading-6 text-muted-strong">
-              每个任务都会把执行结果回流到自己的一条专属对话里，方便你继续追问和接着处理。
+              每个定时任务都会把执行结果回流到自己的一条专属对话里，方便你继续追问和接着处理。
             </p>
             <div className="mt-4 rounded-[18px] border border-line bg-background px-4 py-4 text-[14px] text-text">
               {task.conversation ? (
@@ -292,7 +288,7 @@ export function TaskDetailScreen({ taskId }: { taskId: string }) {
                   <div>{task.conversation.title}</div>
                   <Link
                     href={`/conversations/${task.conversation.id}`}
-                    className="text-[13px] text-[#1a73e8] transition hover:underline"
+                    className={buttonClassName({ variant: "ghost", size: "sm", className: "px-0 text-[#1a73e8] hover:bg-transparent hover:underline" })}
                   >
                     打开结果对话
                   </Link>
@@ -308,7 +304,7 @@ export function TaskDetailScreen({ taskId }: { taskId: string }) {
             <div className="mt-4 space-y-3">
               {task.runs.length === 0 ? (
                 <div className="rounded-[18px] border border-dashed border-line bg-surface-muted px-4 py-6 text-[14px] text-muted-strong">
-                  还没有执行记录。可以先点一次“立即执行”看看效果。
+                  还没有执行记录。可以先点一次“立即执行”看看这个定时任务的效果。
                 </div>
               ) : (
                 task.runs.map((run) => (

@@ -3,13 +3,18 @@ import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { promisify } from "node:util";
 import { buildChromeDevtoolsMcpConfig, ensureBrowserSession } from "@/lib/codex/browser-session";
+import {
+  getCodexOptions,
+  resolvePreferredModelOption,
+  resolvePreferredReasoningEffort,
+} from "@/lib/codex/options";
 import { listSkills } from "@/lib/skills/skill-store";
 import { getSnapshot } from "@/lib/resources/local-store";
 import type { CodexReasoningEffort, CodexSandboxMode } from "@/lib/resources/opencrab-api-types";
 
 const execFileAsync = promisify(execFile);
 
-const DEFAULT_MODEL = process.env.OPENCRAB_CODEX_MODEL || "gpt-5.4";
+const CONFIGURED_DEFAULT_MODEL = process.env.OPENCRAB_CODEX_MODEL;
 const DEFAULT_REASONING_EFFORT = normalizeReasoningEffort(
   process.env.OPENCRAB_CODEX_REASONING_EFFORT,
 );
@@ -75,10 +80,14 @@ export async function generateCodexReply({
 }: GenerateCodexReplyInput) {
   await ensureBrowserSession();
   await ensureCodexLogin();
+  const modelConfig = resolveModelConfig({
+    model,
+    reasoningEffort,
+  });
   const codex = getCodexClient();
   const thread = threadId
-    ? codex.resumeThread(threadId, buildThreadOptions({ model, reasoningEffort, sandboxMode }))
-    : codex.startThread(buildThreadOptions({ model, reasoningEffort, sandboxMode }));
+    ? codex.resumeThread(threadId, buildThreadOptions({ ...modelConfig, sandboxMode }))
+    : codex.startThread(buildThreadOptions({ ...modelConfig, sandboxMode }));
 
   const prompt = buildPrompt({
     conversationTitle,
@@ -106,13 +115,14 @@ export async function generateCodexReply({
   return {
     text,
     threadId: thread.id,
-    model: model || DEFAULT_MODEL,
+    model: modelConfig.model,
     usage: result.usage,
   };
 }
 
 export async function getCodexStatus() {
   const login = await getCodexLoginStatus();
+  const modelConfig = resolveModelConfig();
 
   if (!login.ok) {
     return {
@@ -125,8 +135,8 @@ export async function getCodexStatus() {
 
   return {
     ok: true,
-    model: DEFAULT_MODEL,
-    reasoningEffort: DEFAULT_REASONING_EFFORT,
+    model: modelConfig.model,
+    reasoningEffort: modelConfig.reasoningEffort,
     sandboxMode: DEFAULT_SANDBOX_MODE,
     networkAccessEnabled: DEFAULT_NETWORK_ACCESS,
     approvalPolicy: DEFAULT_APPROVAL_POLICY,
@@ -151,10 +161,14 @@ export async function* streamCodexReply({
 }: StreamCodexReplyInput): AsyncGenerator<CodexReplyStreamEvent> {
   await ensureBrowserSession();
   await ensureCodexLogin();
+  const modelConfig = resolveModelConfig({
+    model,
+    reasoningEffort,
+  });
   const codex = getCodexClient();
   const thread = threadId
-    ? codex.resumeThread(threadId, buildThreadOptions({ model, reasoningEffort, sandboxMode }))
-    : codex.startThread(buildThreadOptions({ model, reasoningEffort, sandboxMode }));
+    ? codex.resumeThread(threadId, buildThreadOptions({ ...modelConfig, sandboxMode }))
+    : codex.startThread(buildThreadOptions({ ...modelConfig, sandboxMode }));
 
   const prompt = buildPrompt({
     conversationTitle,
@@ -242,7 +256,7 @@ export async function* streamCodexReply({
     type: "done",
     text,
     threadId: thread.id,
-    model: model || DEFAULT_MODEL,
+    model: modelConfig.model,
     usage,
     thinking: Array.from(thinkingMap.values()),
   };
@@ -268,7 +282,7 @@ function getCodexClient() {
   });
 }
 
-function buildChatGptLoginEnv() {
+export function buildChatGptLoginEnv() {
   const nextEnv: Record<string, string> = {};
   const allowOpenAiApiKeyForCommands = getSnapshot().settings.allowOpenAiApiKeyForCommands === true;
 
@@ -296,14 +310,38 @@ function buildThreadOptions(input?: {
   reasoningEffort?: CodexReasoningEffort;
   sandboxMode?: CodexSandboxMode;
 }) {
+  const modelConfig = resolveModelConfig({
+    model: input?.model,
+    reasoningEffort: input?.reasoningEffort,
+  });
+
   return {
-    model: input?.model || DEFAULT_MODEL,
+    model: modelConfig.model,
     sandboxMode: input?.sandboxMode || DEFAULT_SANDBOX_MODE,
     workingDirectory: process.cwd(),
     skipGitRepoCheck: true,
-    modelReasoningEffort: input?.reasoningEffort || DEFAULT_REASONING_EFFORT,
+    modelReasoningEffort: modelConfig.reasoningEffort,
     networkAccessEnabled: DEFAULT_NETWORK_ACCESS,
     approvalPolicy: DEFAULT_APPROVAL_POLICY,
+  };
+}
+
+function resolveModelConfig(input?: {
+  model?: string;
+  reasoningEffort?: CodexReasoningEffort;
+}) {
+  const options = getCodexOptions();
+  const modelOption = resolvePreferredModelOption(
+    options.models,
+    input?.model || CONFIGURED_DEFAULT_MODEL || options.defaultModel,
+  );
+
+  return {
+    model: modelOption.id,
+    reasoningEffort: resolvePreferredReasoningEffort(
+      modelOption,
+      input?.reasoningEffort || DEFAULT_REASONING_EFFORT,
+    ),
   };
 }
 
@@ -423,7 +461,7 @@ function getThinkingEntry(item: {
   }
 }
 
-async function getCodexLoginStatus() {
+export async function getCodexLoginStatus() {
   try {
     const { stdout, stderr } = await execFileAsync("codex", ["login", "status"], {
       env: buildChatGptLoginEnv() as NodeJS.ProcessEnv,
@@ -452,6 +490,6 @@ async function ensureCodexLogin() {
   const login = await getCodexLoginStatus();
 
   if (!login.ok) {
-    throw new Error(`${login.error} 请先完成 OpenCrab 的本机执行环境登录后再重试。`);
+    throw new Error(`${login.error} 请先连接 ChatGPT 后再重试。`);
   }
 }

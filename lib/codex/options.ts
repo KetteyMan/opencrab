@@ -86,11 +86,43 @@ export function getCodexOptions(): CodexOptionsResponse {
 
     return {
       models,
-      defaultModel: models[0].id,
+      defaultModel: resolvePreferredModelOption(models, process.env.OPENCRAB_CODEX_MODEL)?.id || models[0].id,
     };
   } catch {
     return FALLBACK_OPTIONS;
   }
+}
+
+export function resolvePreferredModelOption(
+  models: CodexModelOption[],
+  preferredModelId?: string | null,
+) {
+  const preferredId = preferredModelId?.trim();
+
+  if (preferredId) {
+    const exactMatch = models.find((model) => model.id === preferredId);
+
+    if (exactMatch) {
+      return exactMatch;
+    }
+  }
+
+  return models[0] || FALLBACK_OPTIONS.models[0];
+}
+
+export function resolvePreferredReasoningEffort(
+  model: CodexModelOption | null | undefined,
+  preferredEffort?: CodexReasoningEffort | null,
+) {
+  if (!model) {
+    return preferredEffort || "medium";
+  }
+
+  if (preferredEffort && model.reasoningOptions.some((item) => item.effort === preferredEffort)) {
+    return preferredEffort;
+  }
+
+  return model.defaultReasoningEffort;
 }
 
 function createReasoningOption(effort: CodexReasoningEffort, description: string) {

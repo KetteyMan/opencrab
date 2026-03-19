@@ -1,6 +1,7 @@
 import type {
   AppSnapshot,
   BrowserConnectionMode,
+  ChatGptConnectionStatusResponse,
   CodexBrowserSessionStatus,
   CodexOptionsResponse,
   CodexReasoningEffort,
@@ -47,6 +48,30 @@ export async function getCodexStatus() {
       loginMethod: "chatgpt",
     } satisfies CodexStatusResponse;
   }
+}
+
+export async function getChatGptConnectionStatus() {
+  return request<ChatGptConnectionStatusResponse>("/api/chatgpt/connect/status", {
+    method: "GET",
+  });
+}
+
+export async function startChatGptConnection() {
+  return request<ChatGptConnectionStatusResponse>("/api/chatgpt/connect/start", {
+    method: "POST",
+  });
+}
+
+export async function cancelChatGptConnection() {
+  return request<ChatGptConnectionStatusResponse>("/api/chatgpt/connect/cancel", {
+    method: "POST",
+  });
+}
+
+export async function disconnectChatGptConnection() {
+  return request<ChatGptConnectionStatusResponse>("/api/chatgpt/connect/disconnect", {
+    method: "POST",
+  });
 }
 
 export async function getCodexBrowserSessionStatus() {

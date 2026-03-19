@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { buttonClassName } from "@/components/ui/button";
 
 type DialogShellProps = {
   children: React.ReactNode;
@@ -79,7 +80,10 @@ export function DialogSecondaryButton({ children, onClick, disabled }: DialogBut
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="rounded-full border border-line bg-surface-muted px-5 py-2.5 text-[13px] font-medium text-text transition hover:bg-[#ecece7] disabled:cursor-not-allowed disabled:opacity-60"
+      className={buttonClassName({
+        variant: "secondary",
+        className: "bg-surface-muted hover:bg-[#ecece7]",
+      })}
     >
       {children}
     </button>
@@ -92,7 +96,10 @@ export function DialogPrimaryButton({ children, onClick, disabled }: DialogButto
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="rounded-full bg-[#111111] px-5 py-2.5 text-[13px] font-medium text-white transition hover:bg-[#262626] disabled:cursor-not-allowed disabled:bg-[#c9c9c5]"
+      className={buttonClassName({
+        variant: "primary",
+        className: "hover:bg-[#262626] disabled:bg-[#c9c9c5]",
+      })}
     >
       {children}
     </button>

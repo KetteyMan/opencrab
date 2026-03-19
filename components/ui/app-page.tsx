@@ -8,7 +8,7 @@ type AppPageProps = {
 };
 
 const WIDTH_CLASS = {
-  default: "max-w-[920px]",
+  default: "max-w-[1080px]",
   wide: "max-w-[1180px]",
 };
 
@@ -20,10 +20,9 @@ export function AppPage({
 }: AppPageProps) {
   return (
     <div
-      className={`min-h-screen px-6 py-8 lg:h-full lg:min-h-0 lg:overflow-y-auto lg:px-10 ${className}`.trim()}
+      className={`min-h-screen px-6 py-7 lg:h-full lg:min-h-0 lg:overflow-y-auto lg:px-10 ${className}`.trim()}
     >
       <div className={`mx-auto ${WIDTH_CLASS[width]} ${contentClassName}`.trim()}>{children}</div>
     </div>
   );
 }
-

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { OpenCrabMark, OpenCrabWordmark } from "@/components/branding/opencrab-brand";
+import { ChatGptConnectionPanel } from "@/components/chatgpt/chatgpt-connection-panel";
 import { Composer } from "@/components/composer/composer";
 import { useOpenCrabApp } from "@/components/app-shell/opencrab-provider";
 import {
@@ -81,9 +82,7 @@ export function HomeScreen({ title, description }: HomeScreenProps) {
             </span>
           </div>
           {codexStatus?.ok === false ? (
-            <p className="text-left text-[13px] text-[#a34942]">
-              OpenCrab 当前还没有完成本机执行环境准备，请先完成初始登录后再回来继续发送。
-            </p>
+            <ChatGptConnectionPanel compact />
           ) : null}
           {errorMessage ? <p className="text-left text-[13px] text-[#a34942]">{errorMessage}</p> : null}
           <Composer

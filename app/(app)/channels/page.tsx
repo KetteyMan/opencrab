@@ -25,7 +25,10 @@ export default async function ChannelsPage() {
 
   return (
     <AppPage width="wide" contentClassName="space-y-8">
-      <PageHeader title="Channels" />
+      <PageHeader
+        title="渠道"
+        description="配置和管理 OpenCrab 可用的消息入口。"
+      />
 
       <div className="grid gap-5 lg:grid-cols-2">
         {channels.map((channel) => (
@@ -45,13 +48,13 @@ export default async function ChannelsPage() {
                       {channel.name}
                     </h2>
                     <div className="mt-1 text-[12px] text-muted">
-                      {channel.id === "telegram" ? "Bot 私聊入口" : "企业协作入口"}
+                      {channel.id === "telegram" ? "Telegram 私聊入口" : "企业协作入口"}
                     </div>
                   </div>
                 </div>
                 <p className="mt-4 max-w-[46ch] text-[14px] leading-6 text-muted-strong">
                   {channel.id === "telegram"
-                    ? "适合先跑通 Bot 私聊链路，配置简单，回推也直接。"
+                    ? "适合先跑通 Telegram 私聊链路，配置简单，回推也直接。"
                     : "默认使用飞书长连接收消息，不需要公网地址，适合作为企业内协作入口。"}
                 </p>
                 <div className="mt-4 rounded-[18px] border border-line bg-background px-4 py-4">
@@ -119,19 +122,19 @@ function StatusBadge({ channel }: { channel: ChannelOverview }) {
 function buildChannelHeadline(channel: ChannelOverview) {
   if (channel.id === "telegram") {
     return channel.configSummary.botUsername
-      ? `当前 Bot：${channel.configSummary.botUsername}`
-      : "还没有绑定 Telegram Bot";
+      ? `当前机器人：${channel.configSummary.botUsername}`
+      : "还没有绑定 Telegram 机器人";
   }
 
   return channel.configSummary.appId
-    ? `当前 App：${channel.configSummary.appId}`
+    ? `当前应用：${channel.configSummary.appId}`
     : "还没有配置飞书应用";
 }
 
 function buildChannelDescription(channel: ChannelOverview) {
   if (channel.id === "telegram") {
     if (!channel.configSummary.hasBotToken) {
-      return "填入 Bot Token 后，OpenCrab 会尽量帮你自动连上 Telegram。";
+      return "填入机器人令牌后，OpenCrab 会尽量帮你自动连上 Telegram。";
     }
 
   if (channel.status === "disconnected") {
@@ -143,14 +146,14 @@ function buildChannelDescription(channel: ChannelOverview) {
   }
 
   if (channel.status === "ready") {
-    return "已经连上 Telegram，可以直接给 bot 发消息，OpenCrab 会自动创建或续接对话。";
+    return "已经连上 Telegram，可以直接给机器人发消息，OpenCrab 会自动创建或续接对话。";
   }
 
     return "正在等待连接完成，或者需要重新检查当前 webhook 状态。";
   }
 
   if (!channel.configSummary.hasAppId || !channel.configSummary.hasAppSecret) {
-    return "先填 App ID 和 App Secret，OpenCrab 会自动校验并启动飞书长连接。";
+    return "先填应用 ID 和应用密钥，OpenCrab 会自动校验并启动飞书长连接。";
   }
 
   if (channel.status === "disconnected") {

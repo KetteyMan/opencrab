@@ -20,17 +20,13 @@ It keeps the product surface simple: chat is the main entry, and channels let Te
 
 ## Screenshots
 
-| Home | Conversations |
+| Home | Channels |
 | --- | --- |
-| ![OpenCrab home](./docs/screenshots/homepage.png) | ![Conversation thread](./docs/screenshots/conversation-thread.png) |
+| <img src="./docs/screenshots/homepage.png" alt="OpenCrab home" width="480"> | <img src="./docs/screenshots/channels.png" alt="OpenCrab channels" width="480"> |
 
-| Channels | Telegram channel |
+| Scheduled Tasks | Skills |
 | --- | --- |
-| ![Channels overview](./docs/screenshots/channels-overview.png) | ![Telegram channel page](./docs/screenshots/telegram-channel.png) |
-
-| Settings |
-| --- |
-| ![Settings page](./docs/screenshots/settings.png) |
+| <img src="./docs/screenshots/tasks.png" alt="OpenCrab scheduled tasks" width="480"> | <img src="./docs/screenshots/skills.png" alt="OpenCrab skills" width="480"> |
 
 ## Highlights
 

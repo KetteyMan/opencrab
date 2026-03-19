@@ -14,8 +14,8 @@ export default async function TaskDetailPage({
   return (
     <AppPage width="wide" contentClassName="space-y-8">
       <PageHeader
-        title="任务详情"
-        description="这里可以修改任务安排、立刻执行一次，并查看最近结果。"
+        title="定时任务详情"
+        description="这里可以修改定时任务安排、立刻执行一次，并查看最近结果。"
       />
       <TaskDetailScreen taskId={taskId} />
     </AppPage>

@@ -9,7 +9,7 @@ export async function POST(
   const { taskId } = await context.params;
 
   if (!getTask(taskId)) {
-    return NextResponse.json({ error: "任务不存在。" }, { status: 404 });
+    return NextResponse.json({ error: "定时任务不存在。" }, { status: 404 });
   }
 
   try {
@@ -17,7 +17,7 @@ export async function POST(
 
     return NextResponse.json({ task });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "执行任务失败。";
+    const message = error instanceof Error ? error.message : "执行定时任务失败。";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

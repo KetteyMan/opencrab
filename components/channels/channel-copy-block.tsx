@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
 type ChannelCopyBlockProps = {
   label: string;
@@ -42,13 +43,15 @@ export function ChannelCopyBlock({
             {value}
           </div>
         </div>
-        <button
+        <Button
           type="button"
           onClick={handleCopy}
-          className="shrink-0 rounded-full border border-line bg-white px-3 py-1.5 text-[12px] font-medium text-text transition hover:border-text/20"
+          variant="secondary"
+          size="sm"
+          className="shrink-0 bg-white"
         >
           复制
-        </button>
+        </Button>
       </div>
       {message ? <div className="mt-2 text-[12px] text-muted">{message}</div> : null}
     </div>

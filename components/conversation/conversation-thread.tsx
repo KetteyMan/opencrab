@@ -10,10 +10,9 @@ import { buildConversationDetailViewModel } from "@/lib/view-models/conversation
 
 type ConversationThreadProps = {
   conversationId: string;
-  title?: string;
 };
 
-export function ConversationThread({ conversationId, title }: ConversationThreadProps) {
+export function ConversationThread({ conversationId }: ConversationThreadProps) {
   const { conversations, conversationMessages } = useOpenCrabApp();
   const threadRef = useRef<HTMLDivElement | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -27,10 +26,10 @@ export function ConversationThread({ conversationId, title }: ConversationThread
   const detailViewModel = useMemo(
     () =>
       buildConversationDetailViewModel({
-        title: title ?? activeConversation?.title,
+        title: activeConversation?.title,
         messages: conversationMessages[conversationId] ?? [],
       }),
-    [activeConversation?.title, conversationId, conversationMessages, title],
+    [activeConversation?.title, conversationId, conversationMessages],
   );
   const tailKey = useMemo(() => {
     const lastMessage = detailViewModel.messages.at(-1);
@@ -87,30 +86,7 @@ export function ConversationThread({ conversationId, title }: ConversationThread
 
   return (
     <div ref={threadRef} className="flex flex-col px-6 pt-8 pb-10 lg:px-8">
-      <div className="w-full max-w-[1180px]">
-        <div className="mb-8">
-          <div>
-            <p className="text-[13px] text-muted">OpenCrab</p>
-            <h1 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-text">
-              {detailViewModel.title}
-            </h1>
-            {activeConversation?.source && activeConversation.source !== "local" ? (
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-muted-strong">
-                <span className="rounded-full border border-line bg-surface px-3 py-1.5">
-                  {getConversationSourceLabel(activeConversation.source)}
-                </span>
-                <span className="rounded-full border border-line bg-surface px-3 py-1.5">
-                  {activeConversation.source === "task"
-                    ? activeConversation.remoteUserLabel || activeConversation.title
-                    : activeConversation.remoteUserLabel ||
-                      activeConversation.remoteChatLabel ||
-                      "远程会话"}
-                </span>
-              </div>
-            ) : null}
-          </div>
-        </div>
-
+      <div className="mx-auto w-full max-w-[1180px]">
         <div className="flex flex-col gap-6">
           {detailViewModel.messages.map((message) => (
             <article
@@ -180,18 +156,6 @@ export function ConversationThread({ conversationId, title }: ConversationThread
       </div>
     </div>
   );
-}
-
-function getConversationSourceLabel(source: "telegram" | "feishu" | "task") {
-  if (source === "telegram") {
-    return "Telegram 对话";
-  }
-
-  if (source === "feishu") {
-    return "飞书对话";
-  }
-
-  return "定时任务";
 }
 
 function AttachmentCard({ attachment }: { attachment: AttachmentItem }) {

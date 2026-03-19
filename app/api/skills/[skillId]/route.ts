@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { SkillAction } from "@/lib/resources/opencrab-api-types";
-import { getSkill, mutateSkill } from "@/lib/skills/skill-store";
+import { getSkillDetail, mutateSkill } from "@/lib/skills/skill-store";
 
 export function GET(
   _request: Request,
@@ -21,10 +21,10 @@ export async function PATCH(
   }
 
   try {
-    const skill = mutateSkill(skillId, body.action);
+    const skill = await mutateSkill(skillId, body.action);
 
     return NextResponse.json({
-      skill,
+      skill: skill ? await getSkillDetail(skillId) : null,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "技能操作失败。";
@@ -34,7 +34,7 @@ export async function PATCH(
 
 async function resolveSkill(paramsPromise: Promise<{ skillId: string }>) {
   const { skillId } = await paramsPromise;
-  const skill = getSkill(skillId);
+  const skill = await getSkillDetail(skillId);
 
   if (!skill) {
     return NextResponse.json({ error: "技能不存在。" }, { status: 404 });

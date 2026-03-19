@@ -10,12 +10,18 @@ import {
   DialogSecondaryButton,
   DialogShell,
 } from "@/components/ui/dialog";
+import { Button, buttonClassName } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import {
   createSkill,
   getSkillsCatalog,
   mutateSkill,
 } from "@/lib/resources/opencrab-api";
-import type { SkillAction, SkillRecord } from "@/lib/resources/opencrab-api-types";
+import type {
+  SkillAction,
+  SkillCategory,
+  SkillRecord,
+} from "@/lib/resources/opencrab-api-types";
 import { SkillIcon } from "@/components/skills/skill-icon";
 
 type CreateSkillDialogState = {
@@ -24,6 +30,8 @@ type CreateSkillDialogState = {
   detailsMarkdown: string;
 };
 
+const RECOMMENDATION_EXCLUDED_IDS = new Set(["transcribe", "claude-api", "figma"]);
+
 export function SkillsScreen() {
   const [skills, setSkills] = useState<SkillRecord[]>([]);
   const [query, setQuery] = useState("");
@@ -31,6 +39,9 @@ export function SkillsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [pendingActionKey, setPendingActionKey] = useState<string | null>(null);
   const [createDialog, setCreateDialog] = useState<CreateSkillDialogState | null>(null);
+  const [selectedRecommendedCategory, setSelectedRecommendedCategory] = useState<
+    SkillCategory | "all"
+  >("marketing-social");
 
   const filteredSkills = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -47,10 +58,22 @@ export function SkillsScreen() {
   const installedSkills = filteredSkills.filter(
     (skill) => skill.status === "installed" || skill.status === "disabled",
   );
-  const recommendedSkills = filteredSkills.filter((skill) => skill.status === "available");
+  const recommendedSkills = filteredSkills.filter(
+    (skill) => skill.status === "available" && !RECOMMENDATION_EXCLUDED_IDS.has(skill.id),
+  );
   const installedCount = skills.filter((skill) => skill.status === "installed").length;
   const disabledCount = skills.filter((skill) => skill.status === "disabled").length;
   const availableCount = skills.filter((skill) => skill.status === "available").length;
+  const recommendedCategoryCounts = useMemo(() => {
+    return RECOMMENDED_CATEGORY_ORDER.map((category) => ({
+      category,
+      ...RECOMMENDED_CATEGORY_META[category],
+      count: recommendedSkills.filter((skill) => skill.category === category).length,
+    }));
+  }, [recommendedSkills]);
+  const visibleRecommendedCategories = recommendedCategoryCounts.filter((item) =>
+    selectedRecommendedCategory === "all" ? item.count > 0 : item.category === selectedRecommendedCategory,
+  );
 
   const loadSkills = useCallback(async () => {
     setIsLoading(true);
@@ -109,50 +132,45 @@ export function SkillsScreen() {
 
   return (
     <>
-      <div className="space-y-10">
-        <header className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <h1 className="text-[40px] font-semibold tracking-[-0.05em] text-text">技能</h1>
-            <p className="mt-3 text-[15px] leading-7 text-muted-strong">
-              为 OpenCrab 增加更强的处理能力。
-              <span className="ml-2 text-[#1a73e8]">这里展示的是 OpenCrab 自己可用的技能与说明。</span>
-            </p>
-          </div>
+      <div className="space-y-8">
+        <PageHeader
+          title="技能"
+          description="把常用能力装进 OpenCrab，统一在这里启用、禁用和管理。"
+          className="mb-6"
+          actions={
+            <div className="flex w-full flex-wrap items-center justify-end gap-3 lg:w-[700px] lg:flex-nowrap">
+              <Button
+                type="button"
+                onClick={() => void loadSkills()}
+                variant="ghost"
+                className="gap-2"
+              >
+                <RefreshIcon />
+                <span>刷新</span>
+              </Button>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={() => void loadSkills()}
-              className="inline-flex h-11 items-center gap-2 rounded-full px-4 text-[14px] text-muted-strong transition hover:bg-surface-muted hover:text-text"
-            >
-              <RefreshIcon />
-              <span>刷新</span>
-            </button>
+              <label className="flex h-10 min-w-[260px] flex-1 items-center gap-2 rounded-full border border-line bg-surface px-4 text-[13px] text-muted-strong">
+                <SearchIcon />
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="搜索技能"
+                  className="w-full border-0 bg-transparent text-text outline-none placeholder:text-muted"
+                />
+              </label>
 
-            <label className="flex h-11 min-w-[260px] items-center gap-2 rounded-full border border-line bg-surface px-4 text-[14px] text-muted-strong">
-              <SearchIcon />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="搜索技能"
-                className="w-full border-0 bg-transparent text-text outline-none placeholder:text-muted"
-              />
-            </label>
-
-            <button
-              type="button"
-              onClick={() => setCreateDialog({ name: "", summary: "", detailsMarkdown: "" })}
-              className="inline-flex h-11 items-center gap-2 rounded-full bg-[#111111] px-5 text-[14px] font-medium text-white transition hover:bg-[#222222]"
-            >
-              <PlusIcon />
-              <span>新技能</span>
-            </button>
-          </div>
-        </header>
-
-        <section className="rounded-[22px] border border-line bg-surface-muted px-5 py-4 text-[13px] leading-6 text-muted-strong">
-          技能说明会从你本机的共享技能库中读取，但启用、禁用、卸载这些状态只保存在 OpenCrab 自己的本地空间里，不会影响别的工具。
-        </section>
+              <Button
+                type="button"
+                onClick={() => setCreateDialog({ name: "", summary: "", detailsMarkdown: "" })}
+                variant="primary"
+                className="gap-2"
+              >
+                <PlusIcon />
+                <span>新技能</span>
+              </Button>
+            </div>
+          }
+        />
 
         <section className="grid gap-3 sm:grid-cols-3">
           <SkillOverviewCard label="已启用" value={`${installedCount}`} />
@@ -175,12 +193,15 @@ export function SkillsScreen() {
           onAction={handleAction}
         />
 
-        <SkillSection
-          title="推荐"
+        <RecommendedSkillsSection
           skills={recommendedSkills}
           isLoading={isLoading}
           emptyLabel={query ? "没有匹配的推荐技能" : "当前没有推荐技能"}
           pendingActionKey={pendingActionKey}
+          selectedCategory={selectedRecommendedCategory}
+          categoryCounts={recommendedCategoryCounts}
+          visibleCategories={visibleRecommendedCategories}
+          onCategoryChange={setSelectedRecommendedCategory}
           onAction={handleAction}
         />
       </div>
@@ -256,11 +277,59 @@ export function SkillsScreen() {
   );
 }
 
+const RECOMMENDED_CATEGORY_ORDER: SkillCategory[] = [
+  "marketing-social",
+  "sales-growth",
+  "finance-analysis",
+  "writing-knowledge",
+  "creative-media",
+  "business-ops",
+  "product-tech",
+];
+
+const RECOMMENDED_CATEGORY_META: Record<
+  SkillCategory,
+  { label: string; description: string }
+> = {
+  "marketing-social": {
+    label: "营销与社媒",
+    description: "适合内容策划、社媒运营、广告投放和品牌传播。",
+  },
+  "sales-growth": {
+    label: "销售与增长",
+    description: "适合外联触达、销售流程、线索转化和增长动作。",
+  },
+  "finance-analysis": {
+    label: "金融与分析",
+    description: "适合财报解读、财务建模、预算分析和 Excel 工作流。",
+  },
+  "writing-knowledge": {
+    label: "写作与知识",
+    description: "适合文档起草、内部沟通、演示材料和知识沉淀。",
+  },
+  "creative-media": {
+    label: "创意与内容",
+    description: "适合视觉内容、创意写作、故事构思和轻量媒体产出。",
+  },
+  "business-ops": {
+    label: "业务运营",
+    description: "适合定价、项目推进、董事会材料和经营协作。",
+  },
+  "product-tech": {
+    label: "产品与技术",
+    description: "适合 AI 产品、设计协作、MCP 和技术型工作流。",
+  },
+  general: {
+    label: "通用",
+    description: "暂未归类的通用技能。",
+  },
+};
+
 function SkillOverviewCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[20px] border border-line bg-surface px-5 py-4 shadow-soft">
+    <div className="rounded-[18px] border border-line bg-surface px-5 py-3 shadow-soft">
       <div className="text-[12px] text-muted">{label}</div>
-      <div className="mt-2 text-[28px] font-semibold tracking-[-0.04em] text-text">{value}</div>
+      <div className="mt-1 text-[26px] font-semibold tracking-[-0.04em] text-text">{value}</div>
     </div>
   );
 }
@@ -280,8 +349,6 @@ function SkillSection({
   pendingActionKey: string | null;
   onAction: (skillId: string, action: SkillAction) => void;
 }) {
-  const [leftColumn, rightColumn] = splitIntoColumns(skills);
-
   return (
     <section>
       <div className="mb-5 flex items-center gap-3">
@@ -298,30 +365,156 @@ function SkillSection({
           {emptyLabel}
         </div>
       ) : (
-        <div className="grid gap-x-12 gap-y-2 lg:grid-cols-2">
-          <div className="space-y-1">
-            {leftColumn.map((skill) => (
-              <SkillRow
-                key={skill.id}
-                skill={skill}
+        <SkillGrid skills={skills} pendingActionKey={pendingActionKey} onAction={onAction} />
+      )}
+    </section>
+  );
+}
+
+function RecommendedSkillsSection({
+  skills,
+  isLoading,
+  emptyLabel,
+  pendingActionKey,
+  selectedCategory,
+  categoryCounts,
+  visibleCategories,
+  onCategoryChange,
+  onAction,
+}: {
+  skills: SkillRecord[];
+  isLoading: boolean;
+  emptyLabel: string;
+  pendingActionKey: string | null;
+  selectedCategory: SkillCategory | "all";
+  categoryCounts: Array<{ category: SkillCategory; label: string; description: string; count: number }>;
+  visibleCategories: Array<{ category: SkillCategory; label: string; description: string; count: number }>;
+  onCategoryChange: (category: SkillCategory | "all") => void;
+  onAction: (skillId: string, action: SkillAction) => void;
+}) {
+  return (
+    <section className="space-y-5">
+      <div className="flex items-center gap-3">
+        <h2 className="text-[18px] font-semibold tracking-[-0.03em] text-text">推荐</h2>
+        <span className="text-[13px] text-muted">{skills.length}</span>
+      </div>
+
+      <div className="-mx-1 overflow-x-auto px-1 pb-1">
+        <div className="flex min-w-max flex-nowrap gap-2">
+        {categoryCounts.map((item) => (
+          <CategoryChip
+            key={item.category}
+            label={item.label}
+            count={item.count}
+            active={selectedCategory === item.category}
+            onClick={() => onCategoryChange(item.category)}
+          />
+        ))}
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="rounded-[20px] border border-line bg-surface-muted px-5 py-6 text-[14px] text-muted-strong">
+          正在加载技能...
+        </div>
+      ) : visibleCategories.length === 0 ? (
+        <div className="rounded-[20px] border border-dashed border-line bg-surface-muted px-5 py-6 text-[14px] text-muted-strong">
+          {emptyLabel}
+        </div>
+      ) : (
+        <div className="space-y-8">
+          {visibleCategories.map((category) => (
+            <div key={category.category} className="space-y-3">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h3 className="text-[16px] font-semibold tracking-[-0.02em] text-text">
+                    {category.label}
+                  </h3>
+                  <p className="mt-1 text-[13px] text-muted-strong">{category.description}</p>
+                </div>
+                <span className="text-[12px] text-muted">{category.count} 个技能</span>
+              </div>
+
+              <SkillGrid
+                skills={skills.filter((skill) => skill.category === category.category)}
                 pendingActionKey={pendingActionKey}
                 onAction={onAction}
               />
-            ))}
-          </div>
-          <div className="space-y-1">
-            {rightColumn.map((skill) => (
-              <SkillRow
-                key={skill.id}
-                skill={skill}
-                pendingActionKey={pendingActionKey}
-                onAction={onAction}
-              />
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       )}
     </section>
+  );
+}
+
+function CategoryChip({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={buttonClassName({
+        variant: active ? "primary" : "secondary",
+        size: "sm",
+        className: "shrink-0 gap-2 px-3",
+      })}
+    >
+      <span>{label}</span>
+      <span
+        className={`rounded-full px-1.5 py-0.5 text-[11px] ${
+          active ? "bg-white/16" : "bg-surface-muted"
+        }`}
+      >
+        {count}
+      </span>
+    </button>
+  );
+}
+
+function SkillGrid({
+  skills,
+  pendingActionKey,
+  onAction,
+}: {
+  skills: SkillRecord[];
+  pendingActionKey: string | null;
+  onAction: (skillId: string, action: SkillAction) => void;
+}) {
+  const [leftColumn, rightColumn] = splitIntoColumns(skills);
+
+  return (
+    <div className="grid gap-x-12 gap-y-2 lg:grid-cols-2">
+      <div className="space-y-1">
+        {leftColumn.map((skill) => (
+          <SkillRow
+            key={skill.id}
+            skill={skill}
+            pendingActionKey={pendingActionKey}
+            onAction={onAction}
+          />
+        ))}
+      </div>
+      <div className="space-y-1">
+        {rightColumn.map((skill) => (
+          <SkillRow
+            key={skill.id}
+            skill={skill}
+            pendingActionKey={pendingActionKey}
+            onAction={onAction}
+          />
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -408,7 +601,10 @@ function IconActionButton({
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
-      className="flex h-10 w-10 items-center justify-center rounded-full text-muted-strong transition hover:bg-background hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
+      className={buttonClassName({
+        variant: "ghost",
+        className: "h-10 w-10 px-0 text-muted-strong",
+      })}
     >
       {children}
     </button>
@@ -429,7 +625,11 @@ function TextActionButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="rounded-full border border-line bg-background px-3 py-2 text-[12px] text-muted-strong transition hover:border-text/15 hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
+      className={buttonClassName({
+        variant: "secondary",
+        size: "sm",
+        className: "px-3",
+      })}
     >
       {label}
     </button>

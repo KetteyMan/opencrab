@@ -10,7 +10,7 @@ export async function GET(
   const task = getTask(taskId);
 
   if (!task) {
-    return NextResponse.json({ error: "任务不存在。" }, { status: 404 });
+    return NextResponse.json({ error: "定时任务不存在。" }, { status: 404 });
   }
 
   return NextResponse.json({ task });
@@ -27,12 +27,12 @@ export async function PATCH(
     const task = updateTask(taskId, body);
 
     if (!task) {
-      return NextResponse.json({ error: "任务不存在。" }, { status: 404 });
+      return NextResponse.json({ error: "定时任务不存在。" }, { status: 404 });
     }
 
     return NextResponse.json({ task: getTask(taskId) });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "更新任务失败。";
+    const message = error instanceof Error ? error.message : "更新定时任务失败。";
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }
@@ -44,7 +44,7 @@ export async function DELETE(
   const { taskId } = await context.params;
 
   if (!getTask(taskId)) {
-    return NextResponse.json({ error: "任务不存在。" }, { status: 404 });
+    return NextResponse.json({ error: "定时任务不存在。" }, { status: 404 });
   }
 
   deleteTask(taskId);

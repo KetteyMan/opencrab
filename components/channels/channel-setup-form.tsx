@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import {
   buildChannelConfiguredHints,
   buildChannelFormGroups,
@@ -128,8 +129,8 @@ export function ChannelSetupForm({
           <h2 className="text-[17px] font-semibold tracking-[-0.03em] text-text">连接配置</h2>
           <p className="mt-3 text-[14px] leading-6 text-muted-strong">
             {channel.id === "telegram"
-              ? "通常只需要填写 Bot Token。保存后，OpenCrab 会自动尝试帮你连上 Telegram。"
-              : "默认使用飞书长连接，不需要公网地址。保存后，OpenCrab 会校验凭证并自动启动 socket。"}
+              ? "通常只需要填写机器人令牌。保存后，OpenCrab 会自动尝试帮你连上 Telegram。"
+              : "默认使用飞书长连接，不需要公网地址。保存后，OpenCrab 会校验凭证并自动启动长连接。"}
           </p>
           {configuredHints.length ? (
             <div className="mt-4 flex flex-wrap gap-2">
@@ -144,13 +145,14 @@ export function ChannelSetupForm({
             </div>
           ) : null}
         </div>
-        <button
+        <Button
           type="submit"
           disabled={isSaving}
-          className="shrink-0 self-start whitespace-nowrap rounded-full bg-text px-5 py-2 text-[13px] font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-60"
+          variant="primary"
+          className="shrink-0 self-start whitespace-nowrap"
         >
           {isSaving ? "保存中..." : actionLabel}
-        </button>
+        </Button>
       </div>
 
       <div className={`mt-6 grid gap-4 ${channel.id === "telegram" ? "" : "md:grid-cols-2"}`}>
@@ -164,13 +166,14 @@ export function ChannelSetupForm({
               <div className="mt-2 flex flex-wrap items-center gap-2 rounded-[16px] border border-line bg-background px-4 py-3">
                 <span className="text-[12px] text-muted">当前已保存：</span>
                 <span className="font-mono text-[13px] text-text">{telegramTokenPreview.masked}</span>
-                <button
+                <Button
                   type="button"
                   onClick={handleCopyStoredToken}
-                  className="rounded-full border border-line px-3 py-1 text-[12px] text-text transition hover:border-text/20"
+                  variant="secondary"
+                  size="sm"
                 >
-                  复制原始 Token
-                </button>
+                  复制原始令牌
+                </Button>
               </div>
             ) : null}
             {channel.id === "feishu" &&
@@ -181,15 +184,16 @@ export function ChannelSetupForm({
                 <span className="font-mono text-[13px] text-text">
                   {feishuCredentialPreview.appId.masked}
                 </span>
-                <button
+                <Button
                   type="button"
                   onClick={() =>
-                    handleCopyStoredValue(feishuCredentialPreview.appId.raw, "原始 App ID")
+                    handleCopyStoredValue(feishuCredentialPreview.appId.raw, "原始应用 ID")
                   }
-                  className="rounded-full border border-line px-3 py-1 text-[12px] text-text transition hover:border-text/20"
+                  variant="secondary"
+                  size="sm"
                 >
-                  复制原始 App ID
-                </button>
+                  复制原始应用 ID
+                </Button>
               </div>
             ) : null}
             {channel.id === "feishu" &&
@@ -200,18 +204,19 @@ export function ChannelSetupForm({
                 <span className="font-mono text-[13px] text-text">
                   {feishuCredentialPreview.appSecret.masked}
                 </span>
-                <button
+                <Button
                   type="button"
                   onClick={() =>
                     handleCopyStoredValue(
                       feishuCredentialPreview.appSecret.raw,
-                      "原始 App Secret",
+                      "原始应用密钥",
                     )
                   }
-                  className="rounded-full border border-line px-3 py-1 text-[12px] text-text transition hover:border-text/20"
+                  variant="secondary"
+                  size="sm"
                 >
-                  复制原始 App Secret
-                </button>
+                  复制原始应用密钥
+                </Button>
               </div>
             ) : null}
             <input
@@ -231,8 +236,8 @@ export function ChannelSetupForm({
           </summary>
           <p className="mt-3 text-[12px] leading-5 text-muted">
             {channel.id === "telegram"
-              ? "只有在你需要额外校验 Telegram webhook header 时，才需要配置下面这个字段。"
-              : "只有在你还想兼容飞书 Webhook 模式时，才需要配置下面这个字段。"}
+              ? "只有在你需要额外校验 Telegram 回调请求头时，才需要配置下面这个字段。"
+              : "只有在你还想兼容飞书回调模式时，才需要配置下面这个字段。"}
           </p>
           <div className="mt-4 grid gap-4">
             {fieldGroups.advanced.map((field) => (

@@ -55,8 +55,8 @@ export default async function ChannelDetailPage({
         title={channel.name}
         description={
           channel.id === "telegram"
-            ? "填好 Bot Token 后，OpenCrab 会尽量自动帮你连上 Telegram。"
-            : "飞书默认使用长连接接收事件，不需要公网 Webhook 地址。"
+            ? "填好机器人令牌后，OpenCrab 会尽量自动帮你连上 Telegram。"
+            : "飞书默认使用长连接接收事件，不需要公网回调地址。"
         }
       />
 
@@ -69,7 +69,7 @@ export default async function ChannelDetailPage({
                   TG
                 </div>
                 <div>
-                  <div className="text-[12px] text-muted">Bot 私聊入口</div>
+                  <div className="text-[12px] text-muted">Telegram 私聊入口</div>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
                     <h2 className="text-[22px] font-semibold tracking-[-0.04em] text-text">
                       {channel.name}
@@ -78,7 +78,7 @@ export default async function ChannelDetailPage({
                   </div>
                   {channel.configSummary.botUsername ? (
                     <div className="mt-1 text-[12px] text-muted">
-                      当前 Bot：{channel.configSummary.botUsername}
+                      当前机器人：{channel.configSummary.botUsername}
                     </div>
                   ) : null}
                 </div>
@@ -91,7 +91,7 @@ export default async function ChannelDetailPage({
                 <div className="rounded-[18px] border border-line bg-white/80 px-4 py-4">
                   <div className="text-[13px] font-medium text-text">连接操作</div>
                   <div className="mt-2 text-[13px] leading-6 text-muted">
-                    大多数情况下，你只需要保存 Bot Token。OpenCrab 会自动完成后面的连接步骤。
+                    大多数情况下，你只需要保存机器人令牌。OpenCrab 会自动完成后面的连接步骤。
                   </div>
                   <ChannelDetailActions
                     channelId={channel.id}
@@ -129,7 +129,7 @@ export default async function ChannelDetailPage({
                   </div>
                   {channel.configSummary.appId ? (
                     <div className="mt-1 text-[12px] text-muted">
-                      当前 App：{channel.configSummary.appId}
+                      当前应用：{channel.configSummary.appId}
                     </div>
                   ) : null}
                 </div>
@@ -142,7 +142,7 @@ export default async function ChannelDetailPage({
                 <div className="rounded-[18px] border border-line bg-white/80 px-4 py-4">
                   <div className="text-[13px] font-medium text-text">连接操作</div>
                   <div className="mt-2 text-[13px] leading-6 text-muted">
-                    飞书默认走长连接。保存 App ID 和 App Secret 后，OpenCrab 会自动校验凭证并启动 socket。
+                    飞书默认走长连接。保存应用 ID 和应用密钥后，OpenCrab 会自动校验凭证并启动长连接。
                   </div>
                   <ChannelDetailActions
                     channelId={channel.id}
@@ -203,16 +203,16 @@ export default async function ChannelDetailPage({
               value="im.message.receive_v1"
             />
             <ChannelCopyBlock
-              label="Verification Token"
+              label="校验令牌"
               value={
                 channel.configSummary.hasVerificationToken
-                  ? "默认长连接模式不需要；如果你启用了兼容 Webhook 模式，请在飞书后台填入同一个 token。"
-                  : "默认长连接模式不需要；只有兼容 Webhook 模式才需要配置。"
+                  ? "默认长连接模式不需要；如果你启用了兼容回调模式，请在飞书后台填入同一个校验令牌。"
+                  : "默认长连接模式不需要；只有兼容回调模式才需要配置。"
               }
             />
             <ChannelCopyBlock
               label="外部平台步骤"
-              value="1. 在飞书开放平台创建应用并启用 Bot 能力\n2. 把 App ID / App Secret 填回 OpenCrab 并保存\n3. 在事件订阅里选择“使用长连接接收事件”\n4. 订阅 im.message.receive_v1\n5. 创建版本并发布应用"
+              value="1. 在飞书开放平台创建应用并启用机器人能力\n2. 把应用 ID / 应用密钥填回 OpenCrab 并保存\n3. 在事件订阅里选择“使用长连接接收事件”\n4. 订阅 im.message.receive_v1\n5. 创建版本并发布应用"
             />
           </div>
         </section>
@@ -227,17 +227,17 @@ export default async function ChannelDetailPage({
             只有在自动连接失败时，才需要看这些技术细节。
           </p>
           <div className="mt-5 grid gap-4 lg:grid-cols-2">
-            <ChannelCopyBlock label="Webhook 地址" value={webhookTarget} tone="code" />
+            <ChannelCopyBlock label="回调地址（Webhook）" value={webhookTarget} tone="code" />
             <ChannelCopyBlock
-              label="Webhook Secret"
+              label="回调密钥（Webhook Secret）"
               value={
                 channel.configSummary.hasWebhookSecret
-                  ? "已在 OpenCrab 中配置，请在 Telegram setWebhook 时使用相同 secret_token。"
-                  : "当前未配置；如需额外校验 Telegram header，可在高级选项中设置。"
+                  ? "已在 OpenCrab 中配置，请在 Telegram `setWebhook` 时使用相同的 `secret_token`。"
+                  : "当前未配置；如需额外校验 Telegram 请求头，可在高级选项中设置。"
               }
             />
             <ChannelCopyBlock
-              label="手动 setWebhook 命令"
+              label="手动绑定命令"
               value={telegramSetWebhookCommand}
               tone="code"
             />
@@ -276,16 +276,16 @@ export default async function ChannelDetailPage({
                 label="Verification Token"
                 value={
                   channel.configSummary.hasVerificationToken
-                    ? "已在 OpenCrab 中配置；只有兼容 Webhook 模式时才需要在飞书后台填同一个 token。"
-                    : "默认长连接模式不需要；只有兼容 Webhook 模式时才需要配置。"
+                    ? "已在 OpenCrab 中配置；只有兼容回调模式时才需要在飞书后台填同一个校验令牌。"
+                    : "默认长连接模式不需要；只有兼容回调模式时才需要配置。"
                 }
               />
               <ChannelCopyBlock
                 label="Encrypt Key"
                 value={
                   channel.configSummary.hasEncryptKey
-                    ? "已在 OpenCrab 中配置；如果你启用了加密 Webhook，这里已经可以完成解密和签名校验。"
-                    : "默认长连接模式不需要；如果你启用了加密 Webhook，还需要补上 Encrypt Key。"
+                    ? "已在 OpenCrab 中配置；如果你启用了加密回调，这里已经可以完成解密和签名校验。"
+                    : "默认长连接模式不需要；如果你启用了加密回调，还需要补上 Encrypt Key。"
                 }
               />
               <ChannelCopyBlock

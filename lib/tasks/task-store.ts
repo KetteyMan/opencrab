@@ -325,11 +325,11 @@ function normalizeTaskInput(input: TaskCreateInput) {
   const prompt = input.prompt.trim();
 
   if (!name) {
-    throw new Error("请先填写任务名称。");
+    throw new Error("请先填写定时任务名称。");
   }
 
   if (!prompt) {
-    throw new Error("请先告诉 OpenCrab 这个任务要做什么。");
+    throw new Error("请先告诉 OpenCrab 这个定时任务要做什么。");
   }
 
   return {

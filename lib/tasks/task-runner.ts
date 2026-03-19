@@ -117,7 +117,7 @@ async function executeTask(taskId: string, options: { force?: boolean } = {}) {
     }
 
     if (!conversationId) {
-      throw new Error("任务执行失败：没有可用的结果对话。");
+      throw new Error("定时任务执行失败：没有可用的结果对话。");
     }
 
     const reply = await runConversationTurn({
@@ -148,7 +148,7 @@ async function executeTask(taskId: string, options: { force?: boolean } = {}) {
     });
   } catch (error) {
     const finishedAt = new Date().toISOString();
-    const message = error instanceof Error ? error.message : "任务执行失败。";
+    const message = error instanceof Error ? error.message : "定时任务执行失败。";
 
     replaceLatestRunningRun(taskId, {
       status: "error",
@@ -180,7 +180,7 @@ function summarizeText(text: string) {
   const normalized = text.replace(/\s+/g, " ").trim();
 
   if (!normalized) {
-    return "本次任务没有返回可展示的结果。";
+    return "本次定时任务没有返回可展示的结果。";
   }
 
   if (normalized.length <= 120) {

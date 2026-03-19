@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import type { TaskDetail, TaskSchedule } from "@/lib/resources/opencrab-api-types";
 
 type TaskFormValue = {
@@ -74,9 +75,9 @@ export function TaskForm({
     });
   }
 
-  const resolvedTitle = title ?? (initialTask ? "任务设置" : "新建任务");
+  const resolvedTitle = title ?? (initialTask ? "定时任务设置" : "新建定时任务");
   const resolvedDescription =
-    description ?? "只需要告诉 OpenCrab：做什么、什么时候做。";
+    description ?? "只需要告诉 OpenCrab：这个定时任务做什么、什么时候做。";
 
   return (
     <section className="rounded-[24px] border border-line bg-surface p-6 shadow-soft">
@@ -89,19 +90,19 @@ export function TaskForm({
             {resolvedDescription}
           </p>
         </div>
-        <button
-          type="button"
+        <Button
           onClick={() => void handleSubmit()}
           disabled={isSubmitting}
-          className="shrink-0 rounded-full bg-text px-5 py-2.5 text-[13px] font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-60"
+          variant="primary"
+          className="shrink-0"
         >
           {isSubmitting ? "保存中..." : submitLabel}
-        </button>
+        </Button>
       </div>
 
       <div className="mt-6 grid gap-4">
         <label className="block">
-          <span className="text-[12px] font-medium text-muted-strong">任务名称</span>
+          <span className="text-[12px] font-medium text-muted-strong">定时任务名称</span>
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}

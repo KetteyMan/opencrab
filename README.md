@@ -23,17 +23,13 @@ OpenCrab 是一个面向普通用户的、本地优先的小螃蟹工作台。
 
 ## 产品截图
 
-| 首页 | 对话 |
+| 首页 | 渠道 |
 | --- | --- |
-| ![OpenCrab home](./docs/screenshots/homepage.png) | ![Conversation thread](./docs/screenshots/conversation-thread.png) |
+| <img src="./docs/screenshots/homepage.png" alt="OpenCrab 首页" width="480"> | <img src="./docs/screenshots/channels.png" alt="OpenCrab 渠道" width="480"> |
 
-| Channels | Telegram |
+| 定时任务 | 技能 |
 | --- | --- |
-| ![Channels overview](./docs/screenshots/channels-overview.png) | ![Telegram channel page](./docs/screenshots/telegram-channel.png) |
-
-| 设置 |
-| --- |
-| ![Settings page](./docs/screenshots/settings.png) |
+| <img src="./docs/screenshots/tasks.png" alt="OpenCrab 定时任务" width="480"> | <img src="./docs/screenshots/skills.png" alt="OpenCrab 技能" width="480"> |
 
 ## 主要能力
 

@@ -61,6 +61,28 @@ export type CodexStatusResponse =
       loginMethod: "chatgpt";
     };
 
+export type ChatGptConnectionStage =
+  | "not_connected"
+  | "connecting"
+  | "waiting_browser_auth"
+  | "connected"
+  | "expired"
+  | "error";
+
+export type ChatGptConnectionStatusResponse = {
+  provider: "chatgpt";
+  authMode: "browser" | "device_code" | null;
+  stage: ChatGptConnectionStage;
+  isConnected: boolean;
+  authUrl: string | null;
+  deviceCode: string | null;
+  codeExpiresAt: string | null;
+  startedAt: string | null;
+  connectedAt: string | null;
+  error: string | null;
+  message: string;
+};
+
 export type CodexBrowserSessionStatus = {
   ok: boolean;
   status: "ready" | "launching" | "missing_browser" | "unreachable";
@@ -118,6 +140,15 @@ export type ReplyStreamEvent =
 export type SkillStatus = "available" | "installed" | "disabled";
 export type SkillOrigin = "codex" | "recommended" | "custom";
 export type SkillAction = "install" | "disable" | "enable" | "uninstall";
+export type SkillCategory =
+  | "marketing-social"
+  | "sales-growth"
+  | "finance-analysis"
+  | "writing-knowledge"
+  | "creative-media"
+  | "business-ops"
+  | "product-tech"
+  | "general";
 
 export type SkillIconName =
   | "image"
@@ -140,11 +171,14 @@ export type SkillRecord = {
   id: string;
   name: string;
   summary: string;
+  category: SkillCategory;
+  categoryLabel: string;
   status: SkillStatus;
   statusLabel: string;
   origin: SkillOrigin;
   originLabel: string;
   icon: SkillIconName;
+  sourceUrl: string | null;
   sourcePath: string | null;
   detailsMarkdown: string | null;
   note: string;

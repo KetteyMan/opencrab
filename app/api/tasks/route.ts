@@ -20,7 +20,7 @@ export async function POST(request: Request) {
       task,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "创建任务失败。";
+    const message = error instanceof Error ? error.message : "创建定时任务失败。";
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }

@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { createCustomSkill, listSkills } from "@/lib/skills/skill-store";
+import { createCustomSkill, listSkillsCatalog } from "@/lib/skills/skill-store";
 
 export function GET() {
   return NextResponse.json({
-    skills: listSkills(),
+    skills: listSkillsCatalog(),
   });
 }
 

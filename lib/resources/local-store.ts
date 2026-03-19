@@ -230,13 +230,72 @@ export function updateSettings(settings: Partial<AppSettings>) {
   return cloneSnapshot(state);
 }
 
+export function syncConversationChannelMetadata(
+  updates: Array<{
+    conversationId: string;
+    source: ConversationSource;
+    channelLabel: string;
+    remoteChatLabel: string;
+    remoteUserLabel: string | null;
+  }>,
+) {
+  if (updates.length === 0) {
+    return false;
+  }
+
+  const state = readState();
+  const updatesByConversationId = new Map(
+    updates.map((item) => [item.conversationId, item] as const),
+  );
+  let changed = false;
+
+  state.conversations = state.conversations.map((conversation) => {
+    const update = updatesByConversationId.get(conversation.id);
+
+    if (!update) {
+      return conversation;
+    }
+
+    if (
+      conversation.source === update.source &&
+      conversation.channelLabel === update.channelLabel &&
+      conversation.remoteChatLabel === update.remoteChatLabel &&
+      conversation.remoteUserLabel === update.remoteUserLabel
+    ) {
+      return conversation;
+    }
+
+    changed = true;
+
+    return {
+      ...conversation,
+      source: update.source,
+      channelLabel: update.channelLabel,
+      remoteChatLabel: update.remoteChatLabel,
+      remoteUserLabel: update.remoteUserLabel,
+    };
+  });
+
+  if (changed) {
+    writeState(state);
+  }
+
+  return changed;
+}
+
 function readState(): AppSnapshot {
   ensureStoreFile();
 
   try {
-    const parsed = JSON.parse(readFileSync(STORE_PATH, "utf8")) as Partial<AppSnapshot>;
+    const raw = readFileSync(STORE_PATH, "utf8");
+    const parsed = JSON.parse(raw) as Partial<AppSnapshot>;
     const normalized = normalizeSnapshot(parsed);
-    writeFileSync(STORE_PATH, JSON.stringify(normalized, null, 2), "utf8");
+    const nextSerialized = JSON.stringify(normalized, null, 2);
+
+    if (nextSerialized !== raw) {
+      writeFileSync(STORE_PATH, nextSerialized, "utf8");
+    }
+
     return normalized;
   } catch {
     const seedState = createSeedState();

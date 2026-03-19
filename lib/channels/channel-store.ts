@@ -273,9 +273,15 @@ function readState(): ChannelStoreState {
   ensureStoreFile();
 
   try {
-    const parsed = JSON.parse(readFileSync(STORE_PATH, "utf8")) as Partial<ChannelStoreState>;
+    const raw = readFileSync(STORE_PATH, "utf8");
+    const parsed = JSON.parse(raw) as Partial<ChannelStoreState>;
     const normalized = normalizeState(parsed);
-    writeFileSync(STORE_PATH, JSON.stringify(normalized, null, 2), "utf8");
+    const nextSerialized = JSON.stringify(normalized, null, 2);
+
+    if (nextSerialized !== raw) {
+      writeFileSync(STORE_PATH, nextSerialized, "utf8");
+    }
+
     return normalized;
   } catch {
     const seed = createSeedState();

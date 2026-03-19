@@ -524,7 +524,7 @@ function getConversationSourceBadge(source: ConversationItem["source"]) {
   }
 
   if (source === "task") {
-    return "任务";
+    return "定时";
   }
 
   return "";

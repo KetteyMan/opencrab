@@ -13,14 +13,18 @@ import { flushSync } from "react-dom";
 import type { ConversationItem, ConversationMessage, FolderItem } from "@/lib/seed-data";
 import { buildConversationTitle } from "@/lib/conversations/utils";
 import {
+  cancelChatGptConnection as cancelChatGptConnectionResource,
   createConversation as createConversationResource,
   createFolder as createFolderResource,
   deleteConversation as deleteConversationResource,
   deleteFolder as deleteFolderResource,
   getAppSnapshot,
+  getChatGptConnectionStatus as getChatGptConnectionStatusResource,
   getCodexBrowserSessionStatus as getCodexBrowserSessionStatusResource,
   getCodexOptions as getCodexOptionsResource,
   getCodexStatus as getCodexStatusResource,
+  disconnectChatGptConnection as disconnectChatGptConnectionResource,
+  startChatGptConnection as startChatGptConnectionResource,
   streamReplyToConversation,
   updateConversation,
   updateFolder as updateFolderResource,
@@ -36,6 +40,7 @@ import {
 import type {
   AppSnapshot,
   BrowserConnectionMode,
+  ChatGptConnectionStatusResponse,
   CodexBrowserSessionStatus,
   CodexModelOption,
   CodexReasoningEffort,
@@ -56,6 +61,7 @@ type OpenCrabContextValue = {
   conversationMessages: Record<string, ConversationMessage[]>;
   codexModels: CodexModelOption[];
   codexStatus: CodexStatusResponse | null;
+  chatGptConnectionStatus: ChatGptConnectionStatusResponse | null;
   browserSessionStatus: CodexBrowserSessionStatus | null;
   selectedBrowserConnectionMode: BrowserConnectionMode;
   selectedModel: string;
@@ -67,6 +73,7 @@ type OpenCrabContextValue = {
   isMutating: boolean;
   isSendingMessage: boolean;
   isUploadingAttachments: boolean;
+  isChatGptConnectionPending: boolean;
   activeStreamingConversationId: string | null;
   activeStreamingConversationIds: string[];
   errorMessage: string | null;
@@ -77,6 +84,10 @@ type OpenCrabContextValue = {
   setSelectedSandboxMode: (mode: CodexSandboxMode) => Promise<void>;
   setSelectedBrowserConnectionMode: (mode: BrowserConnectionMode) => Promise<void>;
   setAllowOpenAiApiKeyForCommands: (enabled: boolean) => Promise<void>;
+  refreshChatGptConnectionStatus: () => Promise<ChatGptConnectionStatusResponse | null>;
+  startChatGptConnection: () => Promise<ChatGptConnectionStatusResponse | null>;
+  cancelChatGptConnection: () => Promise<ChatGptConnectionStatusResponse | null>;
+  disconnectChatGptConnection: () => Promise<ChatGptConnectionStatusResponse | null>;
   toggleFolder: (folderId: string) => void;
   createFolder: (name: string) => Promise<void>;
   renameFolder: (folderId: string, name: string) => Promise<void>;
@@ -112,6 +123,8 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
   >({});
   const [codexModels, setCodexModels] = useState<CodexModelOption[]>([]);
   const [codexStatus, setCodexStatus] = useState<CodexStatusResponse | null>(null);
+  const [chatGptConnectionStatus, setChatGptConnectionStatus] =
+    useState<ChatGptConnectionStatusResponse | null>(null);
   const [browserSessionStatus, setBrowserSessionStatus] =
     useState<CodexBrowserSessionStatus | null>(null);
   const [selectedBrowserConnectionMode, setSelectedBrowserConnectionModeState] =
@@ -127,6 +140,7 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
   const [isMutating, setIsMutating] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
+  const [isChatGptConnectionPending, setIsChatGptConnectionPending] = useState(false);
   const [activeStreamingConversationId, setActiveStreamingConversationId] = useState<string | null>(
     null,
   );
@@ -143,7 +157,7 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
 
       snapshot.folders.forEach((folder) => {
         if (typeof next[folder.id] !== "boolean") {
-          next[folder.id] = true;
+          next[folder.id] = false;
         }
       });
 
@@ -239,10 +253,11 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
 
     async function hydrateCodexMeta() {
       try {
-        const [codexOptions, status, browserStatus] = await Promise.all([
+        const [codexOptions, status, browserStatus, chatGptConnection] = await Promise.all([
           getCodexOptionsResource(),
           getCodexStatusResource(),
           getCodexBrowserSessionStatusResource(),
+          getChatGptConnectionStatusResource(),
         ]);
 
         if (!active) {
@@ -252,13 +267,14 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
         setCodexModels(codexOptions.models);
         setCodexStatus(status);
         setBrowserSessionStatus(browserStatus);
+        setChatGptConnectionStatus(chatGptConnection);
         setSelectedModelState((current) => {
-          const resolvedModelId = current || codexOptions.defaultModel;
+          const preferredModelId = current || codexOptions.defaultModel;
+          const resolvedModel =
+            codexOptions.models.find((item) => item.id === preferredModelId) || codexOptions.models[0] || null;
+          const resolvedModelId = resolvedModel?.id || "";
 
           setSelectedReasoningEffortState((effort) => {
-            const resolvedModel =
-              codexOptions.models.find((item) => item.id === resolvedModelId) || codexOptions.models[0];
-
             if (!resolvedModel) {
               return effort;
             }
@@ -288,6 +304,19 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
             loginStatus: "missing",
             loginMethod: "chatgpt",
           });
+          setChatGptConnectionStatus({
+            provider: "chatgpt",
+            authMode: null,
+            stage: "error",
+            isConnected: false,
+            authUrl: null,
+            deviceCode: null,
+            codeExpiresAt: null,
+            startedAt: null,
+            connectedAt: null,
+            error: getUserFacingError(error, "当前无法读取 ChatGPT 连接状态。"),
+            message: "当前无法读取 ChatGPT 连接状态。",
+          });
         }
       }
     }
@@ -299,6 +328,40 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
       active = false;
     };
   }, [applySnapshot]);
+
+  useEffect(() => {
+    const stage = chatGptConnectionStatus?.stage;
+
+    if (stage !== "connecting" && stage !== "waiting_browser_auth") {
+      return;
+    }
+
+    let active = true;
+
+    const intervalId = window.setInterval(() => {
+      if (!active) {
+        return;
+      }
+
+      void Promise.all([getChatGptConnectionStatusResource(), getCodexStatusResource()])
+        .then(([chatGptConnection, status]) => {
+          if (!active) {
+            return;
+          }
+
+          setChatGptConnectionStatus(chatGptConnection);
+          setCodexStatus(status);
+        })
+        .catch(() => {
+          // Keep polling quiet. The visible connection card already shows the last good state.
+        });
+    }, 1500);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, [chatGptConnectionStatus?.stage]);
 
   useEffect(() => {
     if (!isHydrated) {
@@ -477,6 +540,83 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
     },
     [applySnapshot, selectedBrowserConnectionMode, selectedModel, selectedReasoningEffort, selectedSandboxMode],
   );
+
+  const refreshChatGptConnectionStatus = useCallback(async () => {
+    setErrorMessage(null);
+
+    try {
+      const [chatGptConnection, status] = await Promise.all([
+        getChatGptConnectionStatusResource(),
+        getCodexStatusResource(),
+      ]);
+      setChatGptConnectionStatus(chatGptConnection);
+      setCodexStatus(status);
+      return chatGptConnection;
+    } catch (error) {
+      setErrorMessage(getUserFacingError(error, "刷新 ChatGPT 连接状态失败，请稍后再试。"));
+      return null;
+    }
+  }, []);
+
+  const startChatGptConnection = useCallback(async () => {
+    setIsChatGptConnectionPending(true);
+    setErrorMessage(null);
+
+    try {
+      const [chatGptConnection, status] = await Promise.all([
+        startChatGptConnectionResource(),
+        getCodexStatusResource(),
+      ]);
+      setChatGptConnectionStatus(chatGptConnection);
+      setCodexStatus(status);
+      return chatGptConnection;
+    } catch (error) {
+      setErrorMessage(getUserFacingError(error, "发起 ChatGPT 连接失败，请稍后再试。"));
+      return null;
+    } finally {
+      setIsChatGptConnectionPending(false);
+    }
+  }, []);
+
+  const cancelChatGptConnection = useCallback(async () => {
+    setIsChatGptConnectionPending(true);
+    setErrorMessage(null);
+
+    try {
+      const [chatGptConnection, status] = await Promise.all([
+        cancelChatGptConnectionResource(),
+        getCodexStatusResource(),
+      ]);
+      setChatGptConnectionStatus(chatGptConnection);
+      setCodexStatus(status);
+      return chatGptConnection;
+    } catch (error) {
+      setErrorMessage(getUserFacingError(error, "取消 ChatGPT 连接失败，请稍后再试。"));
+      return null;
+    } finally {
+      setIsChatGptConnectionPending(false);
+    }
+  }, []);
+
+  const disconnectChatGptConnection = useCallback(async () => {
+    setIsChatGptConnectionPending(true);
+    setErrorMessage(null);
+
+    try {
+      const [chatGptConnection, status] = await Promise.all([
+        disconnectChatGptConnectionResource(),
+        getCodexStatusResource(),
+      ]);
+      setChatGptConnectionStatus(chatGptConnection);
+      setCodexStatus(status);
+      return chatGptConnection;
+    } catch (error) {
+      setErrorMessage(getUserFacingError(error, "断开 ChatGPT 连接失败，请稍后再试。"));
+      return null;
+    } finally {
+      setIsChatGptConnectionPending(false);
+    }
+  }, []);
 
   const runMutation = useCallback(async <T,>(action: () => Promise<T>) => {
     setIsMutating(true);
@@ -812,6 +952,7 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
       conversationMessages,
       codexModels,
       codexStatus,
+      chatGptConnectionStatus,
       browserSessionStatus,
       selectedBrowserConnectionMode,
       selectedModel,
@@ -823,6 +964,7 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
       isMutating,
       isSendingMessage,
       isUploadingAttachments,
+      isChatGptConnectionPending,
       activeStreamingConversationId,
       activeStreamingConversationIds,
       errorMessage,
@@ -833,6 +975,10 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
       setSelectedSandboxMode,
       setSelectedBrowserConnectionMode,
       setAllowOpenAiApiKeyForCommands,
+      refreshChatGptConnectionStatus,
+      startChatGptConnection,
+      cancelChatGptConnection,
+      disconnectChatGptConnection,
       toggleFolder,
       createFolder,
       renameFolder,
@@ -851,6 +997,7 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
       conversationMessages,
       codexModels,
       codexStatus,
+      chatGptConnectionStatus,
       browserSessionStatus,
       selectedBrowserConnectionMode,
       selectedModel,
@@ -862,6 +1009,7 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
       isMutating,
       isSendingMessage,
       isUploadingAttachments,
+      isChatGptConnectionPending,
       activeStreamingConversationId,
       activeStreamingConversationIds,
       errorMessage,
@@ -872,6 +1020,10 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
       setSelectedSandboxMode,
       setSelectedBrowserConnectionMode,
       setAllowOpenAiApiKeyForCommands,
+      refreshChatGptConnectionStatus,
+      startChatGptConnection,
+      cancelChatGptConnection,
+      disconnectChatGptConnection,
       toggleFolder,
       createFolder,
       renameFolder,
