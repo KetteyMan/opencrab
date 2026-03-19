@@ -1,4 +1,10 @@
-export type NavKey = "conversations" | "channels" | "tasks" | "skills" | "settings";
+export type NavKey =
+  | "conversations"
+  | "channels"
+  | "tasks"
+  | "skills"
+  | "about"
+  | "settings";
 export type AppLanguage = "zh-Hans" | "en";
 
 export type FolderItem = {

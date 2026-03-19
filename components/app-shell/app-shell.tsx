@@ -32,6 +32,13 @@ const navItems: Array<{
   { key: "skills", label: "技能", href: "/skills", icon: <StarIcon /> },
 ];
 
+const secondaryNavItems: Array<{
+  key: Extract<NavKey, "about">;
+  label: string;
+  href: string;
+  icon: React.ReactNode;
+}> = [{ key: "about", label: "About Us", href: "/about", icon: <CompassIcon /> }];
+
 const LAST_CONVERSATION_PATH_KEY = "opencrab:last-conversation-path";
 const LAST_CONVERSATION_PATH_EVENT = "opencrab:last-conversation-path-change";
 const DEFAULT_CONVERSATION_HREF = "/conversations";
@@ -71,6 +78,10 @@ export function AppShell({ sidebar, children }: AppShellProps) {
     const hrefs = new Set<string>(["/", "/settings"]);
 
     resolvedNavItems.forEach((item) => {
+      hrefs.add(item.href);
+    });
+
+    secondaryNavItems.forEach((item) => {
       hrefs.add(item.href);
     });
 
@@ -130,6 +141,27 @@ export function AppShell({ sidebar, children }: AppShellProps) {
         <div className="mt-2 min-h-0 flex-1 overflow-y-auto pr-1">
           {sidebar}
         </div>
+
+        <nav className="mt-2 flex shrink-0 flex-col gap-0.5 border-t border-line pt-2" aria-label="品牌信息">
+          {secondaryNavItems.map((item) => {
+            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+
+            return (
+              <Link
+                key={item.key}
+                href={item.href}
+                className={`flex min-h-9 items-center gap-3 rounded-xl px-3 text-[14px] transition ${
+                  isActive
+                    ? "bg-surface font-medium text-text"
+                    : "text-text hover:bg-surface-muted"
+                }`}
+              >
+                <span className="text-muted-strong">{item.icon}</span>
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
 
         <Link
           href="/settings"
@@ -285,6 +317,19 @@ function StarIcon() {
       strokeWidth="1.8"
     >
       <path d="M12 4.5 9.6 9.4 4.2 10.2l3.9 3.8-.9 5.4 4.8-2.5 4.8 2.5-.9-5.4 3.9-3.8-5.4-.8z" />
+    </svg>
+  );
+}
+
+function CompassIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[18px] w-[18px] stroke-current"
+      strokeWidth="1.8"
+    >
+      <circle cx="12" cy="12" r="7.5" />
+      <path d="m14.8 9.2-1.8 4.2-4.2 1.8 1.8-4.2 4.2-1.8Z" strokeLinejoin="round" />
     </svg>
   );
 }
