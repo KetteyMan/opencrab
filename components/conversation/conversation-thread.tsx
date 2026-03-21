@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -12,27 +12,51 @@ type ConversationThreadProps = {
   conversationId: string;
 };
 
-export function ConversationThread({ conversationId }: ConversationThreadProps) {
+const INITIAL_VISIBLE_MESSAGE_COUNT = 18;
+const MESSAGE_PAGE_SIZE = 12;
+const LOAD_MORE_THRESHOLD_PX = 80;
+
+export const ConversationThread = memo(function ConversationThread({
+  conversationId,
+}: ConversationThreadProps) {
+  return <ConversationThreadBody key={conversationId} conversationId={conversationId} />;
+});
+
+function ConversationThreadBody({ conversationId }: ConversationThreadProps) {
   const { conversations, conversationMessages } = useOpenCrabApp();
   const threadRef = useRef<HTMLDivElement | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const shouldStickToBottomRef = useRef(true);
-  const previousConversationIdRef = useRef<string | null>(null);
+  const prependScrollAnchorRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
   const [thinkingOverrides, setThinkingOverrides] = useState<Record<string, boolean>>({});
+  const [visibleStartIndex, setVisibleStartIndex] = useState(() =>
+    Math.max((conversationMessages[conversationId] ?? []).length - INITIAL_VISIBLE_MESSAGE_COUNT, 0),
+  );
   const activeConversation = useMemo(
     () => conversations.find((item) => item.id === conversationId),
     [conversationId, conversations],
   );
+  const rawMessages = conversationMessages[conversationId] ?? [];
+  const deferredMessages = useDeferredValue(rawMessages);
   const detailViewModel = useMemo(
     () =>
       buildConversationDetailViewModel({
         title: activeConversation?.title,
-        messages: conversationMessages[conversationId] ?? [],
+        messages: deferredMessages,
       }),
-    [activeConversation?.title, conversationId, conversationMessages],
+    [activeConversation?.title, deferredMessages],
   );
+  const effectiveVisibleStartIndex =
+    visibleStartIndex > detailViewModel.messages.length - 1
+      ? Math.max(detailViewModel.messages.length - INITIAL_VISIBLE_MESSAGE_COUNT, 0)
+      : visibleStartIndex;
+  const visibleMessages = useMemo(
+    () => detailViewModel.messages.slice(effectiveVisibleStartIndex),
+    [detailViewModel.messages, effectiveVisibleStartIndex],
+  );
+  const hiddenMessageCount = effectiveVisibleStartIndex;
   const tailKey = useMemo(() => {
-    const lastMessage = detailViewModel.messages.at(-1);
+    const lastMessage = visibleMessages.at(-1);
 
     if (!lastMessage) {
       return `${conversationId}:0`;
@@ -40,13 +64,34 @@ export function ConversationThread({ conversationId }: ConversationThreadProps) 
 
     return [
       conversationId,
-      detailViewModel.messages.length,
+      visibleMessages.length,
       lastMessage.id,
       lastMessage.status,
       lastMessage.content.length,
       lastMessage.thinking?.length || 0,
     ].join(":");
-  }, [conversationId, detailViewModel.messages]);
+  }, [conversationId, visibleMessages]);
+
+  const revealEarlierMessages = useCallback(() => {
+    const container = threadRef.current?.parentElement;
+
+    if (!container) {
+      return;
+    }
+
+    setVisibleStartIndex((current) => {
+      if (current <= 0) {
+        return 0;
+      }
+
+      prependScrollAnchorRef.current = {
+        scrollHeight: container.scrollHeight,
+        scrollTop: container.scrollTop,
+      };
+
+      return Math.max(0, current - MESSAGE_PAGE_SIZE);
+    });
+  }, []);
 
   useEffect(() => {
     const container = threadRef.current?.parentElement;
@@ -59,6 +104,14 @@ export function ConversationThread({ conversationId }: ConversationThreadProps) 
       const distanceToBottom =
         container.scrollHeight - container.scrollTop - container.clientHeight;
       shouldStickToBottomRef.current = distanceToBottom <= 80;
+
+      if (
+        container.scrollTop <= LOAD_MORE_THRESHOLD_PX &&
+        effectiveVisibleStartIndex > 0 &&
+        !prependScrollAnchorRef.current
+      ) {
+        revealEarlierMessages();
+      }
     };
 
     updateStickiness();
@@ -67,89 +120,56 @@ export function ConversationThread({ conversationId }: ConversationThreadProps) 
     return () => {
       container.removeEventListener("scroll", updateStickiness);
     };
-  }, [conversationId]);
+  }, [conversationId, effectiveVisibleStartIndex, revealEarlierMessages]);
+
+  useLayoutEffect(() => {
+    const container = threadRef.current?.parentElement;
+    const anchor = prependScrollAnchorRef.current;
+
+    if (!container || !anchor) {
+      return;
+    }
+
+    const addedHeight = container.scrollHeight - anchor.scrollHeight;
+    container.scrollTo({ top: anchor.scrollTop + addedHeight });
+    prependScrollAnchorRef.current = null;
+  }, [visibleStartIndex, visibleMessages.length]);
 
   useEffect(() => {
-    const switchedConversation = previousConversationIdRef.current !== conversationId;
-    const shouldScroll = switchedConversation || shouldStickToBottomRef.current;
-
-    previousConversationIdRef.current = conversationId;
-
-    if (!shouldScroll) {
+    if (!shouldStickToBottomRef.current) {
       return;
     }
 
     requestAnimationFrame(() => {
       bottomRef.current?.scrollIntoView({ block: "end" });
     });
-  }, [conversationId, tailKey]);
+  }, [tailKey]);
 
   return (
     <div ref={threadRef} className="flex flex-col px-6 pt-8 pb-10 lg:px-8">
       <div className="mx-auto w-full max-w-[1180px]">
         <div className="flex flex-col gap-6">
-          {detailViewModel.messages.map((message) => (
-            <article
-              key={message.id}
-              className={`max-w-[760px] rounded-[24px] px-5 py-4 ${
-                message.role === "user"
-                  ? "self-end bg-[#f4f4f0] text-text"
-                  : "self-start border border-line bg-surface text-text shadow-soft"
-              }`}
+          {hiddenMessageCount > 0 ? (
+            <button
+              type="button"
+              onClick={revealEarlierMessages}
+              className="mx-auto w-full max-w-[760px] rounded-[20px] border border-dashed border-line bg-surface-muted/70 px-4 py-3 text-left text-[13px] leading-6 text-muted-strong transition hover:bg-surface-muted"
             >
-              <div className="mb-2 text-[11px] text-muted">
-                {message.role === "assistant"
-                  ? "OpenCrab"
-                  : message.source === "telegram"
-                    ? "Telegram 用户"
-                  : message.source === "feishu"
-                      ? "飞书用户"
-                      : message.source === "task"
-                        ? "定时任务"
-                      : "我"}
-              </div>
-              {message.role === "assistant" && message.thinking?.length ? (
-                <ThinkingPanel
-                  entries={message.thinking}
-                  isPending={message.status === "pending"}
-                  isExpanded={thinkingOverrides[message.id] ?? message.status === "pending"}
-                  onToggle={() =>
-                    setThinkingOverrides((current) => ({
-                      ...current,
-                      [message.id]: !(current[message.id] ?? (message.status === "pending")),
-                    }))
-                  }
-                />
-              ) : null}
-
-              {message.content ? (
-                message.role === "assistant" ? (
-                  <MarkdownMessage content={message.content} />
-                ) : (
-                  <p className="whitespace-pre-wrap text-[14px] leading-[1.8]">{message.content}</p>
-                )
-              ) : message.role === "assistant" && message.status === "pending" ? (
-                <p className="text-[14px] leading-[1.8] text-muted-strong">OpenCrab 正在回复中...</p>
-              ) : null}
-              {message.attachments?.length ? (
-                <div className="mt-3 flex flex-wrap gap-3">
-                  {message.attachments.map((attachment) => (
-                    <AttachmentCard key={attachment.id} attachment={attachment} />
-                  ))}
-                </div>
-              ) : null}
-              {message.role === "assistant" && message.usedAttachmentNames?.length ? (
-                <div className="mt-3 rounded-[16px] border border-line bg-surface-muted px-3 py-2 text-[11px] text-muted-strong">
-                  本轮已结合附件：{message.usedAttachmentNames.join("、")}
-                </div>
-              ) : null}
-              {message.meta ? (
-                <div className="mt-3 flex items-center gap-2 text-[11px] text-muted">
-                  {message.role === "assistant" && message.status === "pending" ? <ThinkingSpinner isActive /> : null}
-                  <span>{message.meta}</span>
-                </div>
-              ) : null}
-            </article>
+              已折叠更早的 {hiddenMessageCount} 条消息，向上滚动或点这里继续加载，避免长历史把当前输入拖慢。
+            </button>
+          ) : null}
+          {visibleMessages.map((message) => (
+            <ConversationMessageCard
+              key={message.id}
+              message={message}
+              isThinkingExpanded={thinkingOverrides[message.id] ?? message.status === "pending"}
+              onToggleThinking={() =>
+                setThinkingOverrides((current) => ({
+                  ...current,
+                  [message.id]: !(current[message.id] ?? (message.status === "pending")),
+                }))
+              }
+            />
           ))}
           <div ref={bottomRef} />
         </div>
@@ -157,6 +177,74 @@ export function ConversationThread({ conversationId }: ConversationThreadProps) 
     </div>
   );
 }
+
+const ConversationMessageCard = memo(function ConversationMessageCard({
+  message,
+  isThinkingExpanded,
+  onToggleThinking,
+}: {
+  message: ReturnType<typeof buildConversationDetailViewModel>["messages"][number];
+  isThinkingExpanded: boolean;
+  onToggleThinking: () => void;
+}) {
+  return (
+    <article
+      className={`max-w-[760px] rounded-[24px] px-5 py-4 ${
+        message.role === "user"
+          ? "self-end bg-[#f4f4f0] text-text"
+          : "self-start border border-line bg-surface text-text shadow-soft"
+      }`}
+    >
+      <div className="mb-2 text-[11px] text-muted">
+        {message.role === "assistant"
+          ? message.actorLabel || "OpenCrab"
+          : message.source === "telegram"
+            ? "Telegram 用户"
+            : message.source === "feishu"
+              ? "飞书用户"
+              : message.source === "task"
+                ? "定时任务"
+                : "我"}
+      </div>
+      {message.role === "assistant" && message.thinking?.length ? (
+        <ThinkingPanel
+          entries={message.thinking}
+          isPending={message.status === "pending"}
+          isExpanded={isThinkingExpanded}
+          onToggle={onToggleThinking}
+        />
+      ) : null}
+
+      {message.content ? (
+        message.role === "assistant" ? (
+          <MarkdownMessage content={message.content} />
+        ) : (
+          <p className="whitespace-pre-wrap text-[14px] leading-[1.8]">{message.content}</p>
+        )
+      ) : message.role === "assistant" && message.status === "pending" ? (
+        <p className="text-[14px] leading-[1.8] text-muted-strong">OpenCrab 正在回复中...</p>
+      ) : null}
+      {message.attachments?.length ? (
+        <div className="mt-3 flex flex-wrap gap-3">
+          {message.attachments.map((attachment) => (
+            <AttachmentCard key={attachment.id} attachment={attachment} />
+          ))}
+        </div>
+      ) : null}
+      {message.role === "assistant" && message.usedAttachmentNames?.length ? (
+        <div className="mt-3 rounded-[16px] border border-line bg-surface-muted px-3 py-2 text-[11px] text-muted-strong">
+          本轮已结合附件：{message.usedAttachmentNames.join("、")}
+        </div>
+      ) : null}
+      {message.meta ? (
+        <div className="mt-3 flex items-center gap-2 text-[11px] text-muted">
+          {message.role === "assistant" && message.status === "pending" ? <ThinkingSpinner isActive /> : null}
+          <span>{message.meta}</span>
+        </div>
+      ) : null}
+    </article>
+  );
+});
 
 function AttachmentCard({ attachment }: { attachment: AttachmentItem }) {
   if (attachment.kind === "image") {
@@ -248,7 +336,7 @@ function ThinkingPanel({
   );
 }
 
-function MarkdownMessage({ content }: { content: string }) {
+const MarkdownMessage = memo(function MarkdownMessage({ content }: { content: string }) {
   return (
     <div className="markdown-body text-[14px] leading-[1.8] text-text">
       <ReactMarkdown
@@ -288,7 +376,7 @@ function MarkdownMessage({ content }: { content: string }) {
       </ReactMarkdown>
     </div>
   );
-}
+});
 
 function TextFileIcon() {
   return (

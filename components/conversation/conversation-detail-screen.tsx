@@ -1,31 +1,46 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Composer } from "@/components/composer/composer";
+import { Composer, type ComposerMentionOption } from "@/components/composer/composer";
 import { useOpenCrabApp } from "@/components/app-shell/opencrab-provider";
 import { ConversationThread } from "@/components/conversation/conversation-thread";
 import { TaskForm } from "@/components/tasks/task-form";
 import { Button } from "@/components/ui/button";
+import {
+  DialogActions,
+  DialogHeader,
+  DialogPrimaryButton,
+  DialogSecondaryButton,
+  DialogShell,
+} from "@/components/ui/dialog";
 import {
   formatBrowserSessionLabel,
   formatReasoningEffortLabel,
   formatSandboxModeLabel,
 } from "@/lib/opencrab/labels";
 import { usePersistedDraft } from "@/lib/opencrab/use-persisted-draft";
-import { createTask } from "@/lib/resources/opencrab-api";
+import {
+  createProjectFromConversation,
+  createTask,
+  getProjectDetail as getProjectDetailResource,
+} from "@/lib/resources/opencrab-api";
 import type { TaskSchedule, UploadedAttachment } from "@/lib/resources/opencrab-api-types";
+import type { ConversationItem } from "@/lib/seed-data";
 
 type ConversationDetailScreenProps = {
   conversationId: string;
 };
+
+const TEAM_CONVERSATION_SYNC_INTERVAL_MS = 8_000;
 
 export function ConversationDetailScreen({ conversationId }: ConversationDetailScreenProps) {
   const router = useRouter();
   const {
     conversations,
     conversationMessages,
+    agents,
     codexModels,
     codexStatus,
     browserSessionStatus,
@@ -39,7 +54,9 @@ export function ConversationDetailScreen({ conversationId }: ConversationDetailS
     isUploadingAttachments,
     stopMessage,
     errorMessage,
+    refreshSnapshot,
     sendMessage,
+    setConversationAgentProfile,
     uploadAttachments,
   } = useOpenCrabApp();
   const activeConversation = useMemo(
@@ -56,6 +73,12 @@ export function ConversationDetailScreen({ conversationId }: ConversationDetailS
     "default",
   );
   const [createdTaskId, setCreatedTaskId] = useState<string | null>(null);
+  const [isCreatingProject, setIsCreatingProject] = useState(false);
+  const [projectMessage, setProjectMessage] = useState<string | null>(null);
+  const [isAgentDialogVisible, setIsAgentDialogVisible] = useState(false);
+  const [selectedAgentId, setSelectedAgentId] = useState("");
+  const [isBindingAgent, setIsBindingAgent] = useState(false);
+  const [teamMentionOptions, setTeamMentionOptions] = useState<ComposerMentionOption[]>([]);
   const isCurrentConversationSending = isConversationStreaming(conversationId);
   const hasConversationMessages = Boolean(conversationMessages[conversationId]);
   const latestUserMessage = useMemo(
@@ -76,6 +99,76 @@ export function ConversationDetailScreen({ conversationId }: ConversationDetailS
     }),
     [activeConversation?.title, latestUserMessage?.content],
   );
+  const activeAgent = useMemo(
+    () => agents.find((item) => item.id === activeConversation?.agentProfileId) || null,
+    [activeConversation?.agentProfileId, agents],
+  );
+  const conversationMode = useMemo(
+    () => (activeConversation ? resolveConversationMode(activeConversation) : "default"),
+    [activeConversation],
+  );
+  const mentionOptions = conversationMode === "team" ? teamMentionOptions : [];
+
+  useEffect(() => {
+    if (!activeConversation?.projectId) {
+      setTeamMentionOptions([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    void getProjectDetailResource(activeConversation.projectId)
+      .then((detail) => {
+        if (cancelled) {
+          return;
+        }
+
+        setTeamMentionOptions(
+          detail.agents.map((agent) => ({
+            id: agent.id,
+            label: agent.name,
+            description: agent.role,
+          })),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setTeamMentionOptions([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeConversation?.projectId]);
+
+  useEffect(() => {
+    if (conversationMode !== "team") {
+      return;
+    }
+
+    let cancelled = false;
+
+    const intervalId = window.setInterval(() => {
+      if (
+        cancelled ||
+        document.visibilityState !== "visible" ||
+        isCurrentConversationSending ||
+        isInteractiveInputFocused()
+      ) {
+        return;
+      }
+
+      void refreshSnapshot().catch(() => {
+        // Keep team runtime polling quiet; the page already shows the last good state.
+      });
+    }, TEAM_CONVERSATION_SYNC_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [conversationMode, isCurrentConversationSending, refreshSnapshot]);
 
   if (!isHydrated) {
     return (
@@ -148,6 +241,39 @@ export function ConversationDetailScreen({ conversationId }: ConversationDetailS
     }
   }
 
+  async function handleCreateProjectMode() {
+    setIsCreatingProject(true);
+    setProjectMessage(null);
+
+    try {
+      const response = await createProjectFromConversation(conversationId);
+
+      if (!response.project) {
+        throw new Error("创建团队模式失败。");
+      }
+
+      router.push(`/projects/${response.project.id}`);
+      router.refresh();
+    } catch (error) {
+      setProjectMessage(error instanceof Error ? error.message : "创建团队模式失败。");
+    } finally {
+      setIsCreatingProject(false);
+    }
+  }
+
+  async function handleBindAgent() {
+    setIsBindingAgent(true);
+
+    try {
+      await setConversationAgentProfile(conversationId, selectedAgentId || null);
+      setIsAgentDialogVisible(false);
+    } catch {
+      // Shared provider error state already covers this.
+    } finally {
+      setIsBindingAgent(false);
+    }
+  }
+
   return (
     <div className="flex min-h-screen flex-col lg:h-full lg:min-h-0">
       <div className="shrink-0 border-b border-line bg-background px-6 py-5 lg:px-8">
@@ -155,10 +281,10 @@ export function ConversationDetailScreen({ conversationId }: ConversationDetailS
           <h1 className="text-[24px] font-semibold tracking-[-0.04em] text-text">
             {activeConversation.title}
           </h1>
-          {activeConversation.source && activeConversation.source !== "local" ? (
+          {conversationMode === "channel" || conversationMode === "task" ? (
             <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-muted-strong">
               <span className="rounded-full border border-line bg-surface px-3 py-1.5">
-                {getConversationSourceLabel(activeConversation.source)}
+                {getConversationModeLabel(conversationMode, activeConversation.source)}
               </span>
               <span className="rounded-full border border-line bg-surface px-3 py-1.5">
                 {activeConversation.source === "task"
@@ -169,6 +295,68 @@ export function ConversationDetailScreen({ conversationId }: ConversationDetailS
               </span>
             </div>
           ) : null}
+          {conversationMode === "team" ? (
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-muted-strong">
+              <span className="rounded-full border border-[#d7e4ff] bg-[#eef4ff] px-3 py-1.5 text-[#2d56a3]">
+                团队群聊
+              </span>
+              <span className="rounded-full border border-line bg-surface px-3 py-1.5">
+                这里会展示不同 Agent 的协作过程
+              </span>
+              <Link
+                href={`/projects/${activeConversation.projectId}`}
+                className="rounded-full border border-line bg-surface px-3 py-1.5 transition hover:bg-surface-muted"
+              >
+                返回 Team Room
+              </Link>
+            </div>
+          ) : null}
+          {conversationMode === "agent" && activeAgent ? (
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-muted-strong">
+              <span className="rounded-full border border-[#f2dcc0] bg-[#fff7ec] px-3 py-1.5 text-[#a05a12]">
+                智能体单聊
+              </span>
+              <span className="rounded-full border border-line bg-surface px-3 py-1.5">
+                {activeAgent.name}
+              </span>
+              <span className="rounded-full border border-line bg-surface px-3 py-1.5">
+                {activeAgent.roleLabel}
+              </span>
+              <Link
+                href={`/agents/${activeAgent.id}`}
+                className="rounded-full border border-line bg-surface px-3 py-1.5 transition hover:bg-surface-muted"
+              >
+                查看智能体配置
+              </Link>
+            </div>
+          ) : null}
+          <div className="mt-4 flex flex-wrap gap-2">
+            {conversationMode !== "team" ? (
+              <Button
+                onClick={() => {
+                  setSelectedAgentId(activeConversation.agentProfileId || "");
+                  setIsAgentDialogVisible(true);
+                }}
+                variant="secondary"
+                size="sm"
+              >
+                {activeAgent ? "更换智能体" : "绑定智能体"}
+              </Button>
+            ) : null}
+            {conversationMode === "default" || conversationMode === "agent" ? (
+              <Button
+                onClick={() => void handleCreateProjectMode()}
+                variant="secondary"
+                size="sm"
+                disabled={isCreatingProject}
+              >
+                {isCreatingProject ? "正在升级为团队模式..." : "升级为团队模式"}
+              </Button>
+            ) : null}
+            <span className="rounded-full border border-line bg-surface-muted px-3 py-1.5 text-[12px] text-muted-strong">
+              先把产品交互和团队房间做顺，再继续接入真实运行时
+            </span>
+          </div>
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
@@ -230,6 +418,11 @@ export function ConversationDetailScreen({ conversationId }: ConversationDetailS
               ) : null}
             </p>
           ) : null}
+          {projectMessage ? (
+            <p className="rounded-[16px] border border-[#f3d0cb] bg-[#fff3f1] px-4 py-3 text-[13px] text-[#b42318]">
+              {projectMessage}
+            </p>
+          ) : null}
           {errorMessage ? <p className="text-[13px] text-[#a34942]">{errorMessage}</p> : null}
           {isTaskFormVisible ? (
             <TaskForm
@@ -255,26 +448,115 @@ export function ConversationDetailScreen({ conversationId }: ConversationDetailS
             submitLabel={isCurrentConversationSending ? "停止回复" : "发送"}
             modelOptions={codexModels}
             selectedModel={selectedModel}
-            selectedReasoningEffort={selectedReasoningEffort}
-            onModelChange={setSelectedModel}
-            onReasoningEffortChange={setSelectedReasoningEffort}
-          />
+              selectedReasoningEffort={selectedReasoningEffort}
+              onModelChange={setSelectedModel}
+              onReasoningEffortChange={setSelectedReasoningEffort}
+              mentionOptions={mentionOptions}
+            />
+          </div>
         </div>
-      </div>
+
+      {isAgentDialogVisible ? (
+        <DialogShell onClose={() => (isBindingAgent ? null : setIsAgentDialogVisible(false))}>
+          <DialogHeader
+            title="绑定智能体"
+            description="绑定后，这条对话的每轮回复都会注入该智能体的 soul、职责、工具偏好和长期上下文。"
+          />
+
+          <div className="space-y-3">
+            <label className="block space-y-2">
+              <span className="text-[13px] font-medium text-text">选择智能体</span>
+              <select
+                value={selectedAgentId}
+                onChange={(event) => setSelectedAgentId(event.target.value)}
+                className="w-full rounded-[18px] border border-line bg-surface px-4 py-3 text-[14px] text-text outline-none transition focus:border-[#1f4fd1]"
+              >
+                <option value="">不绑定，保持普通对话</option>
+                {agents.map((agent) => (
+                  <option key={agent.id} value={agent.id}>
+                    {agent.name} · {agent.roleLabel}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="rounded-[18px] border border-line bg-surface-muted px-4 py-4 text-[13px] leading-6 text-muted-strong">
+              {selectedAgentId
+                ? agents.find((agent) => agent.id === selectedAgentId)?.summary ||
+                  "这个智能体会作为当前对话的预设角色运行。"
+                : "如果不绑定，对话会继续使用默认 OpenCrab 助手模式。"}
+            </div>
+          </div>
+
+          <DialogActions>
+            <DialogSecondaryButton onClick={() => setIsAgentDialogVisible(false)} disabled={isBindingAgent}>
+              取消
+            </DialogSecondaryButton>
+            <DialogPrimaryButton onClick={() => void handleBindAgent()} disabled={isBindingAgent}>
+              {isBindingAgent ? "保存中..." : "确认绑定"}
+            </DialogPrimaryButton>
+          </DialogActions>
+        </DialogShell>
+      ) : null}
     </div>
   );
 }
 
-function getConversationSourceLabel(source: "telegram" | "feishu" | "task") {
+function resolveConversationMode(conversation: ConversationItem) {
+  if (conversation.projectId) {
+    return "team" as const;
+  }
+
+  if (conversation.source === "telegram" || conversation.source === "feishu") {
+    return "channel" as const;
+  }
+
+  if (conversation.source === "task") {
+    return "task" as const;
+  }
+
+  if (conversation.agentProfileId) {
+    return "agent" as const;
+  }
+
+  return "default" as const;
+}
+
+function getConversationModeLabel(
+  mode: "channel" | "task",
+  source: "telegram" | "feishu" | "task" | "local" | null | undefined,
+) {
+  if (mode === "task") {
+    return "定时任务对话";
+  }
+
   if (source === "telegram") {
     return "Telegram 对话";
   }
 
-  if (source === "feishu") {
-    return "飞书对话";
+  return "飞书对话";
+}
+
+function isInteractiveInputFocused() {
+  if (typeof document === "undefined") {
+    return false;
   }
 
-  return "定时任务";
+  const activeElement = document.activeElement;
+
+  if (!activeElement) {
+    return false;
+  }
+
+  if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement) {
+    return true;
+  }
+
+  if (activeElement instanceof HTMLSelectElement) {
+    return true;
+  }
+
+  return activeElement instanceof HTMLElement && activeElement.isContentEditable;
 }
 
 function buildTaskName(title: string) {

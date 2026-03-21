@@ -27,6 +27,18 @@ const navItems: Array<{
     href: "/conversations",
     icon: <ConversationIcon />,
   },
+  {
+    key: "agents",
+    label: "智能体",
+    href: "/agents",
+    icon: <AgentIcon />,
+  },
+  {
+    key: "projects",
+    label: "团队模式",
+    href: "/projects",
+    icon: <TeamIcon />,
+  },
   { key: "channels", label: "渠道", href: "/channels", icon: <GridIcon /> },
   { key: "tasks", label: "定时任务", href: "/tasks", icon: <TaskIcon /> },
   { key: "skills", label: "技能", href: "/skills", icon: <StarIcon /> },
@@ -37,7 +49,7 @@ const secondaryNavItems: Array<{
   label: string;
   href: string;
   icon: React.ReactNode;
-}> = [{ key: "about", label: "About Us", href: "/about", icon: <CompassIcon /> }];
+}> = [{ key: "about", label: "关于我们", href: "/about", icon: <CompassIcon /> }];
 
 const LAST_CONVERSATION_PATH_KEY = "opencrab:last-conversation-path";
 const LAST_CONVERSATION_PATH_EVENT = "opencrab:last-conversation-path-change";
@@ -96,12 +108,14 @@ export function AppShell({ sidebar, children }: AppShellProps) {
         <div className="flex min-h-9 items-center gap-3">
           <Link
             href="/"
-            className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-strong transition hover:bg-surface"
+            className="group flex items-center gap-3 rounded-xl px-1 py-1 text-muted-strong transition hover:bg-surface"
             aria-label="OpenCrab 首页"
           >
-            <OpenCrabMark className="h-7 w-7" />
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl transition group-hover:bg-white/70">
+              <OpenCrabMark className="h-7 w-7" />
+            </span>
+            <OpenCrabWordmark className="text-[16px] font-semibold tracking-[-0.02em] text-text" />
           </Link>
-          <OpenCrabWordmark className="text-[16px] font-semibold tracking-[-0.02em]" />
         </div>
 
         <div className="mt-1.5 flex flex-col gap-0.5">
@@ -290,6 +304,50 @@ function GridIcon() {
     >
       <path
         d="M4.5 8.5h15M4.5 15.5h15M7 5.5v13M17 5.5v13"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function TeamIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[18px] w-[18px] stroke-current"
+      strokeWidth="1.8"
+      fill="none"
+    >
+      <path d="M8 10.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM16 11.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />
+      <path d="M4.5 18c.6-2 2-3 3.5-3h1c1.5 0 2.9 1 3.5 3M13.5 18c.4-1.5 1.5-2.4 3-2.4h.4c1.2 0 2.2.6 3 2.4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function AgentIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 18 18"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        d="M9 2.2a3.1 3.1 0 0 1 3.1 3.1v.6a3.1 3.1 0 1 1-6.2 0v-.6A3.1 3.1 0 0 1 9 2.2Z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+      />
+      <path
+        d="M4.3 14.8c.5-2.3 2.3-3.6 4.7-3.6s4.2 1.3 4.7 3.6"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
+      <path
+        d="M13.8 5.2h1.7M14.65 4.35v1.7"
+        stroke="currentColor"
+        strokeWidth="1.4"
         strokeLinecap="round"
       />
     </svg>

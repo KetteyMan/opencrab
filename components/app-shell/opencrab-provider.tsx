@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  startTransition,
   useCallback,
   useContext,
   useEffect,
@@ -9,6 +10,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { usePathname } from "next/navigation";
 import { flushSync } from "react-dom";
 import type {
   AppLanguage,
@@ -20,18 +22,23 @@ import type {
 import { buildConversationTitle } from "@/lib/conversations/utils";
 import {
   cancelChatGptConnection as cancelChatGptConnectionResource,
+  createAgent as createAgentResource,
   createConversation as createConversationResource,
   createFolder as createFolderResource,
   deleteConversation as deleteConversationResource,
   deleteFolder as deleteFolderResource,
+  getAgents as getAgentsResource,
   getAppSnapshot,
   getChatGptConnectionStatus as getChatGptConnectionStatusResource,
   getCodexBrowserSessionStatus as getCodexBrowserSessionStatusResource,
   getCodexOptions as getCodexOptionsResource,
   getCodexStatus as getCodexStatusResource,
+  deleteAgent as deleteAgentResource,
   disconnectChatGptConnection as disconnectChatGptConnectionResource,
   startChatGptConnection as startChatGptConnectionResource,
+  replyToProjectConversation as replyToProjectConversationResource,
   streamReplyToConversation,
+  updateAgent as updateAgentResource,
   updateConversation,
   updateFolder as updateFolderResource,
   updateSettings as updateSettingsResource,
@@ -43,6 +50,7 @@ import {
   formatClientMessageTime,
   getUserFacingError,
 } from "@/lib/opencrab/messages";
+import type { AgentProfileDetail, AgentProfileRecord } from "@/lib/agents/types";
 import type {
   AppSnapshot,
   BrowserConnectionMode,
@@ -65,6 +73,7 @@ type OpenCrabContextValue = {
   folders: FolderItem[];
   conversations: ConversationItem[];
   conversationMessages: Record<string, ConversationMessage[]>;
+  agents: AgentProfileRecord[];
   codexModels: CodexModelOption[];
   codexStatus: CodexStatusResponse | null;
   chatGptConnectionStatus: ChatGptConnectionStatusResponse | null;
@@ -85,6 +94,7 @@ type OpenCrabContextValue = {
   activeStreamingConversationIds: string[];
   errorMessage: string | null;
   clearError: () => void;
+  refreshSnapshot: () => Promise<void>;
   isConversationStreaming: (conversationId?: string | null) => boolean;
   setSelectedModel: (model: string) => Promise<void>;
   setSelectedReasoningEffort: (effort: CodexReasoningEffort) => Promise<void>;
@@ -103,6 +113,10 @@ type OpenCrabContextValue = {
   renameFolder: (folderId: string, name: string) => Promise<void>;
   deleteFolder: (folderId: string) => Promise<void>;
   renameConversation: (conversationId: string, title: string) => Promise<void>;
+  setConversationAgentProfile: (
+    conversationId: string,
+    agentProfileId: string | null,
+  ) => Promise<void>;
   deleteConversation: (conversationId: string) => Promise<void>;
   moveConversation: (
     conversationId: string,
@@ -111,7 +125,51 @@ type OpenCrabContextValue = {
   createConversation: (input?: {
     title?: string;
     folderId?: string | null;
+    agentProfileId?: string | null;
   }) => Promise<string>;
+  createAgent: (input: {
+    name: string;
+    summary: string;
+    roleLabel?: string;
+    description?: string;
+    availability?: "solo" | "team" | "both";
+    teamRole?: "lead" | "research" | "writer" | "specialist";
+    defaultModel?: string | null;
+    defaultReasoningEffort?: CodexReasoningEffort | null;
+    defaultSandboxMode?: CodexSandboxMode | null;
+    starterPrompts?: string[];
+    files?: Partial<{
+      soul: string;
+      responsibility: string;
+      tools: string;
+      user: string;
+      knowledge: string;
+    }>;
+  }) => Promise<AgentProfileDetail | null>;
+  updateAgent: (
+    agentId: string,
+    patch: Partial<{
+      name: string;
+      summary: string;
+      roleLabel: string;
+      description: string;
+      availability: "solo" | "team" | "both";
+      teamRole: "lead" | "research" | "writer" | "specialist";
+      defaultModel: string | null;
+      defaultReasoningEffort: CodexReasoningEffort | null;
+      defaultSandboxMode: CodexSandboxMode | null;
+      starterPrompts: string[];
+      files: Partial<{
+        soul: string;
+        responsibility: string;
+        tools: string;
+        user: string;
+        knowledge: string;
+      }>;
+    }>,
+  ) => Promise<AgentProfileDetail | null>;
+  deleteAgent: (agentId: string) => Promise<boolean>;
+  refreshAgents: () => Promise<AgentProfileRecord[]>;
   uploadAttachments: (files: File[]) => Promise<UploadedAttachment[]>;
   sendMessage: (input: SendMessageInput) => Promise<string | null>;
   stopMessage: (conversationId?: string | null) => void;
@@ -143,12 +201,16 @@ type PersistedSettingsPatch = Partial<
   >
 >;
 
+const GLOBAL_SNAPSHOT_SYNC_INTERVAL_MS = 12_000;
+
 export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
+  const pathname = usePathname();
   const [folders, setFolders] = useState<FolderItem[]>([]);
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [conversationMessages, setConversationMessages] = useState<
     Record<string, ConversationMessage[]>
   >({});
+  const [agents, setAgents] = useState<AgentProfileRecord[]>([]);
   const [codexModels, setCodexModels] = useState<CodexModelOption[]>([]);
   const [codexStatus, setCodexStatus] = useState<CodexStatusResponse | null>(
     null,
@@ -185,25 +247,40 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
   const activeStreamsRef = useRef<Map<string, ActiveStreamState>>(new Map());
 
   const applySnapshot = useCallback((snapshot: AppSnapshot) => {
-    setFolders(snapshot.folders);
-    setConversations(snapshot.conversations);
-    setConversationMessages(snapshot.conversationMessages);
-    setExpandedFolders((current) => {
-      const next = { ...current };
+    startTransition(() => {
+      setFolders((current) =>
+        areFoldersEqual(current, snapshot.folders) ? current : snapshot.folders,
+      );
+      setConversations((current) =>
+        areConversationsEqual(current, snapshot.conversations)
+          ? current
+          : snapshot.conversations,
+      );
+      setConversationMessages((current) =>
+        areConversationMessageMapsEqual(current, snapshot.conversationMessages)
+          ? current
+          : snapshot.conversationMessages,
+      );
+      setExpandedFolders((current) => {
+        let changed = false;
+        const next = { ...current };
 
-      snapshot.folders.forEach((folder) => {
-        if (typeof next[folder.id] !== "boolean") {
-          next[folder.id] = false;
-        }
+        snapshot.folders.forEach((folder) => {
+          if (typeof next[folder.id] !== "boolean") {
+            next[folder.id] = false;
+            changed = true;
+          }
+        });
+
+        Object.keys(next).forEach((folderId) => {
+          if (!snapshot.folders.some((folder) => folder.id === folderId)) {
+            delete next[folderId];
+            changed = true;
+          }
+        });
+
+        return changed ? next : current;
       });
-
-      Object.keys(next).forEach((folderId) => {
-        if (!snapshot.folders.some((folder) => folder.id === folderId)) {
-          delete next[folderId];
-        }
-      });
-
-      return next;
     });
   }, []);
 
@@ -384,8 +461,23 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
       }
     }
 
+    async function hydrateAgents() {
+      try {
+        const response = await getAgentsResource();
+
+        if (!active) {
+          return;
+        }
+
+        setAgents(response.agents);
+      } catch {
+        // Keep agent hydration failures quiet here. Agent pages will show their own loading states.
+      }
+    }
+
     void hydrateSnapshot();
     void hydrateCodexMeta();
+    void hydrateAgents();
 
     return () => {
       active = false;
@@ -434,6 +526,10 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
       return;
     }
 
+    if (pathname.startsWith("/projects/")) {
+      return;
+    }
+
     let active = true;
 
     async function syncExternalSnapshot() {
@@ -458,7 +554,7 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
 
     const intervalId = window.setInterval(() => {
       void syncExternalSnapshot();
-    }, 4000);
+    }, GLOBAL_SNAPSHOT_SYNC_INTERVAL_MS);
 
     function handleVisibilityChange() {
       if (document.visibilityState === "visible") {
@@ -475,7 +571,7 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
       window.removeEventListener("focus", handleVisibilityChange);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [applySnapshot, isHydrated]);
+  }, [applySnapshot, isHydrated, pathname]);
 
   const toggleFolder = useCallback((folderId: string) => {
     setExpandedFolders((current) => ({
@@ -487,6 +583,11 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
   const clearError = useCallback(() => {
     setErrorMessage(null);
   }, []);
+
+  const refreshSnapshot = useCallback(async () => {
+    const snapshot = await getAppSnapshot();
+    applySnapshot(snapshot);
+  }, [applySnapshot]);
 
   const syncStreamingState = useCallback(() => {
     const activeStreams = Array.from(activeStreamsRef.current.values());
@@ -814,6 +915,18 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
     [applySnapshot, runMutation],
   );
 
+  const setConversationAgentProfile = useCallback(
+    async (conversationId: string, agentProfileId: string | null) => {
+      await runMutation(async () => {
+        const result = await updateConversation(conversationId, {
+          agentProfileId,
+        });
+        applySnapshot(result.snapshot);
+      });
+    },
+    [applySnapshot, runMutation],
+  );
+
   const moveConversation = useCallback(
     async (conversationId: string, folderId: string | null) => {
       await runMutation(async () => {
@@ -829,7 +942,11 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
   );
 
   const createConversation = useCallback(
-    async (input?: { title?: string; folderId?: string | null }) => {
+    async (input?: {
+      title?: string;
+      folderId?: string | null;
+      agentProfileId?: string | null;
+    }) => {
       return runMutation(async () => {
         const result = await createConversationResource(input);
         flushSync(() => {
@@ -839,6 +956,94 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
       });
     },
     [applySnapshot, runMutation],
+  );
+
+  const refreshAgents = useCallback(async () => {
+    const response = await getAgentsResource();
+    setAgents(response.agents);
+    return response.agents;
+  }, []);
+
+  const createAgent = useCallback(
+    async (input: {
+      name: string;
+      summary: string;
+      roleLabel?: string;
+      description?: string;
+      availability?: "solo" | "team" | "both";
+      teamRole?: "lead" | "research" | "writer" | "specialist";
+      defaultModel?: string | null;
+      defaultReasoningEffort?: CodexReasoningEffort | null;
+      defaultSandboxMode?: CodexSandboxMode | null;
+      starterPrompts?: string[];
+      files?: Partial<{
+        soul: string;
+        responsibility: string;
+        tools: string;
+        user: string;
+        knowledge: string;
+      }>;
+    }) => {
+      return runMutation(async () => {
+        const response = await createAgentResource(input);
+
+        if (!response.agent) {
+          return null;
+        }
+
+        await refreshAgents();
+        return response.agent;
+      });
+    },
+    [refreshAgents, runMutation],
+  );
+
+  const updateAgent = useCallback(
+    async (
+      agentId: string,
+      patch: Partial<{
+        name: string;
+        summary: string;
+        roleLabel: string;
+        description: string;
+        availability: "solo" | "team" | "both";
+        teamRole: "lead" | "research" | "writer" | "specialist";
+        defaultModel: string | null;
+        defaultReasoningEffort: CodexReasoningEffort | null;
+        defaultSandboxMode: CodexSandboxMode | null;
+        starterPrompts: string[];
+        files: Partial<{
+          soul: string;
+          responsibility: string;
+          tools: string;
+          user: string;
+          knowledge: string;
+        }>;
+      }>,
+    ) => {
+      return runMutation(async () => {
+        const response = await updateAgentResource(agentId, patch);
+
+        if (!response.agent) {
+          return null;
+        }
+
+        await refreshAgents();
+        return response.agent;
+      });
+    },
+    [refreshAgents, runMutation],
+  );
+
+  const deleteAgent = useCallback(
+    async (agentId: string) => {
+      return runMutation(async () => {
+        const response = await deleteAgentResource(agentId);
+        await refreshAgents();
+        return response.ok;
+      });
+    },
+    [refreshAgents, runMutation],
   );
 
   const uploadAttachments = useCallback(async (files: File[]) => {
@@ -926,6 +1131,57 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
             title: buildConversationTitle(titleSource),
           });
           createdConversation = true;
+        }
+
+        const targetConversation = conversations.find((item) => item.id === conversationId) ?? null;
+
+        if (targetConversation?.projectId) {
+          const userMessageId = `message-${crypto.randomUUID()}`;
+          const assistantMessageId = `message-${crypto.randomUUID()}`;
+          const preview = buildUserMessagePreview(content, attachments.map((attachment) => attachment.name));
+
+          patchConversation(conversationId, {
+            preview,
+            timeLabel: "刚刚",
+          });
+          appendMessages(conversationId, [
+            {
+              id: userMessageId,
+              role: "user",
+              content: preview,
+              timestamp: new Date().toISOString(),
+              meta: "团队群聊",
+              status: "done",
+            },
+            {
+              id: assistantMessageId,
+              role: "assistant",
+              actorLabel: "项目经理",
+              content: "",
+              timestamp: new Date().toISOString(),
+              meta: "团队群聊 · 项目经理正在整理并安排",
+              status: "pending",
+            },
+          ]);
+          setIsSendingMessage(true);
+
+          try {
+            const result = await replyToProjectConversationResource(targetConversation.projectId, {
+              conversationId,
+              content,
+            });
+            applySnapshot(result.snapshot);
+            return conversationId;
+          } catch (error) {
+            patchMessage(conversationId, assistantMessageId, {
+              content: "项目经理这一轮回复失败了，请再试一次。",
+              meta: "团队群聊 · 回复失败",
+              status: "done",
+            });
+            throw error;
+          } finally {
+            setIsSendingMessage(false);
+          }
         }
 
         const userMessageId = `message-${crypto.randomUUID()}`;
@@ -1090,6 +1346,7 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
       folders,
       conversations,
       conversationMessages,
+      agents,
       codexModels,
       codexStatus,
       chatGptConnectionStatus,
@@ -1110,6 +1367,7 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
       activeStreamingConversationIds,
       errorMessage,
       clearError,
+      refreshSnapshot,
       isConversationStreaming,
       setSelectedModel,
       setSelectedReasoningEffort,
@@ -1126,9 +1384,14 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
       renameFolder,
       deleteFolder,
       renameConversation,
+      setConversationAgentProfile,
       deleteConversation,
       moveConversation,
       createConversation,
+      createAgent,
+      updateAgent,
+      deleteAgent,
+      refreshAgents,
       uploadAttachments,
       sendMessage,
       stopMessage,
@@ -1137,6 +1400,7 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
       folders,
       conversations,
       conversationMessages,
+      agents,
       codexModels,
       codexStatus,
       chatGptConnectionStatus,
@@ -1157,6 +1421,7 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
       activeStreamingConversationIds,
       errorMessage,
       clearError,
+      refreshSnapshot,
       isConversationStreaming,
       setSelectedModel,
       setSelectedReasoningEffort,
@@ -1173,9 +1438,14 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
       renameFolder,
       deleteFolder,
       renameConversation,
+      setConversationAgentProfile,
       deleteConversation,
       moveConversation,
       createConversation,
+      createAgent,
+      updateAgent,
+      deleteAgent,
+      refreshAgents,
       uploadAttachments,
       sendMessage,
       stopMessage,
@@ -1197,4 +1467,132 @@ export function useOpenCrabApp() {
   }
 
   return context;
+}
+
+function areFoldersEqual(current: FolderItem[], next: FolderItem[]) {
+  return (
+    current.length === next.length &&
+    current.every(
+      (folder, index) =>
+        folder.id === next[index]?.id && folder.name === next[index]?.name,
+    )
+  );
+}
+
+function areConversationsEqual(
+  current: ConversationItem[],
+  next: ConversationItem[],
+) {
+  return (
+    current.length === next.length &&
+    current.every((conversation, index) => {
+      const target = next[index];
+
+      if (!target) {
+        return false;
+      }
+
+      return (
+        conversation.id === target.id &&
+        conversation.title === target.title &&
+        conversation.timeLabel === target.timeLabel &&
+        conversation.preview === target.preview &&
+        conversation.folderId === target.folderId &&
+        conversation.hidden === target.hidden &&
+        conversation.projectId === target.projectId &&
+        conversation.source === target.source &&
+        conversation.channelLabel === target.channelLabel &&
+        conversation.remoteChatLabel === target.remoteChatLabel &&
+        conversation.remoteUserLabel === target.remoteUserLabel &&
+        conversation.codexThreadId === target.codexThreadId &&
+        conversation.lastAssistantModel === target.lastAssistantModel &&
+        conversation.agentProfileId === target.agentProfileId
+      );
+    })
+  );
+}
+
+function areConversationMessageMapsEqual(
+  current: Record<string, ConversationMessage[]>,
+  next: Record<string, ConversationMessage[]>,
+) {
+  const currentKeys = Object.keys(current);
+  const nextKeys = Object.keys(next);
+
+  if (currentKeys.length !== nextKeys.length) {
+    return false;
+  }
+
+  return nextKeys.every((conversationId) =>
+    areConversationMessagesEqual(current[conversationId] ?? [], next[conversationId] ?? []),
+  );
+}
+
+function areConversationMessagesEqual(
+  current: ConversationMessage[],
+  next: ConversationMessage[],
+) {
+  return (
+    current.length === next.length &&
+    current.every((message, index) => {
+      const target = next[index];
+
+      if (!target) {
+        return false;
+      }
+
+      return (
+        message.id === target.id &&
+        message.role === target.role &&
+        message.actorLabel === target.actorLabel &&
+        message.content === target.content &&
+        message.timestamp === target.timestamp &&
+        message.source === target.source &&
+        message.remoteMessageId === target.remoteMessageId &&
+        message.meta === target.meta &&
+        message.status === target.status &&
+        areStringListsEqual(message.usedAttachmentNames, target.usedAttachmentNames) &&
+        areStringListsEqual(message.thinking, target.thinking) &&
+        areAttachmentsEqual(message.attachments, target.attachments)
+      );
+    })
+  );
+}
+
+function areStringListsEqual(current?: string[], next?: string[]) {
+  if (!current && !next) {
+    return true;
+  }
+
+  if (!current || !next || current.length !== next.length) {
+    return false;
+  }
+
+  return current.every((value, index) => value === next[index]);
+}
+
+function areAttachmentsEqual(
+  current?: ConversationMessage["attachments"],
+  next?: ConversationMessage["attachments"],
+) {
+  if (!current && !next) {
+    return true;
+  }
+
+  if (!current || !next || current.length !== next.length) {
+    return false;
+  }
+
+  return current.every((attachment, index) => {
+    const target = next[index];
+
+    return (
+      attachment.id === target?.id &&
+      attachment.name === target.name &&
+      attachment.kind === target.kind &&
+      attachment.size === target.size &&
+      attachment.mimeType === target.mimeType &&
+      attachment.wasUsedInReply === target.wasUsedInReply
+    );
+  });
 }

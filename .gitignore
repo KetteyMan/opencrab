@@ -27,6 +27,7 @@
 .opencrab/
 output/
 tmp/
+/official-site/
 
 # debug
 npm-debug.log*

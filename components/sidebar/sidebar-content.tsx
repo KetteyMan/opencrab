@@ -475,6 +475,8 @@ function ConversationRow({
   onDragStart,
   onDragEnd,
 }: ConversationRowProps) {
+  const modeBadge = getConversationModeBadge(conversation);
+
   return (
     <div
       draggable
@@ -489,9 +491,11 @@ function ConversationRow({
         className="flex min-h-8 min-w-0 flex-1 items-center gap-3 overflow-hidden"
       >
         <span className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
-          {conversation.source && conversation.source !== "local" ? (
-            <span className="shrink-0 rounded-full border border-line bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-strong">
-              {getConversationSourceBadge(conversation.source)}
+          {modeBadge ? (
+            <span
+              className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${modeBadge.className}`}
+            >
+              {modeBadge.label}
             </span>
           ) : null}
           <span className="block min-w-0 truncate text-[13px]">{conversation.title}</span>
@@ -508,6 +512,38 @@ function ConversationRow({
       />
     </div>
   );
+}
+
+function getConversationModeBadge(conversation: ConversationItem) {
+  if (conversation.projectId) {
+    return {
+      label: "团队",
+      className: "border-[#d7e4ff] bg-[#eef4ff] text-[#2d56a3]",
+    };
+  }
+
+  if (conversation.source === "telegram" || conversation.source === "feishu") {
+    return {
+      label: getConversationSourceBadge(conversation.source),
+      className: "border-line bg-background text-muted-strong",
+    };
+  }
+
+  if (conversation.source === "task") {
+    return {
+      label: "定时",
+      className: "border-[#d8e8d6] bg-[#eef8f0] text-[#23633a]",
+    };
+  }
+
+  if (conversation.agentProfileId) {
+    return {
+      label: "智能体",
+      className: "border-[#f2dcc0] bg-[#fff7ec] text-[#a05a12]",
+    };
+  }
+
+  return null;
 }
 
 function getConversationSourceBadge(source: ConversationItem["source"]) {

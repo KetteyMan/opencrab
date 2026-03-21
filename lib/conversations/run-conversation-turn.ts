@@ -1,3 +1,4 @@
+import { getAgentProfile } from "@/lib/agents/agent-store";
 import { generateCodexReply } from "@/lib/codex/sdk";
 import { formatMessageTime } from "@/lib/conversations/utils";
 import { buildUserMessagePreview } from "@/lib/opencrab/messages";
@@ -155,11 +156,19 @@ export async function runConversationTurn(input: ConversationTurnInput) {
     conversationTitle: prepared.conversation.title,
     threadId: prepared.conversation.codexThreadId,
     content: prepared.content,
+    agentProfile: prepared.conversation.agentProfileId
+      ? getAgentProfile(prepared.conversation.agentProfileId)
+      : null,
     model: input.model,
     reasoningEffort: input.reasoningEffort,
     sandboxMode: input.sandboxMode,
     imagePaths: prepared.imagePaths,
     textAttachments: prepared.textAttachments,
+    onThreadReady: (threadId) => {
+      updateConversation(prepared.conversationId, {
+        codexThreadId: threadId,
+      });
+    },
   });
   const assistantMessageResult = finalizeConversationTurn(prepared, reply);
 

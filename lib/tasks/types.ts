@@ -1,3 +1,4 @@
+import type { ProjectRoomRecord } from "@/lib/projects/types";
 import type { ConversationItem } from "@/lib/seed-data";
 
 export type TaskSchedulePreset = "daily" | "weekdays" | "weekly" | "interval";
@@ -22,6 +23,7 @@ export type TaskRecord = {
   isRunning: boolean;
   timezone: string | null;
   conversationId: string | null;
+  projectId: string | null;
   nextRunAt: string | null;
   lastRunAt: string | null;
   lastRunStatus: TaskRunStatus | null;
@@ -40,6 +42,7 @@ export type TaskRunRecord = {
   summary: string | null;
   errorMessage: string | null;
   conversationId: string | null;
+  projectId: string | null;
 };
 
 export type TaskStoreState = {
@@ -56,6 +59,7 @@ export type TaskOverview = TaskRecord & {
 
 export type TaskDetail = TaskOverview & {
   conversation: ConversationItem | null;
+  project: ProjectRoomRecord | null;
   runs: TaskRunRecord[];
 };
 
@@ -65,6 +69,7 @@ export type TaskCreateInput = {
   timezone?: string | null;
   schedule: TaskSchedule;
   conversationId?: string | null;
+  projectId?: string | null;
 };
 
 export type TaskUpdateInput = Partial<TaskCreateInput> & {

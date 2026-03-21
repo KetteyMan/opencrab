@@ -1,3 +1,4 @@
+import { getAgentProfile } from "@/lib/agents/agent-store";
 import { streamCodexReply } from "@/lib/codex/sdk";
 import {
   finalizeConversationTurn,
@@ -60,6 +61,9 @@ export async function POST(
             conversationTitle: prepared.conversation.title,
             threadId: prepared.conversation.codexThreadId,
             content: prepared.content,
+            agentProfile: prepared.conversation.agentProfileId
+              ? getAgentProfile(prepared.conversation.agentProfileId)
+              : null,
             model: body.model,
             reasoningEffort: body.reasoningEffort,
             sandboxMode: body.sandboxMode,

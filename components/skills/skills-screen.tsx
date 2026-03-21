@@ -564,54 +564,82 @@ function SkillRow({
   const uninstallKey = `${skill.id}:uninstall`;
 
   return (
-    <div className="group flex items-center gap-4 rounded-[18px] px-3 py-3 transition hover:bg-surface-muted">
-      <Link href={`/skills/${skill.id}`} className="flex min-w-0 flex-1 items-center gap-4">
+    <div className="group flex items-start gap-4 rounded-[20px] border border-transparent px-3 py-3.5 transition hover:border-line hover:bg-surface-muted/70">
+      <Link href={`/skills/${skill.id}`} className="flex min-w-0 flex-1 items-start gap-4">
         <SkillIcon icon={skill.icon} />
 
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-3">
-            <span className="text-[17px] font-medium tracking-[-0.02em] text-text">{skill.name}</span>
-            <span
-              className={`rounded-full px-2.5 py-1 text-[11px] ${
-                skill.status === "installed"
-                  ? "bg-[#eef8f0] text-[#23633a]"
-                  : skill.status === "disabled"
-                    ? "bg-[#f3f4f6] text-[#5f6368]"
-                    : "bg-[#f7f4ef] text-[#8a6b3d]"
-              }`}
-            >
-              {skill.statusLabel}
-            </span>
+        <div className="min-w-0 flex-1 pt-0.5">
+          <div className="truncate text-[17px] font-medium tracking-[-0.02em] text-text">
+            {skill.name}
           </div>
           <p className="mt-1 truncate text-[14px] text-muted-strong">{skill.summary}</p>
         </div>
       </Link>
 
-      <div className="flex shrink-0 items-center gap-2">
-        {skill.status === "available" ? (
-          <IconActionButton
-            label={`安装 ${skill.name}`}
-            disabled={pendingActionKey === installKey}
-            onClick={() => onAction(skill.id, "install")}
-          >
-            <AddIcon />
-          </IconActionButton>
-        ) : (
-          <>
-            <TextActionButton
-              label={skill.status === "disabled" ? "启用" : "禁用"}
-              disabled={pendingActionKey === disableKey || pendingActionKey === enableKey}
-              onClick={() => onAction(skill.id, skill.status === "disabled" ? "enable" : "disable")}
-            />
-            <TextActionButton
-              label="卸载"
-              disabled={pendingActionKey === uninstallKey}
-              onClick={() => onAction(skill.id, "uninstall")}
-            />
-          </>
-        )}
+      <div className="flex shrink-0 flex-col items-end gap-2 pl-3">
+        <SkillStatusBadge status={skill.status} label={skill.statusLabel} />
+
+        <div className="flex items-center gap-2">
+          {skill.status === "available" ? (
+            <IconActionButton
+              label={`安装 ${skill.name}`}
+              disabled={pendingActionKey === installKey}
+              onClick={() => onAction(skill.id, "install")}
+            >
+              <AddIcon />
+            </IconActionButton>
+          ) : (
+            <>
+              <TextActionButton
+                label={skill.status === "disabled" ? "启用" : "禁用"}
+                disabled={pendingActionKey === disableKey || pendingActionKey === enableKey}
+                onClick={() =>
+                  onAction(skill.id, skill.status === "disabled" ? "enable" : "disable")
+                }
+              />
+              <TextActionButton
+                label="卸载"
+                disabled={pendingActionKey === uninstallKey}
+                onClick={() => onAction(skill.id, "uninstall")}
+              />
+            </>
+          )}
+        </div>
       </div>
     </div>
+  );
+}
+
+function SkillStatusBadge({
+  status,
+  label,
+}: {
+  status: SkillRecord["status"];
+  label: string;
+}) {
+  const tone =
+    status === "installed"
+      ? {
+          className: "border-[#d8eadc] bg-[#eef8f0] text-[#23633a]",
+          dotClassName: "bg-[#38a169]",
+        }
+      : status === "disabled"
+        ? {
+            className: "border-[#e5e7eb] bg-[#f7f8fa] text-[#6b7280]",
+            dotClassName: "bg-[#9ca3af]",
+          }
+        : {
+            className: "border-[#eadfca] bg-[#faf5ec] text-[#8a6b3d]",
+            dotClassName: "bg-[#c08a37]",
+          };
+
+  return (
+    <span
+      className={`inline-flex h-6 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 text-[11px] font-medium tracking-[0.01em] ${tone.className}`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${tone.dotClassName}`} />
+      <span>{label}</span>
+    </span>
   );
 }
 
@@ -659,7 +687,7 @@ function TextActionButton({
       className={buttonClassName({
         variant: "secondary",
         size: "sm",
-        className: "px-3",
+        className: "min-w-[72px] px-3",
       })}
     >
       {label}

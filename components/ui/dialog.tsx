@@ -6,6 +6,7 @@ import { buttonClassName } from "@/components/ui/button";
 type DialogShellProps = {
   children: React.ReactNode;
   onClose: () => void;
+  panelClassName?: string;
 };
 
 type DialogHeaderProps = {
@@ -23,7 +24,7 @@ type DialogButtonProps = {
   disabled?: boolean;
 };
 
-export function DialogShell({ children, onClose }: DialogShellProps) {
+export function DialogShell({ children, onClose, panelClassName }: DialogShellProps) {
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -49,7 +50,7 @@ export function DialogShell({ children, onClose }: DialogShellProps) {
       role="presentation"
     >
       <div
-        className="w-full max-w-[420px] rounded-[28px] border border-line bg-surface px-6 py-6 shadow-[0_24px_80px_rgba(15,23,42,0.16)]"
+        className={`w-full max-w-[420px] rounded-[28px] border border-line bg-surface px-6 py-6 shadow-[0_24px_80px_rgba(15,23,42,0.16)] ${panelClassName || ""}`}
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"

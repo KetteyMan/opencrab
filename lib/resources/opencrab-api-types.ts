@@ -214,6 +214,7 @@ export type TaskRunRecord = {
   summary: string | null;
   errorMessage: string | null;
   conversationId: string | null;
+  projectId: string | null;
 };
 
 export type TaskRecord = {
@@ -225,6 +226,7 @@ export type TaskRecord = {
   isRunning: boolean;
   timezone: string | null;
   conversationId: string | null;
+  projectId: string | null;
   nextRunAt: string | null;
   lastRunAt: string | null;
   lastRunStatus: TaskRunStatus | null;
@@ -240,6 +242,7 @@ export type TaskRecord = {
 
 export type TaskDetail = TaskRecord & {
   conversation: ConversationItem | null;
+  project: import("@/lib/projects/types").ProjectRoomRecord | null;
   runs: TaskRunRecord[];
 };
 

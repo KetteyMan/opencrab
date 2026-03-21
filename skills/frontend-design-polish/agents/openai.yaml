@@ -1,0 +1,4 @@
+interface:
+  display_name: "Frontend Design Polish"
+  short_description: "Polish existing web UI into a clearer, more intentional product surface"
+  default_prompt: "Audit this interface, choose a strong visual direction, make the highest-leverage polish changes, and summarize the design improvements."

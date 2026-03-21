@@ -189,7 +189,7 @@ export function TasksScreen() {
       const updatedTask = response.task;
       setTasks((current) => reconcileTask(current, updatedTask));
       setCreateMessageTone("success");
-      setCreateMessage("定时任务已经开始执行，结果会自动回流到对应对话。");
+      setCreateMessage(getRunStartedMessage(updatedTask));
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "执行定时任务失败。");
     } finally {
@@ -352,6 +352,10 @@ export function TasksScreen() {
                       <span>下次执行</span>
                       <span className="text-right text-text">{task.nextRunLabel}</span>
                     </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span>结果回流</span>
+                      <span className="text-right text-text">{getTaskTargetLabel(task)}</span>
+                    </div>
                     {task.lastRunStatus ? (
                       <div className="flex items-center justify-between gap-3">
                         <span>最近结果</span>
@@ -399,7 +403,14 @@ export function TasksScreen() {
                     >
                       查看
                     </Link>
-                    {task.conversationId ? (
+                    {task.projectId ? (
+                      <Link
+                        href={`/projects/${task.projectId}`}
+                        className={buttonClassName({ variant: "secondary" })}
+                      >
+                        打开团队房间
+                      </Link>
+                    ) : task.conversationId ? (
                       <Link
                         href={`/conversations/${task.conversationId}`}
                         className={buttonClassName({ variant: "secondary" })}
@@ -489,4 +500,24 @@ function formatTemplateSchedule(template: TaskTemplate) {
   }
 
   return `每天 ${schedule.time || "09:00"}`;
+}
+
+function getTaskTargetLabel(task: TaskRecord) {
+  if (task.projectId) {
+    return "团队房间";
+  }
+
+  if (task.conversationId) {
+    return "专属对话";
+  }
+
+  return "执行时自动建对话";
+}
+
+function getRunStartedMessage(task: TaskRecord) {
+  if (task.projectId) {
+    return "定时任务已经开始执行，结果会推进团队房间并更新其中的运行记录。";
+  }
+
+  return "定时任务已经开始执行，结果会自动回流到对应对话。";
 }

@@ -1,7 +1,9 @@
 import { Codex } from "@openai/codex-sdk";
 import { execFile } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 import { promisify } from "node:util";
+import type { AgentProfileDetail } from "@/lib/agents/types";
 import { buildChromeDevtoolsMcpConfig, ensureBrowserSession } from "@/lib/codex/browser-session";
 import {
   getCodexOptions,
@@ -27,6 +29,7 @@ type GenerateCodexReplyInput = {
   conversationTitle?: string;
   threadId?: string | null;
   content?: string;
+  agentProfile?: AgentProfileDetail | null;
   imagePaths?: string[];
   textAttachments?: Array<{
     name: string;
@@ -35,6 +38,7 @@ type GenerateCodexReplyInput = {
   model?: string;
   reasoningEffort?: CodexReasoningEffort;
   sandboxMode?: CodexSandboxMode;
+  onThreadReady?: (threadId: string | null) => void;
 };
 
 type StreamCodexReplyInput = GenerateCodexReplyInput & {
@@ -73,52 +77,61 @@ export async function generateCodexReply({
   conversationTitle,
   threadId,
   content,
+  agentProfile,
   imagePaths = [],
   textAttachments = [],
   model,
   reasoningEffort,
   sandboxMode,
+  onThreadReady,
 }: GenerateCodexReplyInput) {
-  await ensureBrowserSession();
-  await ensureCodexLogin();
-  const modelConfig = resolveModelConfig({
-    model,
-    reasoningEffort,
-  });
-  const codex = getCodexClient();
-  const thread = threadId
-    ? codex.resumeThread(threadId, buildThreadOptions({ ...modelConfig, sandboxMode }))
-    : codex.startThread(buildThreadOptions({ ...modelConfig, sandboxMode }));
+  try {
+    await ensureBrowserSession();
+    await ensureCodexLogin();
+    const modelConfig = resolveModelConfig({
+      model,
+      reasoningEffort,
+    });
+    const codex = getCodexClient();
+    const thread = threadId
+      ? codex.resumeThread(threadId, buildThreadOptions({ ...modelConfig, sandboxMode }))
+      : codex.startThread(buildThreadOptions({ ...modelConfig, sandboxMode }));
 
-  const prompt = buildPrompt({
-    conversationTitle,
-    content,
-    textAttachments,
-  });
+    onThreadReady?.(thread.id);
 
-  const result = await thread.run([
-    {
-      type: "text",
-      text: prompt,
-    },
-    ...imagePaths.map((path) => ({
-      type: "local_image" as const,
-      path,
-    })),
-  ]);
+    const prompt = buildPrompt({
+      conversationTitle,
+      content,
+      agentProfile,
+      textAttachments,
+    });
 
-  const text = result.finalResponse?.trim();
+    const result = await thread.run([
+      {
+        type: "text",
+        text: prompt,
+      },
+      ...imagePaths.map((path) => ({
+        type: "local_image" as const,
+        path,
+      })),
+    ]);
 
-  if (!text) {
-    throw new Error("OpenCrab 当前没有生成可用回复。");
+    const text = result.finalResponse?.trim();
+
+    if (!text) {
+      throw new Error("OpenCrab 当前没有生成可用回复。");
+    }
+
+    return {
+      text,
+      threadId: thread.id,
+      model: modelConfig.model,
+      usage: result.usage,
+    };
+  } catch (error) {
+    throw normalizeCodexRuntimeError(error);
   }
-
-  return {
-    text,
-    threadId: thread.id,
-    model: modelConfig.model,
-    usage: result.usage,
-  };
 }
 
 export async function getCodexStatus() {
@@ -153,6 +166,7 @@ export async function* streamCodexReply({
   conversationTitle,
   threadId,
   content,
+  agentProfile,
   imagePaths = [],
   textAttachments = [],
   model,
@@ -160,107 +174,112 @@ export async function* streamCodexReply({
   sandboxMode,
   signal,
 }: StreamCodexReplyInput): AsyncGenerator<CodexReplyStreamEvent> {
-  await ensureBrowserSession();
-  await ensureCodexLogin();
-  const modelConfig = resolveModelConfig({
-    model,
-    reasoningEffort,
-  });
-  const codex = getCodexClient();
-  const thread = threadId
-    ? codex.resumeThread(threadId, buildThreadOptions({ ...modelConfig, sandboxMode }))
-    : codex.startThread(buildThreadOptions({ ...modelConfig, sandboxMode }));
+  try {
+    await ensureBrowserSession();
+    await ensureCodexLogin();
+    const modelConfig = resolveModelConfig({
+      model,
+      reasoningEffort,
+    });
+    const codex = getCodexClient();
+    const thread = threadId
+      ? codex.resumeThread(threadId, buildThreadOptions({ ...modelConfig, sandboxMode }))
+      : codex.startThread(buildThreadOptions({ ...modelConfig, sandboxMode }));
 
-  const prompt = buildPrompt({
-    conversationTitle,
-    content,
-    textAttachments,
-  });
+    const prompt = buildPrompt({
+      conversationTitle,
+      content,
+      agentProfile,
+      textAttachments,
+    });
 
-  const { events } = await thread.runStreamed(
-    [
-      {
-        type: "text",
-        text: prompt,
-      },
-      ...imagePaths.map((path) => ({
-        type: "local_image" as const,
-        path,
-      })),
-    ],
-    { signal },
-  );
+    const { events } = await thread.runStreamed(
+      [
+        {
+          type: "text",
+          text: prompt,
+        },
+        ...imagePaths.map((path) => ({
+          type: "local_image" as const,
+          path,
+        })),
+      ],
+      { signal },
+    );
 
-  const thinkingMap = new Map<string, string>();
-  let lastThinkingPayload = "";
-  let assistantText = "";
-  let usage: CodexUsage = null;
+    const thinkingMap = new Map<string, string>();
+    let lastThinkingPayload = "";
+    let assistantText = "";
+    let usage: CodexUsage = null;
 
-  yield {
-    type: "thread",
-    threadId: thread.id,
-  };
+    yield {
+      type: "thread",
+      threadId: thread.id,
+    };
 
-  for await (const event of events) {
-    if (event.type === "turn.failed" || event.type === "error") {
-      throw new Error(event.type === "error" ? event.message : event.error.message);
-    }
+    for await (const event of events) {
+      if (event.type === "turn.failed" || event.type === "error") {
+        throw new Error(event.type === "error" ? event.message : event.error.message);
+      }
 
-    if (event.type === "turn.completed") {
-      usage = event.usage;
-      continue;
-    }
+      if (event.type === "turn.completed") {
+        usage = event.usage;
+        continue;
+      }
 
-    if (event.type !== "item.started" && event.type !== "item.updated" && event.type !== "item.completed") {
-      continue;
-    }
+      if (event.type !== "item.started" && event.type !== "item.updated" && event.type !== "item.completed") {
+        continue;
+      }
 
-    const item = event.item;
+      const item = event.item;
 
-    if (item.type === "agent_message") {
-      if (item.text !== assistantText) {
-        assistantText = item.text;
+      if (item.type === "agent_message") {
+        if (item.text !== assistantText) {
+          assistantText = item.text;
+          yield {
+            type: "assistant",
+            text: assistantText,
+          };
+        }
+        continue;
+      }
+
+      const nextThinkingEntry = getThinkingEntry(item);
+
+      if (!nextThinkingEntry) {
+        continue;
+      }
+
+      thinkingMap.set(item.id, nextThinkingEntry);
+      const entries = Array.from(thinkingMap.values());
+      const serialized = JSON.stringify(entries);
+
+      if (serialized !== lastThinkingPayload) {
+        lastThinkingPayload = serialized;
         yield {
-          type: "assistant",
-          text: assistantText,
+          type: "thinking",
+          entries,
         };
       }
-      continue;
     }
 
-    const nextThinkingEntry = getThinkingEntry(item);
+    const text = assistantText.trim();
 
-    if (!nextThinkingEntry) {
-      continue;
+    if (!text) {
+      throw new Error("OpenCrab 当前没有生成可用回复。");
     }
 
-    thinkingMap.set(item.id, nextThinkingEntry);
-    const entries = Array.from(thinkingMap.values());
-    const serialized = JSON.stringify(entries);
-
-    if (serialized !== lastThinkingPayload) {
-      lastThinkingPayload = serialized;
-      yield {
-        type: "thinking",
-        entries,
-      };
-    }
+    yield {
+      type: "done",
+      text,
+      threadId: thread.id,
+      model: modelConfig.model,
+      usage,
+      thinking: Array.from(thinkingMap.values()),
+    };
+  } catch (error) {
+    throw normalizeCodexRuntimeError(error);
   }
-
-  const text = assistantText.trim();
-
-  if (!text) {
-    throw new Error("OpenCrab 当前没有生成可用回复。");
-  }
-
-  yield {
-    type: "done",
-    text,
-    threadId: thread.id,
-    model: modelConfig.model,
-    usage,
-    thinking: Array.from(thinkingMap.values()),
-  };
 }
 
 function getCodexClient() {
@@ -272,6 +291,7 @@ function getCodexClient() {
     }));
 
   return new Codex({
+    codexPathOverride: resolveBundledCodexExecutablePath(),
     env: buildChatGptLoginEnv(),
     config: {
       show_raw_agent_reasoning: true,
@@ -347,7 +367,10 @@ function resolveModelConfig(input?: {
 }
 
 function buildPrompt(
-  input: Pick<GenerateCodexReplyInput, "conversationTitle" | "content" | "textAttachments">,
+  input: Pick<
+    GenerateCodexReplyInput,
+    "conversationTitle" | "content" | "textAttachments" | "agentProfile"
+  >,
 ) {
   const settings = getSnapshot().settings;
   const skills = listSkills();
@@ -362,6 +385,24 @@ function buildPrompt(
     "你是 OpenCrab 自己的智能助手。",
     getAppLanguagePromptInstruction(settings.defaultLanguage),
     "面向普通用户，表达要清楚、直接、少术语。",
+    input.agentProfile
+      ? [
+          `当前这条对话绑定了智能体：${input.agentProfile.name}`,
+          `角色：${input.agentProfile.roleLabel}`,
+          `简介：${input.agentProfile.summary}`,
+          input.agentProfile.description
+            ? `定位补充：${input.agentProfile.description}`
+            : null,
+          buildAgentPromptSection("SOUL", input.agentProfile.files.soul),
+          buildAgentPromptSection("RESPONSIBILITY", input.agentProfile.files.responsibility),
+          buildAgentPromptSection("TOOLS", input.agentProfile.files.tools),
+          buildAgentPromptSection("USER", input.agentProfile.files.user),
+          buildAgentPromptSection("KNOWLEDGE", input.agentProfile.files.knowledge),
+          "你必须优先遵守这份智能体配置；如果它和通用表达习惯冲突，以智能体配置为准，但仍要遵守安全边界。",
+        ]
+          .filter(Boolean)
+          .join("\n")
+      : null,
     "涉及浏览器、网页、页面交互、表单填写、点击、抓取页面可见内容时，优先使用 chrome-devtools MCP。",
     "只有在 chrome-devtools MCP 当前不可用、明确做不到，或者连续失败时，才降级到其他方式，例如命令行、Playwright 或直接请求网页。",
     "如果浏览器操作发生了降级，最终回复里用一句短话说明你改用了其他办法。",
@@ -387,6 +428,16 @@ function buildPrompt(
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+function buildAgentPromptSection(title: string, content: string) {
+  const trimmed = content.trim();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  return [`[${title}]`, trimmed].join("\n");
 }
 
 function normalizeReasoningEffort(value: string | undefined) {
@@ -465,7 +516,7 @@ function getThinkingEntry(item: {
 
 export async function getCodexLoginStatus() {
   try {
-    const { stdout, stderr } = await execFileAsync("codex", ["login", "status"], {
+    const { stdout, stderr } = await execFileAsync(resolveBundledCodexExecutablePath(), ["login", "status"], {
       env: buildChatGptLoginEnv() as NodeJS.ProcessEnv,
     });
     const output = `${stdout}\n${stderr}`.trim();
@@ -494,4 +545,38 @@ async function ensureCodexLogin() {
   if (!login.ok) {
     throw new Error(`${login.error} 请先连接 ChatGPT 后再重试。`);
   }
+}
+
+function resolveBundledCodexExecutablePath() {
+  const override = process.env.OPENCRAB_CODEX_PATH?.trim();
+
+  if (override) {
+    return override;
+  }
+
+  const localBinPath = path.join(process.cwd(), "node_modules", ".bin", process.platform === "win32" ? "codex.cmd" : "codex");
+
+  if (existsSync(localBinPath)) {
+    return localBinPath;
+  }
+
+  return "codex";
+}
+
+function normalizeCodexRuntimeError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (/Unable to locate Codex CLI binaries/i.test(message)) {
+    return new Error(
+      "OpenCrab 当前找不到本机可用的 Codex 执行入口。请先重新安装项目依赖，或确认 `node_modules/.bin/codex` 可用后再试。",
+    );
+  }
+
+  if (/Missing optional dependency/i.test(message)) {
+    return new Error(
+      "OpenCrab 当前缺少 Codex 的平台二进制依赖。请重新安装项目依赖，并确保安装时没有跳过 optional dependencies。",
+    );
+  }
+
+  return error instanceof Error ? error : new Error(message);
 }

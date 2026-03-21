@@ -19,6 +19,8 @@ export async function PATCH(
     preview?: string;
     timeLabel?: string;
     folderId?: string | null;
+    projectId?: string | null;
+    agentProfileId?: string | null;
     codexThreadId?: string | null;
     lastAssistantModel?: string | null;
   }>(request, {});

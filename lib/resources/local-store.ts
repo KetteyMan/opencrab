@@ -21,6 +21,28 @@ export function getSnapshot(): AppSnapshot {
   return cloneSnapshot(readState());
 }
 
+export function getVisibleSnapshot(): AppSnapshot {
+  const state = readState();
+  const visibleConversationIds = new Set(
+    state.conversations.filter((conversation) => !conversation.hidden).map((conversation) => conversation.id),
+  );
+
+  return {
+    folders: structuredClone(state.folders),
+    conversations: structuredClone(
+      state.conversations.filter((conversation) => visibleConversationIds.has(conversation.id)),
+    ),
+    conversationMessages: structuredClone(
+      Object.fromEntries(
+        Object.entries(state.conversationMessages).filter(([conversationId]) =>
+          visibleConversationIds.has(conversationId),
+        ),
+      ),
+    ),
+    settings: structuredClone(state.settings),
+  };
+}
+
 export function createFolder(name: string) {
   const trimmedName = name.trim();
 
@@ -99,6 +121,9 @@ export function updateFolder(folderId: string, name: string) {
 export function createConversation(input?: {
   title?: string;
   folderId?: string | null;
+  hidden?: boolean;
+  projectId?: string | null;
+  agentProfileId?: string | null;
   source?: ConversationSource | null;
   channelLabel?: string | null;
   remoteChatLabel?: string | null;
@@ -112,12 +137,15 @@ export function createConversation(input?: {
     timeLabel: "刚刚",
     preview: "新的对话",
     folderId: input?.folderId ?? null,
+    hidden: input?.hidden ?? false,
+    projectId: input?.projectId ?? null,
     source: input?.source ?? "local",
     channelLabel: input?.channelLabel ?? null,
     remoteChatLabel: input?.remoteChatLabel ?? null,
     remoteUserLabel: input?.remoteUserLabel ?? null,
     codexThreadId: null,
     lastAssistantModel: null,
+    agentProfileId: input?.agentProfileId ?? null,
   };
 
   state.conversations = [conversation, ...state.conversations.filter((item) => item.id !== conversationId)];
@@ -139,12 +167,15 @@ export function updateConversation(
       | "preview"
       | "timeLabel"
       | "folderId"
+      | "hidden"
+      | "projectId"
       | "source"
       | "channelLabel"
       | "remoteChatLabel"
       | "remoteUserLabel"
       | "codexThreadId"
       | "lastAssistantModel"
+      | "agentProfileId"
     >
   >,
 ) {
@@ -183,6 +214,7 @@ export function addMessage(
   const nextMessage: ConversationMessage = {
     id: message.id ?? createId("message"),
     role: message.role,
+    actorLabel: message.actorLabel ?? undefined,
     content: message.content,
     timestamp: message.timestamp ?? new Date().toISOString(),
     source: message.source ?? "local",
@@ -202,7 +234,12 @@ export function addMessage(
     item.id === conversationId
       ? {
           ...item,
-          preview: message.role === "user" ? message.content : item.preview,
+          preview:
+            message.role === "user"
+              ? message.content
+              : message.actorLabel
+                ? `${message.actorLabel}: ${message.content}`
+                : item.preview,
           timeLabel: "刚刚",
         }
       : item,
@@ -340,12 +377,15 @@ function normalizeSnapshot(snapshot: Partial<AppSnapshot>): AppSnapshot {
     folders: structuredClone(snapshot.folders || seedFolders),
     conversations: structuredClone(snapshot.conversations || seedConversations).map((conversation) => ({
       ...conversation,
+      projectId: conversation.projectId ?? null,
+      hidden: conversation.hidden ?? false,
       source: conversation.source ?? "local",
       channelLabel: conversation.channelLabel ?? null,
       remoteChatLabel: conversation.remoteChatLabel ?? null,
       remoteUserLabel: conversation.remoteUserLabel ?? null,
       codexThreadId: conversation.codexThreadId ?? null,
       lastAssistantModel: conversation.lastAssistantModel ?? null,
+      agentProfileId: conversation.agentProfileId ?? null,
     })),
     conversationMessages: Object.fromEntries(
       Object.entries(structuredClone(snapshot.conversationMessages || seedConversationMessages)).map(
@@ -405,6 +445,7 @@ function normalizeMessages(messages: ConversationMessage[]) {
 
     return {
       ...message,
+      actorLabel: message.actorLabel ?? undefined,
       source: message.source ?? "local",
       remoteMessageId: message.remoteMessageId ?? null,
       timestamp: inferredTimestamp,

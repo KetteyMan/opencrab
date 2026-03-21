@@ -1,5 +1,7 @@
 export type NavKey =
   | "conversations"
+  | "agents"
+  | "projects"
   | "channels"
   | "tasks"
   | "skills"
@@ -29,12 +31,15 @@ export type ConversationItem = {
   timeLabel: string;
   preview: string;
   folderId: string | null;
+  hidden?: boolean;
+  projectId?: string | null;
   source?: ConversationSource | null;
   channelLabel?: string | null;
   remoteChatLabel?: string | null;
   remoteUserLabel?: string | null;
   codexThreadId?: string | null;
   lastAssistantModel?: string | null;
+  agentProfileId?: string | null;
 };
 
 export type ChannelItem = {
@@ -61,6 +66,7 @@ export type SkillItem = {
 export type ConversationMessage = {
   id: string;
   role: "user" | "assistant";
+  actorLabel?: string;
   content: string;
   timestamp?: string;
   source?: ConversationSource | null;
@@ -93,6 +99,7 @@ export const conversations: ConversationItem[] = [
     timeLabel: "刚刚",
     preview: "整理首页结构，收紧空态和输入区。",
     folderId: "product",
+    agentProfileId: null,
   },
   {
     id: "task-center",
@@ -100,6 +107,7 @@ export const conversations: ConversationItem[] = [
     timeLabel: "今天",
     preview: "梳理任务列表、执行记录和回流结果。",
     folderId: null,
+    agentProfileId: null,
   },
   {
     id: "channel-flow",
@@ -107,6 +115,7 @@ export const conversations: ConversationItem[] = [
     timeLabel: "昨天",
     preview: "整理完整远程对话入口和连接引导。",
     folderId: "weekly",
+    agentProfileId: null,
   },
   {
     id: "skills-empty",
@@ -114,6 +123,7 @@ export const conversations: ConversationItem[] = [
     timeLabel: "昨天",
     preview: "保持技能页轻量，不做市场化结构。",
     folderId: null,
+    agentProfileId: null,
   },
 ];
 

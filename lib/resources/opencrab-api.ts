@@ -19,6 +19,11 @@ import type {
   TaskStatus,
   UploadedAttachment,
 } from "@/lib/resources/opencrab-api-types";
+import type {
+  AgentProfileDetailResponse,
+  AgentProfileListResponse,
+} from "@/lib/agents/types";
+import type { ProjectDetailResponse, ProjectListResponse } from "@/lib/projects/types";
 import type { AppLanguage, ConversationMessage } from "@/lib/seed-data";
 
 export async function getAppSnapshot() {
@@ -96,6 +101,77 @@ export async function getSkillsCatalog() {
   });
 }
 
+export async function getAgents() {
+  return request<AgentProfileListResponse>("/api/agents", {
+    method: "GET",
+  });
+}
+
+export async function getAgentDetail(agentId: string) {
+  return request<AgentProfileDetailResponse>(`/api/agents/${agentId}`, {
+    method: "GET",
+  });
+}
+
+export async function createAgent(input: {
+  name: string;
+  summary: string;
+  roleLabel?: string;
+  description?: string;
+  availability?: "solo" | "team" | "both";
+  teamRole?: "lead" | "research" | "writer" | "specialist";
+  defaultModel?: string | null;
+  defaultReasoningEffort?: CodexReasoningEffort | null;
+  defaultSandboxMode?: CodexSandboxMode | null;
+  starterPrompts?: string[];
+  files?: Partial<{
+    soul: string;
+    responsibility: string;
+    tools: string;
+    user: string;
+    knowledge: string;
+  }>;
+}) {
+  return request<AgentProfileDetailResponse>("/api/agents", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateAgent(
+  agentId: string,
+  patch: Partial<{
+    name: string;
+    summary: string;
+    roleLabel: string;
+    description: string;
+    availability: "solo" | "team" | "both";
+    teamRole: "lead" | "research" | "writer" | "specialist";
+    defaultModel: string | null;
+    defaultReasoningEffort: CodexReasoningEffort | null;
+    defaultSandboxMode: CodexSandboxMode | null;
+    starterPrompts: string[];
+    files: Partial<{
+      soul: string;
+      responsibility: string;
+      tools: string;
+      user: string;
+      knowledge: string;
+    }>;
+  }>,
+) {
+  return request<AgentProfileDetailResponse>(`/api/agents/${agentId}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function deleteAgent(agentId: string) {
+  return request<{ ok: boolean }>(`/api/agents/${agentId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function getSkillDetail(skillId: string) {
   return request<SkillDetailResponse>(`/api/skills/${skillId}`, {
     method: "GET",
@@ -126,6 +202,84 @@ export async function getTasks() {
   });
 }
 
+export async function getProjects() {
+  return request<ProjectListResponse>("/api/projects", {
+    method: "GET",
+  });
+}
+
+export async function getProjectDetail(projectId: string) {
+  return request<ProjectDetailResponse>(`/api/projects/${projectId}`, {
+    method: "GET",
+  });
+}
+
+export async function createProjectFromConversation(conversationId: string) {
+  return request<ProjectDetailResponse>("/api/projects", {
+    method: "POST",
+    body: JSON.stringify({ conversationId }),
+  });
+}
+
+export async function createProject(input: {
+  goal: string;
+  workspaceDir: string;
+  agentProfileIds: string[];
+}) {
+  return request<ProjectDetailResponse>("/api/projects", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function runProject(projectId: string) {
+  return request<ProjectDetailResponse>(`/api/projects/${projectId}`, {
+    method: "POST",
+  });
+}
+
+export async function pauseProject(projectId: string) {
+  return request<ProjectDetailResponse>(`/api/projects/${projectId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ action: "pause" }),
+  });
+}
+
+export async function deleteProject(projectId: string) {
+  return request<{ ok: boolean }>(`/api/projects/${projectId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function replyToProjectConversation(
+  projectId: string,
+  input: {
+    conversationId: string;
+    content: string;
+  },
+) {
+  return request<SnapshotMutationResult>(`/api/projects/${projectId}/chat`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateProjectCheckpoint(
+  projectId: string,
+  input: {
+    action: "approve" | "request_changes" | "resume";
+    note?: string | null;
+  } | {
+    action: "pause";
+    note?: string | null;
+  },
+) {
+  return request<ProjectDetailResponse>(`/api/projects/${projectId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
 export async function getTaskDetail(taskId: string) {
   return request<TaskDetailResponse>(`/api/tasks/${taskId}`, {
     method: "GET",
@@ -138,6 +292,7 @@ export async function createTask(input: {
   timezone?: string | null;
   schedule: TaskSchedule;
   conversationId?: string | null;
+  projectId?: string | null;
 }) {
   return request<TaskDetailResponse>("/api/tasks", {
     method: "POST",
@@ -153,6 +308,8 @@ export async function updateTask(
     timezone: string | null;
     schedule: TaskSchedule;
     status: TaskStatus;
+    conversationId: string | null;
+    projectId: string | null;
   }>,
 ) {
   return request<TaskDetailResponse>(`/api/tasks/${taskId}`, {
@@ -218,6 +375,8 @@ export async function updateFolder(folderId: string, name: string) {
 export async function createConversation(input?: {
   title?: string;
   folderId?: string | null;
+  projectId?: string | null;
+  agentProfileId?: string | null;
 }) {
   return request<CreateConversationResult>("/api/conversations", {
     method: "POST",
@@ -232,6 +391,8 @@ export async function updateConversation(
     preview: string;
     timeLabel: string;
     folderId: string | null;
+    projectId: string | null;
+    agentProfileId: string | null;
     codexThreadId: string | null;
     lastAssistantModel: string | null;
   }>,

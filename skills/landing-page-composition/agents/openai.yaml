@@ -1,0 +1,4 @@
+interface:
+  display_name: "Landing Page Composition"
+  short_description: "Plan strong homepage and landing page narrative, section order, and CTA flow"
+  default_prompt: "Structure this landing page around a clear product narrative, strong hero, logical section order, and focused CTA strategy."

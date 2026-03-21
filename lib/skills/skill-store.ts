@@ -61,6 +61,9 @@ let hasEnsuredBundledSkills = false;
 
 const CODEX_ORDER = [
   "imagegen",
+  "frontend-design-polish",
+  "design-critique",
+  "landing-page-composition",
   "openai-docs",
   "pdf",
   "playwright",
@@ -85,6 +88,24 @@ const DISPLAY_OVERRIDES: Record<
     summary: "Generate and edit images using OpenAI",
     category: "creative-media",
     icon: "image",
+  },
+  "frontend-design-polish": {
+    name: "Frontend Design Polish",
+    summary: "Polish existing web UI into a clearer, more intentional product surface",
+    category: "product-tech",
+    icon: "figma",
+  },
+  "design-critique": {
+    name: "Design Critique",
+    summary: "Diagnose visual issues and recommend high-leverage UI improvements",
+    category: "creative-media",
+    icon: "figma",
+  },
+  "landing-page-composition": {
+    name: "Landing Page Composition",
+    summary: "Shape homepages and landing pages with stronger narrative, structure, and CTA flow",
+    category: "creative-media",
+    icon: "figma",
   },
   "openai-docs": {
     name: "OpenAI Docs",

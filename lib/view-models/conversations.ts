@@ -67,15 +67,16 @@ export function buildSidebarViewModel(input: {
       return (conversationOrder.get(left.id) ?? 0) - (conversationOrder.get(right.id) ?? 0);
     });
 
+  const visibleConversations = input.conversations.filter((item) => !item.hidden);
   const recentConversations = sortByLatest(
-    input.conversations.filter((item) => item.folderId === null).map(enhanceConversation),
+    visibleConversations.filter((item) => item.folderId === null).map(enhanceConversation),
   );
   const folders = input.folders.map((folder) => ({
     id: folder.id,
     name: folder.name,
     isExpanded: input.expandedFolders[folder.id] ?? false,
     conversations: sortByLatest(
-      input.conversations.filter((item) => item.folderId === folder.id).map(enhanceConversation),
+      visibleConversations.filter((item) => item.folderId === folder.id).map(enhanceConversation),
     ),
   }));
 

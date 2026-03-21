@@ -98,7 +98,7 @@ export function TaskDetailScreen({ taskId }: { taskId: string }) {
 
       setTask(response.task);
       setMessageTone("success");
-      setMessage("定时任务已经开始执行。执行完成后，结果会自动回流到对应对话。");
+      setMessage(getRunStartedMessage(response.task));
       router.refresh();
     } catch (error) {
       setMessageTone("error");
@@ -171,6 +171,8 @@ export function TaskDetailScreen({ taskId }: { taskId: string }) {
         prompt: task.prompt,
         timezone: task.timezone,
         schedule: task.schedule,
+        conversationId: task.conversationId,
+        projectId: task.projectId,
       });
 
       if (!response.task) {
@@ -280,10 +282,23 @@ export function TaskDetailScreen({ taskId }: { taskId: string }) {
           <section className="rounded-[24px] border border-line bg-surface p-6 shadow-soft">
             <h2 className="text-[18px] font-semibold tracking-[-0.03em] text-text">结果回流</h2>
             <p className="mt-2 text-[14px] leading-6 text-muted-strong">
-              每个定时任务都会把执行结果回流到自己的一条专属对话里，方便你继续追问和接着处理。
+              每个定时任务都会把执行结果回流到绑定的工作空间里。你可以继续追问、接着处理，或者检查团队推进状态。
             </p>
             <div className="mt-4 rounded-[18px] border border-line bg-background px-4 py-4 text-[14px] text-text">
-              {task.conversation ? (
+              {task.project ? (
+                <div className="space-y-2">
+                  <div>{task.project.title}</div>
+                  <p className="text-[13px] leading-6 text-muted-strong">
+                    执行结果会更新到 Team Room 的运行记录、事件流和结果面板里。
+                  </p>
+                  <Link
+                    href={`/projects/${task.project.id}`}
+                    className={buttonClassName({ variant: "ghost", size: "sm", className: "px-0 text-[#1a73e8] hover:bg-transparent hover:underline" })}
+                  >
+                    打开团队房间
+                  </Link>
+                </div>
+              ) : task.conversation ? (
                 <div className="space-y-2">
                   <div>{task.conversation.title}</div>
                   <Link
@@ -294,7 +309,7 @@ export function TaskDetailScreen({ taskId }: { taskId: string }) {
                   </Link>
                 </div>
               ) : (
-                <div className="text-muted-strong">还没有生成结果对话。先执行一次，这里就会出现。</div>
+                <div className="text-muted-strong">还没有生成结果空间。先执行一次，这里就会出现。</div>
               )}
             </div>
           </section>
@@ -359,6 +374,14 @@ export function TaskDetailScreen({ taskId }: { taskId: string }) {
       </div>
     </div>
   );
+}
+
+function getRunStartedMessage(task: TaskDetail) {
+  if (task.projectId) {
+    return "定时任务已经开始执行。执行完成后，结果会更新到对应团队房间。";
+  }
+
+  return "定时任务已经开始执行。执行完成后，结果会自动回流到对应对话。";
 }
 
 function InfoCard({ label, value }: { label: string; value: string }) {

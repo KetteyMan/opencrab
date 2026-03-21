@@ -24,7 +24,7 @@ export function AboutScreen() {
           <div>
             <div className="inline-flex items-center gap-3 rounded-full border border-white/70 bg-white/80 px-3.5 py-2 text-[12px] font-medium tracking-[0.16em] text-[#1e2f5d] shadow-[0_10px_30px_rgba(30,47,93,0.08)] backdrop-blur">
               <OpenCrabMark className="h-5 w-5" />
-              <span>ABOUT US</span>
+              <span>关于我们</span>
             </div>
 
             <div className="mt-5 flex items-center gap-4">
@@ -38,7 +38,7 @@ export function AboutScreen() {
             </div>
 
             <p className="mt-6 max-w-[720px] text-[15px] leading-7 text-[#2c2c28] sm:text-[16px]">
-              OpenCrab 希望把强大的 Codex 执行能力，变成更轻松、更亲切、也更适合日常工作的产品界面。
+              OpenCrab 希望把强大的智能执行能力，变成更轻松、更亲切、也更适合日常工作的产品界面。
               用户不需要先学一整套术语和工具链，就可以从一段对话开始，把任务、渠道、文件和技能逐步接到同一套工作空间里。
             </p>
 
@@ -69,12 +69,12 @@ export function AboutScreen() {
 
       <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <section className="rounded-[28px] border border-line bg-surface p-6 shadow-soft sm:p-7">
-          <SectionEyebrow label="Who We Are" />
+          <SectionEyebrow label="我们是谁" />
           <h2 className="mt-3 text-[28px] font-semibold tracking-[-0.05em] text-text">
             介绍与产品气质
           </h2>
           <p className="mt-4 text-[14px] leading-7 text-muted-strong">
-            我们把 OpenCrab 定位成一个更适合普通用户使用的 Codex Web 助手。
+            我们把 OpenCrab 定位成一个更适合普通用户使用的智能工作台。
             它保留底层执行力，但产品表面尽量简单，让“提出问题、补充文件、持续迭代”成为一个自然流畅的过程。
           </p>
 
@@ -86,7 +86,7 @@ export function AboutScreen() {
         </section>
 
         <section className="rounded-[28px] border border-line bg-surface p-6 shadow-soft sm:p-7">
-          <SectionEyebrow label="Contact" />
+          <SectionEyebrow label="联系入口" />
           <h2 className="mt-3 text-[28px] font-semibold tracking-[-0.05em] text-text">
             官网与联系入口
           </h2>
@@ -123,7 +123,7 @@ export function AboutScreen() {
 
       <section className="grid gap-6 lg:grid-cols-[0.92fr_1.08fr]">
         <section className="rounded-[28px] border border-line bg-surface p-6 shadow-soft sm:p-7">
-          <SectionEyebrow label="Principles" />
+          <SectionEyebrow label="产品原则" />
           <h2 className="mt-3 text-[28px] font-semibold tracking-[-0.05em] text-text">
             我们坚持的产品原则
           </h2>
@@ -145,7 +145,7 @@ export function AboutScreen() {
         </section>
 
         <section className="rounded-[28px] border border-line bg-surface p-6 shadow-soft sm:p-7">
-          <SectionEyebrow label="History" />
+          <SectionEyebrow label="迭代历史" />
           <div className="flex items-end justify-between gap-4">
             <div>
               <h2 className="mt-3 text-[28px] font-semibold tracking-[-0.05em] text-text">
@@ -188,7 +188,7 @@ export function AboutScreen() {
       <section className="rounded-[28px] border border-line bg-surface p-6 shadow-soft sm:p-7">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <SectionEyebrow label="Roadmap" />
+            <SectionEyebrow label="路线图" />
             <h2 className="mt-3 text-[28px] font-semibold tracking-[-0.05em] text-text">
               计划进度
             </h2>
@@ -231,7 +231,7 @@ export function AboutScreen() {
               <p className="mt-4 text-[13px] leading-6 text-muted-strong">{item.summary}</p>
               <div className="mt-4 rounded-[18px] border border-line bg-surface-muted/80 px-4 py-3">
                 <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-muted">
-                  Next
+                  下一步
                 </p>
                 <p className="mt-2 text-[13px] leading-6 text-text">{item.nextStep}</p>
               </div>
@@ -244,15 +244,13 @@ export function AboutScreen() {
 }
 
 function SectionEyebrow({ label }: { label: string }) {
-  return (
-    <p className="text-[12px] font-medium uppercase tracking-[0.16em] text-muted">{label}</p>
-  );
+  return <p className="text-[12px] font-medium tracking-[0.08em] text-muted">{label}</p>;
 }
 
 function MetricPill({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-full border border-white/70 bg-white/82 px-4 py-2 shadow-[0_8px_24px_rgba(15,15,15,0.05)] backdrop-blur">
-      <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+      <span className="text-[11px] font-medium tracking-[0.08em] text-muted">
         {label}
       </span>
       <span className="ml-2 text-[13px] font-semibold text-text">{value}</span>

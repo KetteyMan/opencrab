@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { getProjectDetail } from "@/lib/projects/project-store";
 import { getSnapshot } from "@/lib/resources/local-store";
 import { OPENCRAB_STATE_DIR, OPENCRAB_TASKS_STORE_PATH } from "@/lib/resources/runtime-paths";
 import type {
@@ -36,6 +37,7 @@ export function getTask(taskId: string): TaskDetail | null {
   const conversation = task.conversationId
     ? snapshot.conversations.find((item) => item.id === task.conversationId) ?? null
     : null;
+  const project = task.projectId ? getProjectDetail(task.projectId)?.project ?? null : null;
   const runs = state.runs
     .filter((run) => run.taskId === taskId)
     .sort((left, right) => Date.parse(right.startedAt) - Date.parse(left.startedAt))
@@ -44,6 +46,7 @@ export function getTask(taskId: string): TaskDetail | null {
   return {
     ...buildTaskOverview(task, state.runs),
     conversation,
+    project,
     runs,
   };
 }
@@ -59,7 +62,8 @@ export function createTask(input: TaskCreateInput) {
     schedule: normalized.schedule,
     status: "active",
     isRunning: false,
-    conversationId: input.conversationId ?? null,
+    conversationId: normalized.conversationId,
+    projectId: normalized.projectId,
     nextRunAt: calculateNextRunAt(normalized.schedule, now),
     lastRunAt: null,
     lastRunStatus: null,
@@ -84,11 +88,25 @@ export function updateTask(taskId: string, patch: TaskUpdateInput) {
       return null;
     }
 
+    const nextConversationId =
+      patch.conversationId !== undefined
+        ? patch.conversationId
+        : patch.projectId !== undefined && patch.projectId !== null
+          ? null
+          : current.conversationId;
+    const nextProjectId =
+      patch.projectId !== undefined
+        ? patch.projectId
+        : patch.conversationId !== undefined && patch.conversationId !== null
+          ? null
+          : current.projectId;
     const normalized = normalizeTaskInput({
       name: patch.name ?? current.name,
       prompt: patch.prompt ?? current.prompt,
       timezone: patch.timezone ?? current.timezone,
       schedule: patch.schedule ?? current.schedule,
+      conversationId: nextConversationId,
+      projectId: nextProjectId,
     });
     const nextStatus = patch.status ?? current.status;
     const shouldRecalculateNextRun =
@@ -104,6 +122,8 @@ export function updateTask(taskId: string, patch: TaskUpdateInput) {
       prompt: normalized.prompt,
       timezone: normalized.timezone,
       schedule: normalized.schedule,
+      conversationId: normalized.conversationId,
+      projectId: normalized.projectId,
       status: nextStatus,
       nextRunAt:
         nextStatus === "paused"
@@ -162,6 +182,7 @@ export function completeTaskRun(input: {
   startedAt: string;
   finishedAt: string;
   conversationId: string | null;
+  projectId: string | null;
   status: "success" | "error";
   summary: string | null;
   errorMessage?: string | null;
@@ -177,6 +198,7 @@ export function completeTaskRun(input: {
       ...current,
       isRunning: false,
       conversationId: input.conversationId ?? current.conversationId,
+      projectId: input.projectId ?? current.projectId,
       lastRunAt: input.finishedAt,
       lastRunStatus: input.status,
       lastRunPreview: input.summary,
@@ -208,6 +230,7 @@ export function recordRunningTaskRun(taskId: string, startedAt: string) {
       summary: null,
       errorMessage: null,
       conversationId: null,
+      projectId: null,
     };
 
     state.runs = trimRuns([runRecord, ...state.runs]);
@@ -323,6 +346,8 @@ function buildTaskOverview(task: TaskRecord, runs: TaskRunRecord[]): TaskOvervie
 function normalizeTaskInput(input: TaskCreateInput) {
   const name = input.name.trim();
   const prompt = input.prompt.trim();
+  const conversationId = input.conversationId?.trim() || null;
+  const projectId = input.projectId?.trim() || null;
 
   if (!name) {
     throw new Error("请先填写定时任务名称。");
@@ -332,10 +357,29 @@ function normalizeTaskInput(input: TaskCreateInput) {
     throw new Error("请先告诉 OpenCrab 这个定时任务要做什么。");
   }
 
+  if (conversationId && projectId) {
+    throw new Error("一条定时任务只能绑定一个结果回流目标。");
+  }
+
+  const snapshot = getSnapshot();
+
+  if (
+    conversationId &&
+    !snapshot.conversations.some((conversation) => conversation.id === conversationId)
+  ) {
+    throw new Error("这条定时任务绑定的结果对话不存在。");
+  }
+
+  if (projectId && !getProjectDetail(projectId)?.project) {
+    throw new Error("这条定时任务绑定的团队房间不存在。");
+  }
+
   return {
     name,
     prompt,
     timezone: input.timezone?.trim() || null,
+    conversationId,
+    projectId,
     schedule: normalizeSchedule(input.schedule),
   };
 }
@@ -491,6 +535,7 @@ function normalizeState(state: Partial<TaskStoreState>): TaskStoreState {
       isRunning: Boolean(task.isRunning),
       timezone: task.timezone || null,
       conversationId: task.conversationId || null,
+      projectId: task.projectId || null,
       nextRunAt: task.nextRunAt || null,
       lastRunAt: task.lastRunAt || null,
       lastRunStatus: task.lastRunStatus || null,
@@ -499,6 +544,10 @@ function normalizeState(state: Partial<TaskStoreState>): TaskStoreState {
       createdAt: task.createdAt || new Date().toISOString(),
       updatedAt: task.updatedAt || new Date().toISOString(),
     })),
-    runs: structuredClone(state.runs || []).slice(0, MAX_RUNS),
+    runs: structuredClone(state.runs || []).slice(0, MAX_RUNS).map((run) => ({
+      ...run,
+      conversationId: run.conversationId || null,
+      projectId: run.projectId || null,
+    })),
   };
 }

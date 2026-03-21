@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design Critique"
+  short_description: "Diagnose why a UI feels off and recommend high-leverage fixes"
+  default_prompt: "Review this design, identify the highest-priority visual issues, explain why they matter, and recommend concrete improvements."
