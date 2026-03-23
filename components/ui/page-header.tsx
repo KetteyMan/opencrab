@@ -19,7 +19,7 @@ export function PageHeader({
 }: PageHeaderProps) {
   return (
     <div className={`mb-8 flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between ${className}`.trim()}>
-      <div className="max-w-[720px]">
+      <div className="min-w-0 max-w-[720px] flex-1">
         {!hideEyebrow ? (
           <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-muted">OpenCrab</p>
         ) : null}
@@ -36,7 +36,7 @@ export function PageHeader({
           </p>
         ) : null}
       </div>
-      {actions ? <div className="flex shrink-0 justify-start lg:justify-end">{actions}</div> : null}
+      {actions ? <div className="flex w-full min-w-0 justify-start lg:flex-1 lg:justify-end">{actions}</div> : null}
     </div>
   );
 }

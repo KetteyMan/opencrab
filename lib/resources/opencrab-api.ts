@@ -216,17 +216,13 @@ export async function getProjectDetail(projectId: string) {
   });
 }
 
-export async function createProjectFromConversation(conversationId: string) {
-  return request<ProjectDetailResponse>("/api/projects", {
-    method: "POST",
-    body: JSON.stringify({ conversationId }),
-  });
-}
-
 export async function createProject(input: {
   goal: string;
   workspaceDir: string;
   agentProfileIds: string[];
+  model?: string;
+  reasoningEffort?: CodexReasoningEffort;
+  sandboxMode?: CodexSandboxMode;
 }) {
   return request<ProjectDetailResponse>("/api/projects", {
     method: "POST",

@@ -130,10 +130,12 @@ export function createConversation(input?: {
 }) {
   const state = readState();
   const conversationId = createId("conversation");
+  const now = new Date().toISOString();
   const conversation: ConversationItem = {
     id: conversationId,
     title: input?.title?.trim() || "新对话",
     timeLabel: "刚刚",
+    lastActivityAt: now,
     preview: "新的对话",
     folderId: input?.folderId ?? null,
     hidden: input?.hidden ?? false,
@@ -175,6 +177,7 @@ export function updateConversation(
       | "codexThreadId"
       | "lastAssistantModel"
       | "agentProfileId"
+      | "lastActivityAt"
     >
   >,
 ) {
@@ -240,6 +243,7 @@ export function addMessage(
                 ? `${message.actorLabel}: ${message.content}`
                 : item.preview,
           timeLabel: "刚刚",
+          lastActivityAt: nextMessage.timestamp,
         }
       : item,
   );
@@ -348,6 +352,12 @@ function cloneSnapshot(snapshot: AppSnapshot) {
 }
 
 function normalizeSnapshot(snapshot: Partial<AppSnapshot>): AppSnapshot {
+  const normalizedMessages = Object.fromEntries(
+    Object.entries(structuredClone(snapshot.conversationMessages || seedConversationMessages)).map(
+      ([conversationId, messages]) => [conversationId, normalizeMessages(messages)],
+    ),
+  );
+
   return {
     folders: structuredClone(snapshot.folders || seedFolders),
     conversations: structuredClone(snapshot.conversations || seedConversations).map((conversation) => ({
@@ -361,12 +371,12 @@ function normalizeSnapshot(snapshot: Partial<AppSnapshot>): AppSnapshot {
       codexThreadId: conversation.codexThreadId ?? null,
       lastAssistantModel: conversation.lastAssistantModel ?? null,
       agentProfileId: conversation.agentProfileId ?? null,
-    })),
-    conversationMessages: Object.fromEntries(
-      Object.entries(structuredClone(snapshot.conversationMessages || seedConversationMessages)).map(
-        ([conversationId, messages]) => [conversationId, normalizeMessages(messages)],
+      lastActivityAt: inferConversationActivityAt(
+        conversation,
+        normalizedMessages[conversation.id] ?? [],
       ),
-    ),
+    })),
+    conversationMessages: normalizedMessages,
     settings: {
       ...seedAppSettings,
       ...(snapshot.settings || {}),
@@ -438,6 +448,110 @@ function normalizeMessages(messages: ConversationMessage[]) {
       timestamp: inferredTimestamp,
     };
   });
+}
+
+function inferConversationActivityAt(
+  conversation: Partial<ConversationItem>,
+  messages: ConversationMessage[],
+) {
+  const lastMessageTimestamp = getLatestMessageTimestamp(messages);
+
+  if (lastMessageTimestamp) {
+    return lastMessageTimestamp;
+  }
+
+  if (isValidIsoTimestamp(conversation.lastActivityAt)) {
+    return conversation.lastActivityAt ?? null;
+  }
+
+  return inferActivityTimestampFromTimeLabel(conversation.timeLabel) ?? null;
+}
+
+function getLatestMessageTimestamp(messages: ConversationMessage[]) {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const timestamp = messages[index]?.timestamp;
+
+    if (isValidIsoTimestamp(timestamp)) {
+      return timestamp ?? null;
+    }
+  }
+
+  return null;
+}
+
+function isValidIsoTimestamp(value: string | null | undefined) {
+  if (!value) {
+    return false;
+  }
+
+  return !Number.isNaN(new Date(value).getTime());
+}
+
+function inferActivityTimestampFromTimeLabel(value: string | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const now = new Date();
+  const trimmed = value.trim();
+
+  if (trimmed === "刚刚") {
+    return now.toISOString();
+  }
+
+  const todayTimeMatch = trimmed.match(/^(\d{2}):(\d{2})$/);
+
+  if (todayTimeMatch) {
+    return new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      Number(todayTimeMatch[1]),
+      Number(todayTimeMatch[2]),
+    ).toISOString();
+  }
+
+  if (trimmed === "昨天") {
+    return new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() - 1,
+      12,
+      0,
+      0,
+      0,
+    ).toISOString();
+  }
+
+  const sameYearMatch = trimmed.match(/^(\d{1,2})月(\d{1,2})日$/);
+
+  if (sameYearMatch) {
+    return new Date(
+      now.getFullYear(),
+      Number(sameYearMatch[1]) - 1,
+      Number(sameYearMatch[2]),
+      12,
+      0,
+      0,
+      0,
+    ).toISOString();
+  }
+
+  const fullYearMatch = trimmed.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+
+  if (fullYearMatch) {
+    return new Date(
+      Number(fullYearMatch[1]),
+      Number(fullYearMatch[2]) - 1,
+      Number(fullYearMatch[3]),
+      12,
+      0,
+      0,
+      0,
+    ).toISOString();
+  }
+
+  return null;
 }
 
 function createId(prefix: string) {

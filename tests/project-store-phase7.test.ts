@@ -2,6 +2,13 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  seedTestTeamAgents,
+  STRATEGY_AGENT_ID,
+  STRATEGY_AGENT_NAME,
+  WRITER_AGENT_ID,
+  WRITER_AGENT_NAME,
+} from "@/tests/helpers/team-agents";
 
 const runConversationTurnMock = vi.hoisted(() => vi.fn());
 
@@ -87,15 +94,16 @@ describe("project store phase 7 runtime support", () => {
     const workspaceDir = path.join(tempHome, "workspace");
     tempHomes.push(tempHome);
     process.env.OPENCRAB_HOME = tempHome;
+    seedTestTeamAgents(tempHome);
 
     queueConversationReplies([
       JSON.stringify({
         decision: "delegate",
-        group_reply: "先由 @产品策略师 输出这一轮结构化判断，我拿到结果后再收束成 checkpoint。",
+        group_reply: `先由 @${STRATEGY_AGENT_NAME} 输出这一轮结构化判断，我拿到结果后再收束成 checkpoint。`,
         checkpoint_summary: "",
         delegations: [
           {
-            agentName: "产品策略师",
+            agentName: STRATEGY_AGENT_NAME,
             task: "围绕当前目标给出一版结构化判断，明确范围、风险和下一步建议。",
             artifactTitles: ["团队目标"],
           },
@@ -114,7 +122,7 @@ describe("project store phase 7 runtime support", () => {
     const created = projectStore.createProject({
       goal: "验证 Phase 7 的运行健康对象和 run log",
       workspaceDir,
-      agentProfileIds: ["project-manager", "product-strategist"],
+      agentProfileIds: ["project-manager", STRATEGY_AGENT_ID],
     });
     const projectId = created?.project?.id ?? null;
 
@@ -136,12 +144,15 @@ describe("project store phase 7 runtime support", () => {
       throw new Error("detail.project should exist after runtime");
     }
 
+    const managerName =
+      created?.agents.find((agent) => agent.agentProfileId === "project-manager")?.name ?? "PD-小马哥";
+
     expect(detail.project.runStatus).toBe("waiting_approval");
     expect(detail.runs.length).toBe(1);
     expect(detail.runs[0]?.status).toBe("waiting_approval");
     expect(detail.heartbeats.length).toBeGreaterThanOrEqual(2);
-    expect(detail.heartbeats.some((heartbeat) => heartbeat.agentName === "项目经理")).toBe(true);
-    expect(detail.heartbeats.some((heartbeat) => heartbeat.agentName === "产品策略师")).toBe(true);
+    expect(detail.heartbeats.some((heartbeat) => heartbeat.agentName === managerName)).toBe(true);
+    expect(detail.heartbeats.some((heartbeat) => heartbeat.agentName === STRATEGY_AGENT_NAME)).toBe(true);
     expect(detail.stuckSignals).toHaveLength(0);
   });
 
@@ -150,6 +161,7 @@ describe("project store phase 7 runtime support", () => {
     const workspaceDir = path.join(tempHome, "workspace");
     tempHomes.push(tempHome);
     process.env.OPENCRAB_HOME = tempHome;
+    seedTestTeamAgents(tempHome);
 
     queueConversationReplies([
       "我已经接住这一棒，并把阶段结果整理好了。",
@@ -165,7 +177,7 @@ describe("project store phase 7 runtime support", () => {
     const created = projectStore.createProject({
       goal: "验证替补成员继续推进",
       workspaceDir,
-      agentProfileIds: ["project-manager", "product-strategist", "writer-editor"],
+      agentProfileIds: ["project-manager", STRATEGY_AGENT_ID, WRITER_AGENT_ID],
     });
     const projectId = created?.project?.id ?? null;
 
@@ -191,11 +203,11 @@ describe("project store phase 7 runtime support", () => {
     };
     const failedWorker =
       rawState.agents.find(
-        (agent) => agent.projectId === projectId && agent.agentProfileId === "product-strategist",
+        (agent) => agent.projectId === projectId && agent.agentProfileId === STRATEGY_AGENT_ID,
       ) ?? null;
     const replacementWorker =
       rawState.agents.find(
-        (agent) => agent.projectId === projectId && agent.agentProfileId === "writer-editor",
+        (agent) => agent.projectId === projectId && agent.agentProfileId === WRITER_AGENT_ID,
       ) ?? null;
     const manager =
       rawState.agents.find(
@@ -222,7 +234,7 @@ describe("project store phase 7 runtime support", () => {
       {
         id: `${projectId}-task-reassign`,
         projectId,
-        title: "产品策略师 · 卡住的一棒",
+        title: `${STRATEGY_AGENT_NAME} · 卡住的一棒`,
         description: "把当前需求整理成一版可继续推进的阶段结果。",
         status: "in_progress",
         ownerAgentId: failedWorker.id,
@@ -317,7 +329,7 @@ describe("project store phase 7 runtime support", () => {
     const reassignedTask = detail.tasks.find((task) => task.id === `${projectId}-task-reassign`) ?? null;
 
     expect(detail.project.runStatus).toBe("waiting_approval");
-    expect(reassignedTask?.ownerAgentName).toBe("表达整理师");
+    expect(reassignedTask?.ownerAgentName).toBe(WRITER_AGENT_NAME);
     expect(detail.recoveryActions.some((action) => action.kind === "reassign_to_peer")).toBe(true);
     expect(detail.stuckSignals.some((signal) => signal.status === "resolved")).toBe(true);
     expect(
@@ -325,7 +337,7 @@ describe("project store phase 7 runtime support", () => {
         (thread) => thread.kind === "direct_message" && thread.subject.includes("PM 改派"),
       ),
     ).toBe(true);
-    expect(detail.heartbeats.some((heartbeat) => heartbeat.agentName === "表达整理师")).toBe(true);
+    expect(detail.heartbeats.some((heartbeat) => heartbeat.agentName === WRITER_AGENT_NAME)).toBe(true);
   });
 
   it("rolls back to the latest checkpoint and starts a fresh rerun", async () => {
@@ -333,15 +345,16 @@ describe("project store phase 7 runtime support", () => {
     const workspaceDir = path.join(tempHome, "workspace");
     tempHomes.push(tempHome);
     process.env.OPENCRAB_HOME = tempHome;
+    seedTestTeamAgents(tempHome);
 
     queueConversationReplies([
       JSON.stringify({
         decision: "delegate",
-        group_reply: "先由 @产品策略师 整理第一版阶段判断，我拿到 checkpoint 后再决定是否继续派工。",
+        group_reply: `先由 @${STRATEGY_AGENT_NAME} 整理第一版阶段判断，我拿到 checkpoint 后再决定是否继续派工。`,
         checkpoint_summary: "",
         delegations: [
           {
-            agentName: "产品策略师",
+            agentName: STRATEGY_AGENT_NAME,
             task: "整理一版阶段判断，明确里程碑、风险和下一步。",
             artifactTitles: ["团队目标"],
           },
@@ -366,7 +379,7 @@ describe("project store phase 7 runtime support", () => {
     const created = projectStore.createProject({
       goal: "验证 checkpoint rollback 后重跑",
       workspaceDir,
-      agentProfileIds: ["project-manager", "product-strategist"],
+      agentProfileIds: ["project-manager", STRATEGY_AGENT_ID],
     });
     const projectId = created?.project?.id ?? null;
 
@@ -420,12 +433,13 @@ describe("project store phase 7 runtime support", () => {
     const workspaceDir = path.join(tempHome, "workspace");
     tempHomes.push(tempHome);
     process.env.OPENCRAB_HOME = tempHome;
+    seedTestTeamAgents(tempHome);
 
     const projectStore = await loadProjectStore();
     const created = projectStore.createProject({
       goal: "验证列表页联动字段",
       workspaceDir,
-      agentProfileIds: ["project-manager", "product-strategist"],
+      agentProfileIds: ["project-manager", STRATEGY_AGENT_ID],
     });
     const projectId = created?.project?.id ?? null;
 
@@ -451,7 +465,7 @@ describe("project store phase 7 runtime support", () => {
     };
     const worker =
       rawState.agents.find(
-        (agent) => agent.projectId === projectId && agent.agentProfileId === "product-strategist",
+        (agent) => agent.projectId === projectId && agent.agentProfileId === STRATEGY_AGENT_ID,
       ) ?? null;
 
     if (!worker) {
@@ -464,7 +478,7 @@ describe("project store phase 7 runtime support", () => {
             ...room,
             runStatus: "running",
             currentStageLabel: "开发实现",
-            lastActivityLabel: "产品策略师正在推进",
+            lastActivityLabel: `${STRATEGY_AGENT_NAME}正在推进`,
           }
         : room,
     );
@@ -598,7 +612,7 @@ describe("project store phase 7 runtime support", () => {
         status: "running",
         triggerLabel: "列表页联动用例",
         summary: "团队正在推进当前这轮运行。",
-        currentStepLabel: "等待产品策略师交回当前这一棒",
+        currentStepLabel: `等待${STRATEGY_AGENT_NAME}交回当前这一棒`,
         startedAt: "2026-03-23T00:00:00.000Z",
         finishedAt: null,
       },
@@ -617,7 +631,7 @@ describe("project store phase 7 runtime support", () => {
     expect(project?.pendingReviewCount).toBe(1);
     expect(project?.openStuckSignalCount).toBe(1);
     expect(project?.latestRecoveryKind).toBe("rollback_to_checkpoint");
-    expect(project?.latestRunStepLabel).toBe("等待产品策略师交回当前这一棒");
+    expect(project?.latestRunStepLabel).toBe(`等待${STRATEGY_AGENT_NAME}交回当前这一棒`);
     expect(project?.latestRecoverySummary).toContain("checkpoint");
   });
 });

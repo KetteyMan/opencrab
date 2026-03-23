@@ -2,6 +2,13 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  seedTestTeamAgents,
+  STRATEGY_AGENT_ID,
+  STRATEGY_AGENT_NAME,
+  WRITER_AGENT_ID,
+  WRITER_AGENT_NAME,
+} from "@/tests/helpers/team-agents";
 
 const runConversationTurnMock = vi.hoisted(() => vi.fn());
 
@@ -88,15 +95,16 @@ describe("project store phase 8 memory layer", () => {
     const workspaceDir = path.join(tempHome, "workspace");
     tempHomes.push(tempHome);
     process.env.OPENCRAB_HOME = tempHome;
+    seedTestTeamAgents(tempHome);
 
     queueConversationReplies([
       JSON.stringify({
         decision: "delegate",
-        group_reply: "先由 @产品策略师 输出阶段判断，我拿到结果后再收束成 checkpoint。",
+        group_reply: `先由 @${STRATEGY_AGENT_NAME} 输出阶段判断，我拿到结果后再收束成 checkpoint。`,
         checkpoint_summary: "",
         delegations: [
           {
-            agentName: "产品策略师",
+            agentName: STRATEGY_AGENT_NAME,
             task: "整理一版阶段判断，明确当前范围、里程碑风险和下一步建议。",
             artifactTitles: ["团队目标"],
           },
@@ -121,7 +129,7 @@ describe("project store phase 8 memory layer", () => {
     const created = projectStore.createProject({
       goal: "验证 Phase 8 的项目记忆会影响下一轮判断",
       workspaceDir,
-      agentProfileIds: ["project-manager", "product-strategist"],
+      agentProfileIds: ["project-manager", STRATEGY_AGENT_ID],
     });
     const projectId = created?.project?.id ?? null;
 
@@ -174,12 +182,13 @@ describe("project store phase 8 memory layer", () => {
     const workspaceDir = path.join(tempHome, "workspace");
     tempHomes.push(tempHome);
     process.env.OPENCRAB_HOME = tempHome;
+    seedTestTeamAgents(tempHome);
 
     const projectStore = await loadProjectStore();
     const created = projectStore.createProject({
       goal: "验证团队记忆和角色记忆",
       workspaceDir,
-      agentProfileIds: ["project-manager", "product-strategist", "writer-editor"],
+      agentProfileIds: ["project-manager", STRATEGY_AGENT_ID, WRITER_AGENT_ID],
     });
     const projectId = created?.project?.id ?? null;
 
@@ -212,11 +221,11 @@ describe("project store phase 8 memory layer", () => {
       ) ?? null;
     const strategist =
       rawState.agents.find(
-        (agent) => agent.projectId === projectId && agent.agentProfileId === "product-strategist",
+        (agent) => agent.projectId === projectId && agent.agentProfileId === STRATEGY_AGENT_ID,
       ) ?? null;
     const writer =
       rawState.agents.find(
-        (agent) => agent.projectId === projectId && agent.agentProfileId === "writer-editor",
+        (agent) => agent.projectId === projectId && agent.agentProfileId === WRITER_AGENT_ID,
       ) ?? null;
 
     if (!manager || !strategist || !writer) {
@@ -239,7 +248,7 @@ describe("project store phase 8 memory layer", () => {
       {
         id: `${projectId}-task-strategy`,
         projectId,
-        title: "产品策略师整理阶段判断",
+        title: `${STRATEGY_AGENT_NAME}整理阶段判断`,
         description: "先产出当前这一轮的结构化判断。",
         status: "completed",
         ownerAgentId: strategist.id,
@@ -272,7 +281,7 @@ describe("project store phase 8 memory layer", () => {
       {
         id: `${projectId}-task-writer`,
         projectId,
-        title: "表达整理师整理阶段总结",
+        title: `${WRITER_AGENT_NAME}整理阶段总结`,
         description: "在上游结果基础上整理成可直接确认的总结。",
         status: "blocked",
         ownerAgentId: writer.id,
@@ -283,7 +292,7 @@ describe("project store phase 8 memory layer", () => {
         dependsOnTaskIds: [`${projectId}-task-strategy`],
         inputArtifactIds: [],
         blockedByTaskId: `${projectId}-task-strategy`,
-        blockedReason: "等待产品策略师补齐里程碑风险和依赖项。",
+        blockedReason: `等待${STRATEGY_AGENT_NAME}补齐里程碑风险和依赖项。`,
         lockScopePaths: [],
         lockStatus: "none",
         lockBlockedByTaskId: null,
@@ -309,7 +318,7 @@ describe("project store phase 8 memory layer", () => {
         id: `${projectId}-review-memory`,
         projectId,
         taskId: `${projectId}-task-strategy`,
-        taskTitle: "产品策略师整理阶段判断",
+        taskTitle: `${STRATEGY_AGENT_NAME}整理阶段判断`,
         reviewTargetLabel: "阶段判断",
         requesterAgentId: strategist.id,
         requesterAgentName: strategist.name,
@@ -332,7 +341,7 @@ describe("project store phase 8 memory layer", () => {
         agentId: writer.id,
         agentName: writer.name,
         taskId: `${projectId}-task-writer`,
-        taskTitle: "表达整理师整理阶段总结",
+        taskTitle: `${WRITER_AGENT_NAME}整理阶段总结`,
         kind: "reply_timeout",
         status: "resolved",
         summary: "这条任务一度卡在等上游输入，回传超时。",
@@ -349,7 +358,7 @@ describe("project store phase 8 memory layer", () => {
         kind: "reassign_to_peer",
         summary: "项目经理曾把这条任务改派给更适合整理对外表达的成员继续。",
         taskId: `${projectId}-task-writer`,
-        taskTitle: "表达整理师整理阶段总结",
+        taskTitle: `${WRITER_AGENT_NAME}整理阶段总结`,
         fromAgentId: strategist.id,
         fromAgentName: strategist.name,
         toAgentId: writer.id,
@@ -365,7 +374,7 @@ describe("project store phase 8 memory layer", () => {
         status: "running",
         triggerLabel: "memory 同步用例",
         summary: "当前仍在推进中。",
-        currentStepLabel: "等待表达整理师接住下一棒",
+        currentStepLabel: `等待${WRITER_AGENT_NAME}接住下一棒`,
         startedAt: "2026-03-23T00:00:00.000Z",
         finishedAt: null,
       },
@@ -386,10 +395,10 @@ describe("project store phase 8 memory layer", () => {
 
     expect(detail.projectMemory.risks.some((entry) => entry.summary.includes("里程碑风险"))).toBe(true);
     expect(detail.projectMemory.pitfalls.some((entry) => entry.summary.includes("改派"))).toBe(true);
-    expect(detail.teamMemory.handoffPatterns.some((pattern) => pattern.label.includes("产品策略师 -> 表达整理师"))).toBe(true);
+    expect(detail.teamMemory.handoffPatterns.some((pattern) => pattern.label.includes(`${STRATEGY_AGENT_NAME} -> ${WRITER_AGENT_NAME}`))).toBe(true);
     expect(detail.teamMemory.blockerPatterns.some((pattern) => pattern.label.includes("回传超时"))).toBe(true);
     expect(detail.teamMemory.reviewPatterns.some((pattern) => pattern.label.includes("阶段判断"))).toBe(true);
-    expect(detail.roleMemories.some((memory) => memory.agentName === "产品策略师" && memory.strengths.length > 0)).toBe(true);
-    expect(detail.roleMemories.some((memory) => memory.agentName === "表达整理师" && memory.commonIssues.length > 0)).toBe(true);
+    expect(detail.roleMemories.some((memory) => memory.agentName === STRATEGY_AGENT_NAME && memory.strengths.length > 0)).toBe(true);
+    expect(detail.roleMemories.some((memory) => memory.agentName === WRITER_AGENT_NAME && memory.commonIssues.length > 0)).toBe(true);
   });
 });

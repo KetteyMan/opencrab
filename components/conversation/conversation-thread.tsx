@@ -1,12 +1,29 @@
 "use client";
 
-import { memo, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type AnchorHTMLAttributes,
+  type MouseEvent,
+} from "react";
 import Image from "next/image";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { AgentAvatar } from "@/components/agents/agent-avatar";
 import { useOpenCrabApp } from "@/components/app-shell/opencrab-provider";
 import { OpenCrabMark } from "@/components/branding/opencrab-brand";
+import { renderMentionChildren, renderMentionText } from "@/components/ui/mention-highlight";
+import {
+  buildLocalFileOpenRequestHref,
+  parseLocalFileReference,
+  resolveConversationMarkdownLink,
+} from "@/lib/conversations/local-file-links";
 import type { AgentProfileRecord } from "@/lib/agents/types";
 import type { AttachmentItem } from "@/lib/seed-data";
 import { formatConversationMessageTimestamp } from "@/lib/conversations/utils";
@@ -277,7 +294,7 @@ const ConversationMessageCard = memo(function ConversationMessageCard({
         message.role === "assistant" ? (
           <MarkdownMessage content={message.content} />
         ) : (
-          <p className="whitespace-pre-wrap text-[14px] leading-[1.8]">{message.content}</p>
+          <p className="whitespace-pre-wrap text-[14px] leading-[1.8]">{renderMentionText(message.content)}</p>
         )
       ) : message.role === "assistant" && message.status === "pending" ? (
         <p className="text-[14px] leading-[1.8] text-muted-strong">OpenCrab 正在回复中...</p>
@@ -428,14 +445,22 @@ const MarkdownMessage = memo(function MarkdownMessage({ content }: { content: st
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          a: ({ ...props }) => (
-            <a
-              {...props}
-              target="_blank"
-              rel="noreferrer"
-              className="text-[#0b66da] underline underline-offset-2"
-            />
+          p: ({ children }) => <p>{renderMentionChildren(children, "markdown-p")}</p>,
+          li: ({ children }) => <li>{renderMentionChildren(children, "markdown-li")}</li>,
+          strong: ({ children }) => <strong>{renderMentionChildren(children, "markdown-strong")}</strong>,
+          em: ({ children }) => <em>{renderMentionChildren(children, "markdown-em")}</em>,
+          blockquote: ({ children }) => (
+            <blockquote>{renderMentionChildren(children, "markdown-blockquote")}</blockquote>
           ),
+          h1: ({ children }) => <h1>{renderMentionChildren(children, "markdown-h1")}</h1>,
+          h2: ({ children }) => <h2>{renderMentionChildren(children, "markdown-h2")}</h2>,
+          h3: ({ children }) => <h3>{renderMentionChildren(children, "markdown-h3")}</h3>,
+          h4: ({ children }) => <h4>{renderMentionChildren(children, "markdown-h4")}</h4>,
+          h5: ({ children }) => <h5>{renderMentionChildren(children, "markdown-h5")}</h5>,
+          h6: ({ children }) => <h6>{renderMentionChildren(children, "markdown-h6")}</h6>,
+          td: ({ children }) => <td>{renderMentionChildren(children, "markdown-td")}</td>,
+          th: ({ children }) => <th>{renderMentionChildren(children, "markdown-th")}</th>,
+          a: ({ ...props }) => <MarkdownLink {...props} />,
           code: ({ className, children, ...props }) => {
             const isBlock = Boolean(className);
 
@@ -463,6 +488,57 @@ const MarkdownMessage = memo(function MarkdownMessage({ content }: { content: st
     </div>
   );
 });
+
+function MarkdownLink({
+  href,
+  children,
+  className,
+  onClick,
+  ...props
+}: AnchorHTMLAttributes<HTMLAnchorElement>) {
+  const localFileReference = typeof href === "string" ? parseLocalFileReference(href) : null;
+  const resolvedHref =
+    typeof href === "string" ? resolveConversationMarkdownLink(href) : href;
+
+  const handleClick = useCallback(
+    async (event: MouseEvent<HTMLAnchorElement>) => {
+      onClick?.(event);
+
+      if (event.defaultPrevented || !localFileReference) {
+        return;
+      }
+
+      event.preventDefault();
+
+      try {
+        const response = await fetch(buildLocalFileOpenRequestHref(localFileReference.absolutePath), {
+          method: "GET",
+        });
+
+        if (!response.ok) {
+          const payload = await response.json().catch(() => null);
+          throw new Error(payload?.error || "无法打开本地文件所在目录。");
+        }
+      } catch (error) {
+        window.alert(error instanceof Error ? error.message : "无法打开本地文件所在目录。");
+      }
+    },
+    [localFileReference, onClick],
+  );
+
+  return (
+    <a
+      {...props}
+      href={resolvedHref}
+      onClick={handleClick}
+      target={localFileReference ? undefined : "_blank"}
+      rel={localFileReference ? undefined : "noreferrer"}
+      className={["text-[#0b66da] underline underline-offset-2", className].filter(Boolean).join(" ")}
+    >
+      {renderMentionChildren(children, "markdown-link")}
+    </a>
+  );
+}
 
 function TextFileIcon() {
   return (

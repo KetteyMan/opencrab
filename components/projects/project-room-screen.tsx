@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useOpenCrabApp } from "@/components/app-shell/opencrab-provider";
 import { buttonClassName } from "@/components/ui/button";
 import { MetaPill as UnifiedMetaPill, StatusPill as UnifiedStatusPill } from "@/components/ui/pill";
+import { renderMentionText } from "@/components/ui/mention-highlight";
 import {
   DialogActions,
   DialogHeader,
@@ -51,11 +52,15 @@ import type { ConversationMessage } from "@/lib/seed-data";
 const RUNNING_PROJECT_SYNC_INTERVAL_MS = 6_000;
 const IDLE_PROJECT_SYNC_INTERVAL_MS = 20_000;
 const PROJECT_GLOBAL_SNAPSHOT_SYNC_INTERVAL_MS = 45_000;
+type ProjectRoomWorkspaceView = "focus" | "runtime" | "learning" | "delivery" | "activity";
 
 export function ProjectRoomScreen({ detail: initialDetail }: { detail: ProjectDetail | null }) {
   const router = useRouter();
-  const { conversationMessages, refreshSnapshot } = useOpenCrabApp();
+  const { conversationMessages, refreshSnapshot, thinkingModeEnabled } = useOpenCrabApp();
   const [detail, setDetail] = useState<ProjectDetail | null>(initialDetail);
+  const [activeWorkspaceView, setActiveWorkspaceView] = useState<ProjectRoomWorkspaceView>(
+    deriveDefaultProjectRoomWorkspaceView(initialDetail?.project?.runStatus ?? null),
+  );
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [isPausing, setIsPausing] = useState(false);
@@ -75,9 +80,11 @@ export function ProjectRoomScreen({ detail: initialDetail }: { detail: ProjectDe
   const [selectedMailboxThreadId, setSelectedMailboxThreadId] = useState<string | null>(null);
   const [selectedActivityMessageId, setSelectedActivityMessageId] = useState<string | null>(null);
   const checkpointSectionRef = useRef<HTMLElement | null>(null);
+  const missionControlSectionRef = useRef<HTMLElement | null>(null);
+  const autonomySectionRef = useRef<HTMLElement | null>(null);
   const runtimeHealthSectionRef = useRef<HTMLElement | null>(null);
   const learningSectionRef = useRef<HTMLElement | null>(null);
-  const memorySectionRef = useRef<HTMLElement | null>(null);
+  const teamMemorySectionRef = useRef<HTMLElement | null>(null);
   const coordinationSectionRef = useRef<HTMLElement | null>(null);
   const activitySectionRef = useRef<HTMLElement | null>(null);
   const artifactSectionRef = useRef<HTMLElement | null>(null);
@@ -90,6 +97,16 @@ export function ProjectRoomScreen({ detail: initialDetail }: { detail: ProjectDe
 
     setCheckpointNote("");
   }, [detail?.project?.id, detail?.project?.latestUserRequest, detail?.project?.runStatus]);
+
+  useEffect(() => {
+    setActiveWorkspaceView(deriveDefaultProjectRoomWorkspaceView(detail?.project?.runStatus ?? null));
+  }, [detail?.project?.id, detail?.project?.runStatus]);
+
+  useEffect(() => {
+    if (detail?.project?.runStatus === "waiting_approval" || detail?.project?.runStatus === "waiting_user") {
+      setActiveWorkspaceView("focus");
+    }
+  }, [detail?.project?.runStatus]);
 
   const projectId = detail?.project?.id ?? null;
   const projectRunStatus = detail?.project?.runStatus ?? null;
@@ -178,7 +195,6 @@ export function ProjectRoomScreen({ detail: initialDetail }: { detail: ProjectDe
   }, [detail, projectId, projectRunStatus, refreshSnapshot]);
 
   const project = detail?.project ?? null;
-  const sourceConversation = detail?.sourceConversation ?? null;
   const teamMessages = useMemo(
     () =>
       project?.teamConversationId
@@ -245,17 +261,18 @@ export function ProjectRoomScreen({ detail: initialDetail }: { detail: ProjectDe
   const selectedAgent = selectedAgentId ? agentsById.get(selectedAgentId) ?? null : null;
   const selectedAgentTrajectory =
     selectedAgent && project ? resolveAgentTrajectory(selectedAgent, project, agentsById) : null;
-  const previewActiveAgent =
+  const displayActiveAgent =
     activeAgent ||
     sortedAgents.find((agent) => agent.status === "working") ||
     sortedAgents.find((agent) => agent.canDelegate) ||
     null;
-  const activeAgentProgressTrail = useMemo(
-    () =>
-      [...(previewActiveAgent?.progressTrail ?? [])]
-        .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))
-        .slice(0, 4),
-    [previewActiveAgent?.progressTrail],
+  const activeAgentThinkingState = useMemo(
+    () => resolveProjectAgentThinkingState(displayActiveAgent, conversationMessages),
+    [conversationMessages, displayActiveAgent],
+  );
+  const activeAgentThinkingEntries = useMemo(
+    () => [...(activeAgentThinkingState?.entries ?? [])].reverse(),
+    [activeAgentThinkingState?.entries],
   );
   const selectedActivityMessage =
     teamMessages.find((message) => message.id === selectedActivityMessageId) ?? null;
@@ -449,7 +466,7 @@ export function ProjectRoomScreen({ detail: initialDetail }: { detail: ProjectDe
     () => autonomyGates.filter((gate) => gate.status === "open"),
     [autonomyGates],
   );
-  const autonomyRoundBudget = detail?.project?.autonomyRoundBudget ?? 4;
+  const autonomyRoundBudget = detail?.project?.autonomyRoundBudget ?? 20;
   const autonomyRoundCount = detail?.project?.autonomyRoundCount ?? 0;
   const isAutonomyGatePaused =
     detail?.project?.runStatus === "waiting_approval" && (detail?.project?.openGateCount ?? 0) > 0;
@@ -808,53 +825,54 @@ export function ProjectRoomScreen({ detail: initialDetail }: { detail: ProjectDe
     }
   }
 
+  function openWorkspaceView(
+    view: ProjectRoomWorkspaceView,
+    targetRef?: { current: HTMLElement | null } | null,
+  ) {
+    setActiveWorkspaceView(view);
+
+    if (!targetRef) {
+      return;
+    }
+
+    window.setTimeout(() => {
+      targetRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 40);
+  }
+
   function scrollToCheckpoint() {
-    checkpointSectionRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
+    openWorkspaceView("focus", checkpointSectionRef);
   }
 
   function scrollToArtifactGraph() {
-    artifactSectionRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
+    openWorkspaceView("delivery", artifactSectionRef);
+  }
+
+  function scrollToMissionControl() {
+    openWorkspaceView("runtime", missionControlSectionRef);
   }
 
   function scrollToRuntimeHealth() {
-    runtimeHealthSectionRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
+    openWorkspaceView("runtime", runtimeHealthSectionRef);
   }
 
   function scrollToLearning() {
-    learningSectionRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
+    openWorkspaceView("learning", learningSectionRef);
   }
 
   function scrollToMemory() {
-    memorySectionRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
+    openWorkspaceView("learning", teamMemorySectionRef);
   }
 
   function scrollToCoordination() {
-    coordinationSectionRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
+    openWorkspaceView("delivery", coordinationSectionRef);
   }
 
   function scrollToActivity() {
-    activitySectionRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
+    openWorkspaceView("activity", activitySectionRef);
   }
 
   function focusLearningSuggestion(suggestionId: string) {
@@ -897,11 +915,6 @@ export function ProjectRoomScreen({ detail: initialDetail }: { detail: ProjectDe
     currentProject.runStatus === "waiting_approval" ||
     currentProject.runStatus === "waiting_user" ||
     currentProject.runStatus === "completed";
-  const displayActiveAgent =
-    activeAgent ||
-    sortedAgents.find((agent) => agent.status === "working") ||
-    sortedAgents.find((agent) => agent.canDelegate) ||
-    null;
   const displayNextAgent =
     nextAgent ||
     (displayActiveAgent
@@ -915,7 +928,9 @@ export function ProjectRoomScreen({ detail: initialDetail }: { detail: ProjectDe
   const managerDecision = resolveManagerDecision(currentProject, displayActiveAgent, displayNextAgent);
   const projectSummaryPreview = buildProjectSummaryPreview(currentProject.summary);
   const projectSummaryPanelText = buildProjectSummaryPanelText(currentProject.summary);
-  const compactGoal = compactActivityText(currentProject.goal, 180);
+  const goalPanelText =
+    currentProject.goal.trim() || currentProject.latestUserRequest || "还没有明确的团队目标。";
+  const workspaceDirectoryText = currentProject.workspaceDir?.trim() || "未指定";
   const compactProjectSummary = compactActivityText(projectSummaryPanelText, 220);
   const runStopSummary = buildRunStopSummary(currentProject, {
     activeAgentName: displayActiveAgent?.name ?? null,
@@ -933,33 +948,366 @@ export function ProjectRoomScreen({ detail: initialDetail }: { detail: ProjectDe
     runtimeMessages[0] ?? null,
     latestActivityDescriptor,
   );
+  const workspaceTabs: Array<{
+    id: ProjectRoomWorkspaceView;
+    label: string;
+    hint: string;
+  }> = [
+    {
+      id: "focus",
+      label: "现在要看",
+      hint:
+        currentProject.runStatus === "waiting_approval" || currentProject.runStatus === "waiting_user"
+          ? "待你决定"
+          : "用户决策区",
+    },
+    {
+      id: "runtime",
+      label: "运行态势",
+      hint: `${heartbeatRiskCount} 风险 · ${openAutonomyGates.length} gate`,
+    },
+    {
+      id: "learning",
+      label: "学习记忆",
+      hint: `${learningSuggestionOpenCount} 建议 · ${projectMemoryEntryCount} 记忆`,
+    },
+    {
+      id: "delivery",
+      label: "任务交付",
+      hint: `${tasks.length} 任务 · ${artifactReadyCount} 可用`,
+    },
+    {
+      id: "activity",
+      label: "最近活动",
+      hint: `${runtimeMessages.length} 条压缩活动`,
+    },
+  ];
+
+  let activeWorkspaceHeading = "";
+  let activeWorkspaceDescription = "";
+  let activeWorkspaceCards: Array<{
+    label: string;
+    title: string;
+    summary: string;
+    tone?: "default" | "info" | "warning" | "success";
+    actionLabel: string;
+    onAction: () => void;
+  }> = [];
+
+  switch (activeWorkspaceView) {
+    case "focus":
+      activeWorkspaceHeading = "先看这轮是不是轮到你做决定";
+      activeWorkspaceDescription =
+        "这一层只保留用户决策边界，不把 runtime、学习和交付细节一起压到首屏。";
+      activeWorkspaceCards = [
+        {
+          label: "当前停点",
+          title: runStopSummary.title,
+          summary: runStopSummary.summary,
+          tone: runStopSummary.tone,
+          actionLabel: runStopSummary.actionLabel,
+          onAction:
+            runStopSummary.actionTarget === "checkpoint"
+              ? scrollToCheckpoint
+              : runStopSummary.actionTarget === "activity"
+                ? scrollToActivity
+                : scrollToMissionControl,
+        },
+        {
+          label: "项目经理判断",
+          title: managerDecision.label,
+          summary: compactProjectSummary,
+          tone: managerDecision.tone,
+          actionLabel: "看运行态势",
+          onAction: scrollToMissionControl,
+        },
+        currentProject.runStatus === "waiting_approval" || currentProject.runStatus === "waiting_user"
+          ? {
+              label: "下一步",
+              title: checkpointPrimaryButtonLabel,
+              summary: "当前已经到用户决策边界。先处理 Checkpoint，再决定是否继续往下看更细的过程层。",
+              tone: "warning" as const,
+              actionLabel: "打开 Checkpoint",
+              onAction: scrollToCheckpoint,
+            }
+          : currentProject.runStatus === "completed"
+            ? {
+                label: "回看结果",
+                title: "先看交付，再决定要不要开下一轮",
+                summary: "这一轮已经收口，当前更值得看的不是过程，而是任务、交付物和最近活动。",
+                tone: "success" as const,
+                actionLabel: "看任务交付",
+                onAction: scrollToArtifactGraph,
+              }
+            : {
+                label: "当前建议",
+                title: "先看运行态势，不必先翻完整过程",
+                summary: "团队现在没有停在需要你拍板的 checkpoint。先抓当前 baton、健康信号和自治边界会更高效。",
+                tone: "info" as const,
+                actionLabel: "看运行态势",
+                onAction: scrollToMissionControl,
+              },
+      ];
+      break;
+    case "runtime":
+      activeWorkspaceHeading = "先判断 runtime 是顺滑推进，还是已经开始偏航";
+      activeWorkspaceDescription =
+        "把当前 baton、自治边界和健康信号放在一起，让你先看系统状态，而不是先陷进细节。";
+      activeWorkspaceCards = [
+        {
+          label: "当前 Baton",
+          title: displayActiveAgent?.name || "项目经理待命",
+          summary:
+            displayActiveAgent?.progressDetails ||
+            displayActiveAgent?.lastAssignedTask ||
+            "当前还没有进入具体成员执行，可以先看阶段轨道和 PM 判断。",
+          tone: displayActiveAgent ? "info" : "default",
+          actionLabel: "看实时态势",
+          onAction: scrollToMissionControl,
+        },
+        {
+          label: "自治边界",
+          title:
+            openAutonomyGates.length > 0
+              ? `${openAutonomyGates.length} 条 gate 正打开`
+              : `自治预算 ${autonomyRoundCount}/${autonomyRoundBudget}`,
+          summary:
+            currentProject.autonomyStatus === "gated"
+              ? currentProject.autonomyPauseReason || "团队已经命中当前边界，继续前需要你决定是否放行。"
+              : "当前还在受控自治范围内，只有命中预算或风险边界时才会显式停下来。",
+          tone: openAutonomyGates.length > 0 ? "warning" : "info",
+          actionLabel: "看自治边界",
+          onAction: () => openWorkspaceView("runtime", autonomySectionRef),
+        },
+        {
+          label: "运行健康",
+          title:
+            heartbeatRiskCount > 0 || stalledSignalCount > 0
+              ? `${heartbeatRiskCount + stalledSignalCount} 条风险信号`
+              : "当前没有明显风险信号",
+          summary: recoverySummary.summary,
+          tone:
+            heartbeatRiskCount > 0 || stalledSignalCount > 0
+              ? "warning"
+              : recoverySummary.tone,
+          actionLabel: "看运行健康",
+          onAction: scrollToRuntimeHealth,
+        },
+      ];
+      break;
+    case "learning":
+      activeWorkspaceHeading = "把真正能沉淀下来的经验和记忆收成一层看";
+      activeWorkspaceDescription =
+        "这里不只是复盘列表，而是建议、run summary 和记忆层如何进入下一轮协作。";
+      activeWorkspaceCards = [
+        {
+          label: "开放建议",
+          title:
+            primaryPendingHumanReviewSuggestion?.title ||
+            primaryLearningSuggestion?.title ||
+            `${learningSuggestionOpenCount} 条开放建议`,
+          summary: learningSummary.summary,
+          tone: learningSummary.tone,
+          actionLabel: "看学习闭环",
+          onAction: scrollToLearning,
+        },
+        {
+          label: "团队记忆",
+          title: memorySummary.title,
+          summary: memorySummary.summary,
+          tone: memorySummary.tone,
+          actionLabel: "看团队记忆",
+          onAction: scrollToMemory,
+        },
+        {
+          label: "最近总结",
+          title: latestRunSummaries[0]?.title || `${runSummaries.length} 轮 Run Summary`,
+          summary:
+            latestRunSummaries[0]?.summary ||
+            "当前还没有 run summary。更多轮次完成后，这里会开始给出更稳定的项目级总结。",
+          tone: latestRunSummaries[0] ? "success" : "default",
+          actionLabel: "看运行记录",
+          onAction: scrollToLearning,
+        },
+      ];
+      break;
+    case "delivery":
+      activeWorkspaceHeading = "把推进过程收回到任务、交付物和协作关系";
+      activeWorkspaceDescription =
+        "这一层只看团队是否真的形成了任务接力、交付物流转和结构化协作，不再被消息表象带着走。";
+      activeWorkspaceCards = [
+        {
+          label: "任务推进",
+          title:
+            executionTasks[0]?.title ||
+            `${executionTasks.length} 个执行中 · ${reviewTasks.length} 个待复核`,
+          summary: `阻塞 ${stalledTasks.length} 个，最近完成 ${completedTasks.length} 个。先看任务图，最容易判断这轮推进是不是成形。`,
+          tone: stalledTasks.length > 0 ? "warning" : executionTasks.length > 0 ? "info" : "default",
+          actionLabel: "看任务图",
+          onAction: () => openWorkspaceView("delivery"),
+        },
+        {
+          label: "交付物",
+          title: `${artifactReadyCount} 项已可用`,
+          summary: `${artifactDraftCount} 项待整理，${artifactLinkedTaskCount} 条下游任务已经接入这些结果。`,
+          tone: artifactReadyCount > 0 ? "success" : artifactDraftCount > 0 ? "warning" : "default",
+          actionLabel: "看交付物流向",
+          onAction: scrollToArtifactGraph,
+        },
+        {
+          label: "协作线程",
+          title: coordinationSummary.title,
+          summary: coordinationSummary.summary,
+          tone: coordinationSummary.tone,
+          actionLabel: "看协作线程",
+          onAction: scrollToCoordination,
+        },
+      ];
+      break;
+    case "activity":
+      activeWorkspaceHeading = "最后再回到压缩后的活动流";
+      activeWorkspaceDescription =
+        "活动流适合补上下文，不适合作为默认入口。这里保留最近动态和关键跳转，但不让它抢掉主线。";
+      activeWorkspaceCards = [
+        {
+          label: "最近一条",
+          title: latestActivityDescriptor?.label || "还没有最近活动",
+          summary:
+            compactActivityText(runtimeMessages[0]?.content || "团队活动还没有开始。启动后，这里会先显示项目经理派工和成员接力结果。"),
+          tone: latestActivityDescriptor?.tone || "default",
+          actionLabel: "看完整活动流",
+          onAction: scrollToActivity,
+        },
+        {
+          label: "当前停点",
+          title: runStopSummary.title,
+          summary: runStopSummary.summary,
+          tone: runStopSummary.tone,
+          actionLabel:
+            runStopSummary.actionTarget === "checkpoint"
+              ? "去 Checkpoint"
+              : runStopSummary.actionTarget === "activity"
+                ? "留在活动流"
+                : "看运行态势",
+          onAction:
+            runStopSummary.actionTarget === "checkpoint"
+              ? scrollToCheckpoint
+              : runStopSummary.actionTarget === "activity"
+                ? scrollToActivity
+                : scrollToMissionControl,
+        },
+        {
+          label: "推荐跳转",
+          title:
+            primaryPendingHumanReviewSuggestion?.title ||
+            latestOpenMailboxThread?.subject ||
+            "没有更高优先级的结构化入口",
+          summary:
+            primaryPendingHumanReviewSuggestion
+              ? "这条建议已经进入人审边界，通常比继续翻活动流更值得先处理。"
+              : latestOpenMailboxThread
+                ? "最近已经有结构化协作线程形成，比继续回看长消息更容易找到行动点。"
+                : "当前没有明显更高优先级的结构化入口，你可以继续从活动流补上下文。"
+          ,
+          tone:
+            primaryPendingHumanReviewSuggestion || latestOpenMailboxThread ? "warning" : "default",
+          actionLabel:
+            primaryPendingHumanReviewSuggestion ? "看学习闭环" : latestOpenMailboxThread ? "看协作线程" : "看任务交付",
+          onAction:
+            primaryPendingHumanReviewSuggestion
+              ? scrollToLearning
+              : latestOpenMailboxThread
+                ? scrollToCoordination
+                : scrollToArtifactGraph,
+        },
+      ];
+      break;
+  }
+
+  const quickActionControls = (
+    <>
+      {showTopRunButton ? (
+        <button
+          type="button"
+          onClick={() => void handleRun()}
+          className={buttonClassName({ variant: "primary", size: "sm", className: "shrink-0" })}
+          disabled={isRunning || isRefreshing || isCheckpointSubmitting || isPausing}
+        >
+          {isRunning ? "处理中..." : getRunActionLabel(project.runStatus)}
+        </button>
+      ) : null}
+      {project.runStatus === "running" ? (
+        <button
+          type="button"
+          onClick={() => void handlePause()}
+          className={buttonClassName({ variant: "secondary", size: "sm", className: "shrink-0" })}
+          disabled={isPausing || isRunning || isRefreshing || isCheckpointSubmitting}
+        >
+          {isPausing ? "暂停中..." : "暂停团队"}
+        </button>
+      ) : null}
+      {canRollbackToCheckpoint ? (
+        <button
+          type="button"
+          onClick={() => void handleCheckpointAction("rollback")}
+          className={buttonClassName({ variant: "secondary", size: "sm", className: "shrink-0" })}
+          disabled={isCheckpointSubmitting || isRefreshing || isRunning || isPausing}
+        >
+          {isCheckpointSubmitting ? "处理中..." : "从 checkpoint 重跑"}
+        </button>
+      ) : null}
+      <button
+        type="button"
+        onClick={() => void handleRefresh()}
+        className={buttonClassName({ variant: "secondary", size: "sm", className: "shrink-0" })}
+        disabled={isRefreshing || isRunning || isPausing}
+      >
+        {isRefreshing ? "刷新中..." : "刷新状态"}
+      </button>
+      {project.teamConversationId ? (
+        <Link
+          href={`/conversations/${project.teamConversationId}`}
+          className={buttonClassName({ variant: "secondary", size: "sm", className: "shrink-0" })}
+        >
+          打开团队群聊
+        </Link>
+      ) : null}
+      <button
+        type="button"
+        onClick={() => setIsDeleteDialogVisible(true)}
+        className={buttonClassName({ variant: "danger", size: "sm", className: "shrink-0" })}
+        disabled={isDeleting || isRunning || isRefreshing || isCheckpointSubmitting || isPausing}
+      >
+        {isDeleting ? "删除中..." : "删除团队"}
+      </button>
+    </>
+  );
 
   return (
     <>
       <div className="space-y-8">
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <Link href="/projects" className={buttonClassName({ variant: "secondary" })}>
             返回团队页
           </Link>
-          {sourceConversation ? (
-            <Link href={`/conversations/${sourceConversation.id}`} className={buttonClassName({ variant: "secondary" })}>
-              返回原对话
-            </Link>
-          ) : null}
+          <div className="flex min-w-0 flex-wrap items-center gap-2 lg:max-w-[58%] lg:justify-end">
+            {quickActionControls}
+          </div>
         </div>
 
         <section className="rounded-[28px] border border-line bg-surface p-6 shadow-soft">
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
+          <div className="space-y-5">
+            <HorizontalScrollRow>
+              <StatusPill status={project.runStatus}>{formatProjectStatus(project.runStatus)}</StatusPill>
+              <MetaPill>{project.memberCount} 位成员</MetaPill>
+              <MetaPill>{displayStageLabel}</MetaPill>
+              <MetaPill>最近活动：{project.lastActivityLabel}</MetaPill>
+              <MetaPill>{project.teamConversationId ? "团队群聊已连接" : "团队群聊待生成"}</MetaPill>
+            </HorizontalScrollRow>
+
             <div className="min-w-0">
-              <div className="flex flex-wrap gap-2 text-[12px] text-muted-strong">
-                <MetaPill>Team Mode</MetaPill>
-                <StatusPill status={project.runStatus}>{formatProjectStatus(project.runStatus)}</StatusPill>
-                <MetaPill>{project.memberCount} 位成员</MetaPill>
-                <MetaPill>{displayStageLabel}</MetaPill>
-                <MetaPill>最近活动：{project.lastActivityLabel}</MetaPill>
-                <MetaPill>{project.teamConversationId ? "已连接团队群聊" : "启动后生成群聊"}</MetaPill>
-              </div>
-              <h1 className="mt-5 max-w-[18ch] text-[32px] font-semibold leading-[1.14] tracking-[-0.05em] text-text sm:max-w-[24ch] xl:max-w-[22ch]">
+              <div className="text-[11px] uppercase tracking-[0.14em] text-muted">Team Room</div>
+              <h1 className="mt-4 max-w-[18ch] text-[32px] font-semibold leading-[1.14] tracking-[-0.05em] text-text sm:max-w-[24ch] xl:max-w-[22ch]">
                 {project.title}
               </h1>
               <p className="mt-3 max-w-[70ch] text-[14px] leading-7 text-muted-strong">
@@ -967,75 +1315,20 @@ export function ProjectRoomScreen({ detail: initialDetail }: { detail: ProjectDe
               </p>
             </div>
 
-            <div className="flex w-full flex-wrap items-center gap-2 xl:w-auto xl:max-w-[420px] xl:justify-end">
-              {showTopRunButton ? (
-                <button
-                  type="button"
-                  onClick={() => void handleRun()}
-                  className={buttonClassName({ variant: "primary", size: "sm" })}
-                  disabled={isRunning || isRefreshing || isCheckpointSubmitting || isPausing}
-                >
-                  {isRunning ? "处理中..." : getRunActionLabel(project.runStatus)}
-                </button>
-              ) : null}
-              {project.runStatus === "running" ? (
-                <button
-                  type="button"
-                  onClick={() => void handlePause()}
-                  className={buttonClassName({ variant: "secondary", size: "sm" })}
-                  disabled={isPausing || isRunning || isRefreshing || isCheckpointSubmitting}
-                >
-                  {isPausing ? "暂停中..." : "暂停团队"}
-                </button>
-              ) : null}
-              {canRollbackToCheckpoint ? (
-                <button
-                  type="button"
-                  onClick={() => void handleCheckpointAction("rollback")}
-                  className={buttonClassName({ variant: "secondary", size: "sm" })}
-                  disabled={isCheckpointSubmitting || isRefreshing || isRunning || isPausing}
-                >
-                  {isCheckpointSubmitting ? "处理中..." : "从 checkpoint 重跑"}
-                </button>
-              ) : null}
-              <button
-                type="button"
-                onClick={() => void handleRefresh()}
-                className={buttonClassName({ variant: "secondary", size: "sm" })}
-                disabled={isRefreshing || isRunning || isPausing}
-              >
-                {isRefreshing ? "刷新中..." : "刷新状态"}
-              </button>
-              {project.teamConversationId ? (
-                <Link
-                  href={`/conversations/${project.teamConversationId}`}
-                  className={buttonClassName({ variant: "secondary", size: "sm" })}
-                >
-                  打开团队群聊
-                </Link>
-              ) : null}
-              <button
-                type="button"
-                onClick={() => setIsDeleteDialogVisible(true)}
-                className={buttonClassName({ variant: "danger", size: "sm" })}
-                disabled={isDeleting || isRunning || isRefreshing || isCheckpointSubmitting || isPausing}
-              >
-                {isDeleting ? "删除中..." : "删除团队"}
-              </button>
+            <div className="grid gap-3 lg:grid-cols-[1.35fr_0.95fr]">
+              <div className="min-w-0">
+                <ScrollableOverviewCard label="当前目标" maxHeightClassName="max-h-[180px]">
+                  <p className="whitespace-pre-wrap break-words text-[14px] leading-7 text-text">
+                    {goalPanelText}
+                  </p>
+                </ScrollableOverviewCard>
+              </div>
+              <ScrollableOverviewCard label="工作空间目录" maxHeightClassName="max-h-[180px]">
+                <p className="whitespace-pre-wrap break-all text-[14px] leading-7 text-text">
+                  {workspaceDirectoryText}
+                </p>
+              </ScrollableOverviewCard>
             </div>
-          </div>
-
-          <div className="mt-6 grid gap-3 lg:grid-cols-[1.35fr_0.95fr]">
-            <article className="rounded-[22px] border border-line bg-background p-5">
-              <div className="text-[11px] uppercase tracking-[0.14em] text-muted">当前目标</div>
-              <p className="mt-2 text-[14px] leading-7 text-text">{compactGoal}</p>
-            </article>
-            <article className="rounded-[22px] border border-line bg-background p-5">
-              <div className="text-[11px] uppercase tracking-[0.14em] text-muted">工作空间目录</div>
-              <p className="mt-2 break-all text-[14px] leading-7 text-text">
-                {project.workspaceDir || "未指定"}
-              </p>
-            </article>
           </div>
           {actionMessage ? (
             <div className="mt-4 rounded-[18px] border border-[#d7e4ff] bg-[#eef4ff] px-4 py-3 text-[13px] text-[#2d56a3]">
@@ -1106,148 +1399,275 @@ export function ProjectRoomScreen({ detail: initialDetail }: { detail: ProjectDe
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-muted">
-                Convergence
+                Focus Workspace
               </p>
               <h2 className="mt-2 text-[24px] font-semibold tracking-[-0.04em] text-text">
-                收口导航
+                先看这一层
               </h2>
               <p className="mt-2 max-w-[72ch] text-[14px] leading-7 text-muted-strong">
-                这一层不再只告诉你“团队做了很多”，而是先把当前停点、最近恢复、人审建议和协作焦点收成一个入口，再决定该往哪一块看。
+                {activeWorkspaceDescription}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full border border-line bg-surface-muted px-3 py-1.5 text-[12px] text-muted-strong">
-                {openMailboxThreadCount} 条待处理线程
+                当前分区：{workspaceTabs.find((tab) => tab.id === activeWorkspaceView)?.label}
               </span>
               <span className="rounded-full border border-line bg-surface-muted px-3 py-1.5 text-[12px] text-muted-strong">
-                {pendingHumanReviewSuggestionCount} 条待人审建议
-              </span>
-              <span className="rounded-full border border-line bg-surface-muted px-3 py-1.5 text-[12px] text-muted-strong">
-                {recoveryActions.length} 条恢复动作
+                {project.runStatus === "waiting_approval" || project.runStatus === "waiting_user"
+                  ? "当前停在用户决策边界"
+                  : "现在先用分区切换抓主线"}
               </span>
             </div>
           </div>
 
-          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <ConvergenceFocusCard
-              label="当前停点"
-              title={runStopSummary.title}
-              summary={runStopSummary.summary}
-              tone={runStopSummary.tone}
-              actionLabel={runStopSummary.actionLabel}
-              onAction={runStopSummary.actionTarget === "checkpoint"
-                ? scrollToCheckpoint
-                : runStopSummary.actionTarget === "activity"
-                  ? scrollToActivity
-                  : scrollToRuntimeHealth}
-            />
-            <ConvergenceFocusCard
-              label="最近恢复"
-              title={recoverySummary.title}
-              summary={recoverySummary.summary}
-              tone={recoverySummary.tone}
-              actionLabel="看运行健康"
-              onAction={scrollToRuntimeHealth}
-            />
-            <ConvergenceFocusCard
-              label="记忆焦点"
-              title={memorySummary.title}
-              summary={memorySummary.summary}
-              tone={memorySummary.tone}
-              actionLabel="看团队记忆"
-              onAction={scrollToMemory}
-            />
-            <ConvergenceFocusCard
-              label="学习 / 协作焦点"
-              title={learningSummary.title}
-              summary={buildConvergenceLearningAndCoordinationSummary(learningSummary.summary, coordinationSummary.summary)}
-              tone={learningSummary.tone}
-              actionLabel={
-                primaryPendingHumanReviewSuggestion || primaryLearningSuggestion ? "看学习闭环" : "看协作线程"
-              }
-              onAction={
-                primaryPendingHumanReviewSuggestion || primaryLearningSuggestion
-                  ? () =>
-                      focusLearningSuggestion(
-                        (primaryPendingHumanReviewSuggestion ?? primaryLearningSuggestion)?.id ?? "",
-                      )
-                  : scrollToCoordination
-              }
-            />
+          <div className="mt-5">
+            <HorizontalScrollRow>
+              {workspaceTabs.map((tab) => {
+                const isActive = tab.id === activeWorkspaceView;
+
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveWorkspaceView(tab.id)}
+                    className={`min-w-[148px] shrink-0 rounded-[18px] border px-4 py-3 text-left transition ${
+                      isActive
+                        ? "border-[#c9dafd] bg-[#f4f8ff] shadow-soft"
+                        : "border-line bg-background hover:bg-surface-muted"
+                    }`}
+                  >
+                    <div className="text-[13px] font-semibold text-text">{tab.label}</div>
+                    <div className="mt-1 text-[11px] text-muted-strong">{tab.hint}</div>
+                  </button>
+                );
+              })}
+            </HorizontalScrollRow>
           </div>
 
           <div className="mt-5 rounded-[22px] border border-line bg-background p-5">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <div className="text-[11px] uppercase tracking-[0.14em] text-muted">快速定位</div>
-                <p className="mt-2 text-[13px] leading-6 text-muted-strong">
-                  想知道为什么停在这里，通常先看 Checkpoint / Runtime Health；想知道接下来该怎么改，再看 Team Memory、Learning Loop 和最近活动。
+                <div className="text-[11px] uppercase tracking-[0.14em] text-muted">当前焦点</div>
+                <h3 className="mt-2 text-[20px] font-semibold tracking-[-0.03em] text-text">
+                  {activeWorkspaceHeading}
+                </h3>
+                <p className="mt-2 max-w-[72ch] text-[13px] leading-6 text-muted-strong">
+                  每次只展开一组信息层，先解决当前最值得看的问题，再决定要不要继续下钻。
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                {(project.runStatus === "waiting_approval" || project.runStatus === "waiting_user") ? (
-                  <button
-                    type="button"
-                    onClick={scrollToCheckpoint}
-                    className={buttonClassName({ variant: "secondary", size: "sm" })}
-                  >
-                    Checkpoint
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={scrollToRuntimeHealth}
-                  className={buttonClassName({ variant: "secondary", size: "sm" })}
-                >
-                  Runtime Health
-                </button>
-                <button
-                  type="button"
-                  onClick={scrollToMemory}
-                  className={buttonClassName({ variant: "secondary", size: "sm" })}
-                >
-                  Team Memory
-                </button>
-                <button
-                  type="button"
-                  onClick={scrollToLearning}
-                  className={buttonClassName({ variant: "secondary", size: "sm" })}
-                >
-                  Learning Loop
-                </button>
-                <button
-                  type="button"
-                  onClick={scrollToCoordination}
-                  className={buttonClassName({ variant: "secondary", size: "sm" })}
-                >
-                  协作线程
-                </button>
-                <button
-                  type="button"
-                  onClick={scrollToActivity}
-                  className={buttonClassName({ variant: "secondary", size: "sm" })}
-                >
-                  最近活动
-                </button>
                 {project.teamConversationId ? (
                   <Link
                     href={`/conversations/${project.teamConversationId}`}
                     className={buttonClassName({ variant: "secondary", size: "sm" })}
                   >
-                    打开群聊
+                    打开团队群聊
                   </Link>
                 ) : null}
+                <button
+                  type="button"
+                  onClick={scrollToActivity}
+                  className={buttonClassName({ variant: "secondary", size: "sm" })}
+                >
+                  看最近活动
+                </button>
               </div>
             </div>
+          </div>
+
+          <div className="mt-5 grid gap-3 xl:grid-cols-3">
+            {activeWorkspaceCards.map((card) => (
+              <ConvergenceFocusCard
+                key={`${activeWorkspaceView}-${card.label}`}
+                label={card.label}
+                title={card.title}
+                summary={card.summary}
+                tone={card.tone}
+                actionLabel={card.actionLabel}
+                onAction={card.onAction}
+              />
+            ))}
           </div>
         </section>
 
         <div className="space-y-6">
           <div className="space-y-6">
-            <section
-              ref={runtimeHealthSectionRef}
-              className="rounded-[28px] border border-line bg-surface p-6 shadow-soft"
-            >
+            {activeWorkspaceView === "focus" ? (
+              (project.runStatus === "waiting_approval" || project.runStatus === "waiting_user") ? (
+                <section
+                  ref={checkpointSectionRef}
+                  className="rounded-[28px] border border-line bg-surface p-6 shadow-soft"
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-muted">
+                        Checkpoint
+                      </p>
+                      <h2 className="mt-2 text-[24px] font-semibold tracking-[-0.04em] text-text">
+                        {project.runStatus === "waiting_approval"
+                          ? isAutonomyGatePaused
+                            ? "处理自治 gate"
+                            : "确认这轮输出"
+                          : "补充后继续推进"}
+                      </h2>
+                      <p className="mt-2 max-w-[68ch] text-[14px] leading-7 text-muted-strong">
+                        {project.runStatus === "waiting_approval"
+                          ? isAutonomyGatePaused
+                            ? "团队已经停在当前自治边界。你可以批准继续自动推进，也可以直接改方向后再继续。"
+                            : "团队已经交回阶段结果。你可以直接确认完成，或者告诉项目经理还需要补充什么。"
+                          : "团队已经停在你的补充检查点。更新一下方向后，再让它继续推进下一轮。"}
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-line bg-surface-muted px-3 py-1.5 text-[12px] text-muted-strong">
+                      {project.runStatus === "waiting_approval"
+                        ? isAutonomyGatePaused
+                          ? "等待你放行或改方向"
+                          : "需要你决定下一步"
+                        : "等待你的补充"}
+                    </span>
+                  </div>
+
+                  <div className="mt-5 rounded-[22px] border border-line bg-[linear-gradient(135deg,#fffaf5_0%,#ffffff_55%,#f6f8fe_100%)] p-5">
+                    <div className="text-[11px] uppercase tracking-[0.14em] text-muted">当前聚焦点</div>
+                    <p className="mt-2 whitespace-pre-wrap text-[14px] leading-7 text-text">
+                      {project.latestUserRequest || project.goal}
+                    </p>
+
+                    <label className="mt-5 block">
+                      <span className="text-[12px] font-medium text-muted-strong">
+                        {project.runStatus === "waiting_approval"
+                          ? isAutonomyGatePaused
+                            ? "如果要继续放行，可附带新的边界要求"
+                            : "如果需要补充，请告诉团队"
+                          : "更新这次补充方向"}
+                      </span>
+                      <textarea
+                        value={checkpointNote}
+                        onChange={(event) => setCheckpointNote(event.target.value)}
+                        rows={4}
+                        placeholder={
+                          project.runStatus === "waiting_approval"
+                            ? isAutonomyGatePaused
+                              ? "例如：可以继续自动推进，但请把并行人数控制在 1 人，并优先做低风险收口。"
+                              : "例如：请补上风险判断，并把最终输出改成更适合产品评审会的结构。"
+                            : "例如：保留原结论，但请把重点改成里程碑风险、依赖项和可交付时间。"
+                        }
+                        className="mt-2 w-full rounded-[16px] border border-line bg-background px-4 py-3 text-[14px] leading-7 text-text outline-none transition focus:border-text"
+                      />
+                    </label>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {project.runStatus === "waiting_approval" ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => void handleCheckpointAction("approve")}
+                            className={buttonClassName({ variant: "primary" })}
+                            disabled={isCheckpointSubmitting || isRefreshing || isRunning}
+                          >
+                            {isCheckpointSubmitting ? "提交中..." : checkpointApproveLabel}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleCheckpointAction("request_changes")}
+                            className={buttonClassName({ variant: "secondary" })}
+                            disabled={isCheckpointSubmitting || isRefreshing || isRunning}
+                          >
+                            {isAutonomyGatePaused ? "改方向后再继续" : "要求补充或改方向"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleCheckpointAction("rollback")}
+                            className={buttonClassName({ variant: "secondary" })}
+                            disabled={isCheckpointSubmitting || isRefreshing || isRunning}
+                          >
+                            {isCheckpointSubmitting ? "提交中..." : "从当前 checkpoint 重跑"}
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => void handleCheckpointAction("resume")}
+                            className={buttonClassName({ variant: "primary" })}
+                            disabled={isCheckpointSubmitting || isRefreshing || isRunning}
+                          >
+                            {isCheckpointSubmitting ? "提交中..." : "带着补充继续推进"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleCheckpointAction("rollback")}
+                            className={buttonClassName({ variant: "secondary" })}
+                            disabled={isCheckpointSubmitting || isRefreshing || isRunning}
+                          >
+                            {isCheckpointSubmitting ? "提交中..." : "不改方向，直接重跑"}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </section>
+              ) : (
+                <section
+                  ref={checkpointSectionRef}
+                  className="rounded-[28px] border border-line bg-surface p-6 shadow-soft"
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-muted">
+                        Decision Desk
+                      </p>
+                      <h2 className="mt-2 text-[24px] font-semibold tracking-[-0.04em] text-text">
+                        当前没有待你拍板的 Checkpoint
+                      </h2>
+                      <p className="mt-2 max-w-[68ch] text-[14px] leading-7 text-muted-strong">
+                        团队现在没有停在必须由你立刻决定的 gate 或补充点。先看运行态势判断是否偏航，再决定要不要下钻到任务交付或活动流。
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-line bg-surface-muted px-3 py-1.5 text-[12px] text-muted-strong">
+                      先抓主线，再看细节
+                    </span>
+                  </div>
+
+                  <div className="mt-5 rounded-[22px] border border-line bg-background p-5">
+                    <div className="text-[11px] uppercase tracking-[0.14em] text-muted">当前建议路径</div>
+                    <p className="mt-2 text-[14px] leading-7 text-text">
+                      先看 Baton、自治边界和运行健康。如果这轮已经收口，再切到任务交付或最近活动回看结果，不需要一上来就把整页细节都读完。
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={scrollToMissionControl}
+                        className={buttonClassName({ variant: "primary" })}
+                      >
+                        看运行态势
+                      </button>
+                      <button
+                        type="button"
+                        onClick={scrollToArtifactGraph}
+                        className={buttonClassName({ variant: "secondary" })}
+                      >
+                        看任务交付
+                      </button>
+                      <button
+                        type="button"
+                        onClick={scrollToActivity}
+                        className={buttonClassName({ variant: "secondary" })}
+                      >
+                        看最近活动
+                      </button>
+                    </div>
+                  </div>
+                </section>
+              )
+            ) : null}
+
+            {activeWorkspaceView === "runtime" ? (
+              <>
+                <section
+                  ref={missionControlSectionRef}
+                  className="rounded-[28px] border border-line bg-surface p-6 shadow-soft"
+                >
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-muted">
@@ -1323,17 +1743,7 @@ export function ProjectRoomScreen({ detail: initialDetail }: { detail: ProjectDe
                           {displayActiveAgent.name}
                         </h3>
                         <MetaPill>{displayActiveAgent.role}</MetaPill>
-                        {displayActiveAgent.progressLabel ? (
-                          <span className="rounded-full border border-[#d7e4ff] bg-[#eef4ff] px-2.5 py-1 text-[11px] font-medium text-[#2d56a3]">
-                            {displayActiveAgent.progressLabel}
-                          </span>
-                        ) : null}
                       </div>
-                      <p className="mt-2 max-w-[74ch] text-[14px] leading-7 text-muted-strong">
-                        {displayActiveAgent.progressDetails ||
-                          displayActiveAgent.lastAssignedTask ||
-                          "当前还没有同步出更细的执行过程。"}
-                      </p>
                     </div>
                     <div className="text-[12px] text-muted-strong">
                       {displayActiveAgent.lastHeartbeatAt
@@ -1342,45 +1752,52 @@ export function ProjectRoomScreen({ detail: initialDetail }: { detail: ProjectDe
                     </div>
                   </div>
 
-                  <div className="mt-4 grid gap-3 lg:grid-cols-2">
-                    {activeAgentProgressTrail.length > 0 ? (
-                      activeAgentProgressTrail.map((entry, index) => (
-                        <div
-                          key={entry.id}
-                          className="rounded-[18px] border border-line bg-surface-muted px-4 py-4"
-                        >
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-[11px] uppercase tracking-[0.14em] text-muted">
-                                {index === 0 ? "最新进展" : `过程 ${index + 1}`}
-                              </span>
-                              <span className="rounded-full border border-line bg-background px-2.5 py-1 text-[11px] font-medium text-text">
-                                {entry.label}
-                              </span>
-                            </div>
-                            <span className="text-[11px] text-muted-strong">
-                              {formatActivityTimestamp(entry.createdAt)}
-                            </span>
-                          </div>
-                          <p className="mt-2 text-[13px] leading-6 text-muted-strong">
-                            {entry.detail}
-                          </p>
+                  {thinkingModeEnabled && activeAgentThinkingEntries.length > 0 ? (
+                    <div className="mt-4 flex h-[320px] flex-col rounded-[18px] border border-line bg-surface-muted/60 px-4 py-4 sm:h-[360px]">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+                          <RuntimeThinkingPulse isActive={activeAgentThinkingState?.isPending ?? false} />
+                          <span>当前 Thinking</span>
                         </div>
-                      ))
-                    ) : (
-                      <div className="rounded-[18px] border border-dashed border-line bg-surface-muted/60 px-4 py-4 text-[13px] leading-6 text-muted-strong">
-                        当前这位成员还没有同步出更多过程轨迹。开始运行后，这里会持续显示它最新的公开进展。
+                        <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-strong">
+                          <span className="rounded-full border border-line bg-background/80 px-2 py-1">
+                            最新在上
+                          </span>
+                          <span>
+                            {activeAgentThinkingState?.updatedAt
+                              ? formatActivityTimestamp(activeAgentThinkingState.updatedAt)
+                              : "刚刚同步"}
+                          </span>
+                        </div>
                       </div>
-                    )}
-                  </div>
+
+                      <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+                        {activeAgentThinkingEntries.map((entry, index) => (
+                          <div key={`${displayActiveAgent.id}-thinking-${index}`} className="flex gap-3">
+                            <span className="mt-[2px] inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-line bg-background px-1.5 text-[11px] font-medium text-muted-strong">
+                              {activeAgentThinkingEntries.length - index}
+                            </span>
+                            <p className="min-w-0 whitespace-pre-wrap text-[13px] leading-6 text-muted-strong">
+                              {entry}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-4 flex items-center gap-2 rounded-[18px] border border-dashed border-line bg-surface-muted/50 px-4 py-3 text-[13px] text-muted-strong">
+                      <RuntimeThinkingPulse isActive={currentProject.runStatus === "running"} />
+                      <span>正在进行中</span>
+                    </div>
+                  )}
                 </div>
               ) : null}
             </section>
 
-            <section
-              ref={learningSectionRef}
-              className="rounded-[28px] border border-line bg-surface p-6 shadow-soft"
-            >
+                <section
+                  ref={autonomySectionRef}
+                  className="rounded-[28px] border border-line bg-surface p-6 shadow-soft"
+                >
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-muted">
@@ -1441,10 +1858,10 @@ export function ProjectRoomScreen({ detail: initialDetail }: { detail: ProjectDe
               </div>
             </section>
 
-            <section
-              ref={memorySectionRef}
-              className="rounded-[28px] border border-line bg-surface p-6 shadow-soft"
-            >
+                <section
+                  ref={runtimeHealthSectionRef}
+                  className="rounded-[28px] border border-line bg-surface p-6 shadow-soft"
+                >
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-muted">
@@ -1606,12 +2023,16 @@ export function ProjectRoomScreen({ detail: initialDetail }: { detail: ProjectDe
                   </div>
                 </div>
               </div>
-            </section>
+                </section>
+              </>
+            ) : null}
 
-            <section
-              ref={coordinationSectionRef}
-              className="rounded-[28px] border border-line bg-surface p-6 shadow-soft"
-            >
+            {activeWorkspaceView === "learning" ? (
+              <>
+                <section
+                  ref={learningSectionRef}
+                  className="rounded-[28px] border border-line bg-surface p-6 shadow-soft"
+                >
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-muted">
@@ -1885,7 +2306,7 @@ export function ProjectRoomScreen({ detail: initialDetail }: { detail: ProjectDe
               </div>
             </section>
 
-            <section className="rounded-[28px] border border-line bg-surface p-6 shadow-soft">
+                <section className="rounded-[28px] border border-line bg-surface p-6 shadow-soft">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-muted">
@@ -1931,7 +2352,10 @@ export function ProjectRoomScreen({ detail: initialDetail }: { detail: ProjectDe
               </div>
             </section>
 
-            <section className="rounded-[28px] border border-line bg-surface p-6 shadow-soft">
+                <section
+                  ref={teamMemorySectionRef}
+                  className="rounded-[28px] border border-line bg-surface p-6 shadow-soft"
+                >
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-muted">
@@ -2027,9 +2451,13 @@ export function ProjectRoomScreen({ detail: initialDetail }: { detail: ProjectDe
                   </div>
                 </div>
               </div>
-            </section>
+                </section>
+              </>
+            ) : null}
 
-            <section className="rounded-[28px] border border-line bg-surface p-6 shadow-soft">
+            {activeWorkspaceView === "delivery" ? (
+              <>
+                <section className="rounded-[28px] border border-line bg-surface p-6 shadow-soft">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-muted">
@@ -2294,7 +2722,10 @@ export function ProjectRoomScreen({ detail: initialDetail }: { detail: ProjectDe
               </div>
             </section>
 
-            <section className="rounded-[28px] border border-line bg-surface p-6 shadow-soft">
+            <section
+              ref={coordinationSectionRef}
+              className="rounded-[28px] border border-line bg-surface p-6 shadow-soft"
+            >
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-muted">
@@ -2484,130 +2915,17 @@ export function ProjectRoomScreen({ detail: initialDetail }: { detail: ProjectDe
                   );
                 })}
               </div>
-            </section>
-
-            {(project.runStatus === "waiting_approval" || project.runStatus === "waiting_user") ? (
-              <section
-                ref={checkpointSectionRef}
-                className="rounded-[28px] border border-line bg-surface p-6 shadow-soft"
-              >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-muted">
-                      Checkpoint
-                    </p>
-                    <h2 className="mt-2 text-[24px] font-semibold tracking-[-0.04em] text-text">
-                      {project.runStatus === "waiting_approval"
-                        ? isAutonomyGatePaused
-                          ? "处理自治 gate"
-                          : "确认这轮输出"
-                        : "补充后继续推进"}
-                    </h2>
-                    <p className="mt-2 max-w-[68ch] text-[14px] leading-7 text-muted-strong">
-                      {project.runStatus === "waiting_approval"
-                        ? isAutonomyGatePaused
-                          ? "团队已经停在当前自治边界。你可以批准继续自动推进，也可以直接改方向后再继续。"
-                          : "团队已经交回阶段结果。你可以直接确认完成，或者告诉项目经理还需要补充什么。"
-                        : "团队已经停在你的补充检查点。更新一下方向后，再让它继续推进下一轮。"}
-                    </p>
-                  </div>
-                  <span className="rounded-full border border-line bg-surface-muted px-3 py-1.5 text-[12px] text-muted-strong">
-                    {project.runStatus === "waiting_approval"
-                      ? isAutonomyGatePaused
-                        ? "等待你放行或改方向"
-                        : "需要你决定下一步"
-                      : "等待你的补充"}
-                  </span>
-                </div>
-
-                <div className="mt-5 rounded-[22px] border border-line bg-[linear-gradient(135deg,#fffaf5_0%,#ffffff_55%,#f6f8fe_100%)] p-5">
-                  <div className="text-[11px] uppercase tracking-[0.14em] text-muted">当前聚焦点</div>
-                  <p className="mt-2 whitespace-pre-wrap text-[14px] leading-7 text-text">
-                    {project.latestUserRequest || project.goal}
-                  </p>
-
-                  <label className="mt-5 block">
-                    <span className="text-[12px] font-medium text-muted-strong">
-                      {project.runStatus === "waiting_approval"
-                        ? isAutonomyGatePaused
-                          ? "如果要继续放行，可附带新的边界要求"
-                          : "如果需要补充，请告诉团队"
-                        : "更新这次补充方向"}
-                    </span>
-                    <textarea
-                      value={checkpointNote}
-                      onChange={(event) => setCheckpointNote(event.target.value)}
-                      rows={4}
-                      placeholder={
-                        project.runStatus === "waiting_approval"
-                          ? isAutonomyGatePaused
-                            ? "例如：可以继续自动推进，但请把并行人数控制在 1 人，并优先做低风险收口。"
-                            : "例如：请补上风险判断，并把最终输出改成更适合产品评审会的结构。"
-                          : "例如：保留原结论，但请把重点改成里程碑风险、依赖项和可交付时间。"
-                      }
-                      className="mt-2 w-full rounded-[16px] border border-line bg-background px-4 py-3 text-[14px] leading-7 text-text outline-none transition focus:border-text"
-                    />
-                  </label>
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {project.runStatus === "waiting_approval" ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => void handleCheckpointAction("approve")}
-                          className={buttonClassName({ variant: "primary" })}
-                          disabled={isCheckpointSubmitting || isRefreshing || isRunning}
-                        >
-                          {isCheckpointSubmitting ? "提交中..." : checkpointApproveLabel}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void handleCheckpointAction("request_changes")}
-                          className={buttonClassName({ variant: "secondary" })}
-                          disabled={isCheckpointSubmitting || isRefreshing || isRunning}
-                        >
-                          {isAutonomyGatePaused ? "改方向后再继续" : "要求补充或改方向"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void handleCheckpointAction("rollback")}
-                          className={buttonClassName({ variant: "secondary" })}
-                          disabled={isCheckpointSubmitting || isRefreshing || isRunning}
-                        >
-                          {isCheckpointSubmitting ? "提交中..." : "从当前 checkpoint 重跑"}
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => void handleCheckpointAction("resume")}
-                          className={buttonClassName({ variant: "primary" })}
-                          disabled={isCheckpointSubmitting || isRefreshing || isRunning}
-                        >
-                          {isCheckpointSubmitting ? "提交中..." : "带着补充继续推进"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void handleCheckpointAction("rollback")}
-                          className={buttonClassName({ variant: "secondary" })}
-                          disabled={isCheckpointSubmitting || isRefreshing || isRunning}
-                        >
-                          {isCheckpointSubmitting ? "提交中..." : "不改方向，直接重跑"}
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </section>
+                </section>
+              </>
             ) : null}
 
           </div>
 
-          <section
-            ref={activitySectionRef}
-            className="rounded-[28px] border border-line bg-surface p-6 shadow-soft"
-          >
+          {activeWorkspaceView === "activity" ? (
+            <section
+              ref={activitySectionRef}
+              className="rounded-[28px] border border-line bg-surface p-6 shadow-soft"
+            >
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-muted">
@@ -2667,7 +2985,7 @@ export function ProjectRoomScreen({ detail: initialDetail }: { detail: ProjectDe
                             </span>
                           </div>
                           <p className="mt-2 line-clamp-3 text-[13px] leading-6 text-muted-strong">
-                            {compactActivityText(message.content)}
+                            {renderMentionText(compactActivityText(message.content), `activity-${message.id}`)}
                           </p>
                         </div>
                         <span className="rounded-full border border-line bg-surface-muted px-2.5 py-1 text-[11px] text-muted-strong">
@@ -2681,9 +2999,10 @@ export function ProjectRoomScreen({ detail: initialDetail }: { detail: ProjectDe
                 <div className="rounded-[20px] border border-dashed border-line bg-surface-muted/60 px-4 py-4 text-[13px] leading-6 text-muted-strong">
                   团队活动还没有开始。启动团队后，这里会先显示项目经理的派工，再逐步显示成员接力结果。
                 </div>
-              )}
-            </div>
-          </section>
+                )}
+              </div>
+            </section>
+          ) : null}
         </div>
       </div>
       {selectedAgent ? (
@@ -3001,7 +3320,7 @@ export function ProjectRoomScreen({ detail: initialDetail }: { detail: ProjectDe
             ) : null}
             <div className="rounded-[18px] border border-line bg-surface-muted px-4 py-4">
               <p className="whitespace-pre-wrap break-words text-[14px] leading-7 text-text">
-                {selectedActivityMessage.content}
+                {renderMentionText(selectedActivityMessage.content, `activity-dialog-${selectedActivityMessage.id}`)}
               </p>
             </div>
           </div>
@@ -3199,6 +3518,23 @@ function TaskArtifactShortcutRow(input: {
       </div>
     </div>
   );
+}
+
+function deriveDefaultProjectRoomWorkspaceView(
+  runStatus: ProjectRunStatus | null,
+): ProjectRoomWorkspaceView {
+  switch (runStatus) {
+    case "waiting_approval":
+    case "waiting_user":
+      return "focus";
+    case "completed":
+      return "delivery";
+    case "running":
+    case "paused":
+    case "ready":
+    default:
+      return "runtime";
+  }
 }
 
 function formatProjectStatus(status: ProjectRunStatus) {
@@ -3415,13 +3751,6 @@ function buildCoordinationFocusSummary(
   };
 }
 
-function buildConvergenceLearningAndCoordinationSummary(
-  learningSummary: string,
-  coordinationSummary: string,
-) {
-  return `${learningSummary} ${coordinationSummary}`;
-}
-
 function formatAgentStatus(status: ProjectAgentStatus) {
   switch (status) {
     case "planning":
@@ -3521,7 +3850,7 @@ function MemoryEntryGroup({
           entries.slice(0, 2).map((entry) => (
             <div key={entry.id}>
               <div className="text-[12px] font-medium text-text">{entry.label}</div>
-              <p className="mt-1 text-[13px] leading-6 text-muted-strong">{entry.summary}</p>
+              <p className="mt-1 text-[13px] leading-6 text-muted-strong [overflow-wrap:anywhere]">{entry.summary}</p>
             </div>
           ))
         ) : (
@@ -3552,7 +3881,7 @@ function MemoryPatternGroup({
               <div className="text-[12px] font-medium text-text">
                 {pattern.label} · {pattern.count} 次
               </div>
-              <p className="mt-1 text-[13px] leading-6 text-muted-strong">{pattern.summary}</p>
+              <p className="mt-1 text-[13px] leading-6 text-muted-strong [overflow-wrap:anywhere]">{pattern.summary}</p>
             </div>
           ))
         ) : (
@@ -3577,7 +3906,7 @@ function TaskReflectionCard({
         {reflection.ownerAgentName ? <MetaPill>{reflection.ownerAgentName}</MetaPill> : null}
       </div>
       <h3 className="mt-3 text-[14px] font-semibold tracking-[-0.02em] text-text">{reflection.taskTitle}</h3>
-      <p className="mt-2 text-[13px] leading-6 text-muted-strong">{reflection.summary}</p>
+      <p className="mt-2 text-[13px] leading-6 text-muted-strong [overflow-wrap:anywhere]">{reflection.summary}</p>
       <InsightList label="亮点" items={reflection.wins} />
       <InsightList label="问题" items={reflection.issues} />
       <InsightList label="建议" items={reflection.advice} />
@@ -3595,7 +3924,7 @@ function StageReflectionCard({
       <div className="flex flex-wrap items-center gap-2">
         <MetaPill>{reflection.stageLabel}</MetaPill>
       </div>
-      <p className="mt-2 text-[13px] leading-6 text-muted-strong">{reflection.summary}</p>
+      <p className="mt-2 text-[13px] leading-6 text-muted-strong [overflow-wrap:anywhere]">{reflection.summary}</p>
       <InsightList label="Highlights" items={reflection.highlights} />
       <InsightList label="Frictions" items={reflection.frictions} />
       <InsightList label="Recommendations" items={reflection.recommendations} />
@@ -3647,7 +3976,7 @@ function LearningSuggestionCard({
 }) {
   return (
     <div
-      className={`rounded-[18px] border px-4 py-4 ${
+      className={`min-w-0 rounded-[18px] border px-4 py-4 ${
         isFocused ? "border-[#c9dafd] bg-[#f4f8ff] shadow-soft" : "border-line bg-surface-muted"
       }`}
     >
@@ -3659,14 +3988,14 @@ function LearningSuggestionCard({
         {isFocused ? <MetaPill>已定位</MetaPill> : null}
       </div>
       <h3 className="mt-3 text-[14px] font-semibold tracking-[-0.02em] text-text">{suggestion.title}</h3>
-      <p className="mt-2 text-[13px] leading-6 text-muted-strong">{suggestion.summary}</p>
+      <p className="mt-2 text-[13px] leading-6 text-muted-strong [overflow-wrap:anywhere]">{suggestion.summary}</p>
       {suggestion.targetLabel ? (
-        <p className="mt-2 text-[12px] leading-6 text-muted-strong">目标对象：{suggestion.targetLabel}</p>
+        <p className="mt-2 text-[12px] leading-6 text-muted-strong [overflow-wrap:anywhere]">目标对象：{suggestion.targetLabel}</p>
       ) : null}
       {suggestion.evidenceLabels.length > 0 ? (
         <div className="mt-3 flex flex-wrap gap-2">
           {suggestion.evidenceLabels.map((label) => (
-            <MetaPill key={label}>{label}</MetaPill>
+            <WrappingMetaPill key={label}>{label}</WrappingMetaPill>
           ))}
         </div>
       ) : null}
@@ -3679,15 +4008,15 @@ function LearningSuggestionCard({
         />
       ) : null}
       {suggestion.writebackSummary ? (
-        <p className="mt-3 text-[12px] leading-6 text-muted-strong">{suggestion.writebackSummary}</p>
+        <p className="mt-3 text-[12px] leading-6 text-muted-strong [overflow-wrap:anywhere]">{suggestion.writebackSummary}</p>
       ) : null}
       {reuseCandidates.length > 0 ? (
-        <p className="mt-3 text-[12px] leading-6 text-muted-strong">
+        <p className="mt-3 text-[12px] leading-6 text-muted-strong [overflow-wrap:anywhere]">
           跨项目复用：{summarizeLearningReuseCandidateState(reuseCandidates)}
         </p>
       ) : null}
       {suggestion.reviewNote ? (
-        <p className="mt-3 text-[12px] leading-6 text-muted-strong">人审备注：{suggestion.reviewNote}</p>
+        <p className="mt-3 text-[12px] leading-6 text-muted-strong [overflow-wrap:anywhere]">人审备注：{suggestion.reviewNote}</p>
       ) : null}
       {suggestion.reviewedAt ? (
         <p className="mt-2 text-[12px] leading-6 text-muted-strong">
@@ -3745,33 +4074,35 @@ function LearningReuseCandidateCard({
   onDismiss?: () => void;
 }) {
   return (
-    <div className="rounded-[18px] border border-line bg-surface-muted px-4 py-4">
+    <div className="min-w-0 rounded-[18px] border border-line bg-surface-muted px-4 py-4">
       <div className="flex flex-wrap items-center gap-2">
         <span className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${getLearningReuseCandidateTone(candidate.kind, candidate.status)}`}>
           {formatLearningReuseCandidateKind(candidate.kind)}
         </span>
         <MetaPill>{formatLearningReuseCandidateStatus(candidate.status)}</MetaPill>
-        <MetaPill>来源项目：{candidate.sourceProjectTitle}</MetaPill>
+        <WrappingMetaPill>
+          来源项目：{candidate.sourceProjectTitle}
+        </WrappingMetaPill>
       </div>
       <h3 className="mt-3 text-[14px] font-semibold tracking-[-0.02em] text-text">{candidate.title}</h3>
-      <p className="mt-2 text-[13px] leading-6 text-muted-strong">{candidate.summary}</p>
+      <p className="mt-2 text-[13px] leading-6 text-muted-strong [overflow-wrap:anywhere]">{candidate.summary}</p>
       <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-muted-strong">
-        <span>来源建议：{candidate.sourceSuggestionTitle}</span>
+        <span className="[overflow-wrap:anywhere]">来源建议：{candidate.sourceSuggestionTitle}</span>
         <span>采纳于 {formatActivityTimestamp(candidate.acceptedAt)}</span>
       </div>
       {candidate.targetLabel ? (
-        <p className="mt-2 text-[12px] leading-6 text-muted-strong">候选对象：{candidate.targetLabel}</p>
+        <p className="mt-2 text-[12px] leading-6 text-muted-strong [overflow-wrap:anywhere]">候选对象：{candidate.targetLabel}</p>
       ) : null}
       {candidate.evidenceLabels.length > 0 ? (
         <div className="mt-3 flex flex-wrap gap-2">
           {candidate.evidenceLabels.map((label) => (
-            <MetaPill key={label}>{label}</MetaPill>
+            <WrappingMetaPill key={label}>{label}</WrappingMetaPill>
           ))}
         </div>
       ) : null}
       <EvidenceSourceList sources={candidate.evidenceSources} />
       {candidate.reviewNote ? (
-        <p className="mt-3 text-[12px] leading-6 text-muted-strong">确认备注：{candidate.reviewNote}</p>
+        <p className="mt-3 text-[12px] leading-6 text-muted-strong [overflow-wrap:anywhere]">确认备注：{candidate.reviewNote}</p>
       ) : null}
       {candidate.reviewedAt ? (
         <p className="mt-2 text-[12px] leading-6 text-muted-strong">
@@ -3813,7 +4144,7 @@ function RunSummaryCard({
         <StatusPill status={summary.outcome}>{formatProjectStatus(summary.outcome)}</StatusPill>
         <MetaPill>{summary.title}</MetaPill>
       </div>
-      <p className="mt-3 text-[13px] leading-6 text-muted-strong">{summary.summary}</p>
+      <p className="mt-3 text-[13px] leading-6 text-muted-strong [overflow-wrap:anywhere]">{summary.summary}</p>
       <InsightList label="Wins" items={summary.wins} />
       <InsightList label="Risks" items={summary.risks} />
       <InsightList label="Recommendations" items={summary.recommendations} />
@@ -3837,7 +4168,7 @@ function InsightList({
       <div className="text-[11px] uppercase tracking-[0.14em] text-muted">{label}</div>
       <div className="mt-2 space-y-1.5">
         {items.slice(0, 3).map((item) => (
-          <p key={item} className="text-[13px] leading-6 text-muted-strong">
+          <p key={item} className="text-[13px] leading-6 text-muted-strong [overflow-wrap:anywhere]">
             {item}
           </p>
         ))}
@@ -3861,10 +4192,10 @@ function EvidenceSourceList({
       <div className="mt-2 space-y-2">
         {sources.slice(0, 3).map((source) => (
           <div key={source.id} className="rounded-[14px] border border-line/70 bg-background px-3 py-3">
-            <div className="text-[12px] font-medium text-text">
+            <div className="text-[12px] font-medium text-text [overflow-wrap:anywhere]">
               {formatLearningEvidenceSourceKind(source.kind)} · {source.label}
             </div>
-            <p className="mt-1 text-[12px] leading-6 text-muted-strong">{source.summary}</p>
+            <p className="mt-1 text-[12px] leading-6 text-muted-strong [overflow-wrap:anywhere]">{source.summary}</p>
           </div>
         ))}
       </div>
@@ -5292,8 +5623,130 @@ function formatTaskReferenceSummary(
   return labels.map((label) => compactTaskRailLabel(label)).join("、");
 }
 
-function MetaPill({ children }: { children: ReactNode }) {
-  return <UnifiedMetaPill>{children}</UnifiedMetaPill>;
+function resolveProjectAgentThinkingState(
+  agent: ProjectAgentRecord | null,
+  conversationMessages: Record<string, ConversationMessage[]>,
+) {
+  if (!agent?.runtimeConversationId) {
+    return null;
+  }
+
+  const runtimeMessages = [...(conversationMessages[agent.runtimeConversationId] ?? [])]
+    .filter((message) => message.role === "assistant")
+    .sort((left, right) => {
+      const rightTime = Date.parse(right.timestamp || "");
+      const leftTime = Date.parse(left.timestamp || "");
+
+      if (Number.isFinite(rightTime) && Number.isFinite(leftTime) && rightTime !== leftTime) {
+        return rightTime - leftTime;
+      }
+
+      if (Number.isFinite(rightTime) && !Number.isFinite(leftTime)) {
+        return -1;
+      }
+
+      if (!Number.isFinite(rightTime) && Number.isFinite(leftTime)) {
+        return 1;
+      }
+
+      return right.id.localeCompare(left.id, "en");
+    });
+
+  if (runtimeMessages.length === 0) {
+    return null;
+  }
+
+  const latestThinkingMessage =
+    runtimeMessages.find((message) => (message.thinking?.length ?? 0) > 0) ?? null;
+  const latestMessage = runtimeMessages[0] ?? null;
+  const entries = normalizeRuntimeThinkingEntries(latestThinkingMessage?.thinking ?? []);
+
+  return {
+    entries,
+    updatedAt: latestThinkingMessage?.timestamp ?? latestMessage?.timestamp ?? agent.lastHeartbeatAt ?? null,
+    isPending:
+      latestMessage?.status === "pending" ||
+      agent.status === "working" ||
+      agent.status === "planning",
+  };
+}
+
+function normalizeRuntimeThinkingEntries(entries: string[]) {
+  const normalized: string[] = [];
+
+  entries.forEach((entry) => {
+    const trimmed = entry.replace(/\s+/g, " ").trim();
+
+    if (!trimmed || normalized[normalized.length - 1] === trimmed) {
+      return;
+    }
+
+    normalized.push(trimmed);
+  });
+
+  return normalized;
+}
+
+function RuntimeThinkingPulse({ isActive }: { isActive: boolean }) {
+  return (
+    <span className="relative inline-flex h-2.5 w-2.5 shrink-0">
+      <span
+        className={`absolute inset-0 rounded-full ${isActive ? "animate-ping bg-[#6b8fd6]/35" : "bg-[#d6dfef]"}`}
+      />
+      <span
+        className={`relative inline-flex h-2.5 w-2.5 rounded-full ${isActive ? "bg-[#6b8fd6]" : "bg-[#9eabc2]"}`}
+      />
+    </span>
+  );
+}
+
+function MetaPill({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return <UnifiedMetaPill className={className}>{children}</UnifiedMetaPill>;
+}
+
+function WrappingMetaPill({ children }: { children: ReactNode }) {
+  return (
+    <span className="inline-flex max-w-full items-start justify-start rounded-full border border-line bg-surface-muted px-3 py-2 text-left text-[12px] font-medium leading-5 text-muted-strong [overflow-wrap:anywhere]">
+      {children}
+    </span>
+  );
+}
+
+function HorizontalScrollRow({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  return (
+    <div className="-mx-1 overflow-x-auto px-1 pb-1">
+      <div className="flex min-w-max gap-2">{children}</div>
+    </div>
+  );
+}
+
+function ScrollableOverviewCard({
+  label,
+  maxHeightClassName,
+  children,
+}: {
+  label: string;
+  maxHeightClassName: string;
+  children: ReactNode;
+}) {
+  return (
+    <article className="rounded-[22px] border border-line bg-background p-5">
+      <div className="text-[11px] uppercase tracking-[0.14em] text-muted">{label}</div>
+      <div className={`mt-3 overflow-y-auto pr-2 ${maxHeightClassName}`.trim()}>
+        {children}
+      </div>
+    </article>
+  );
 }
 
 function StatusPill({

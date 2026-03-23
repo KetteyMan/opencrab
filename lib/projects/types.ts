@@ -2,7 +2,6 @@ import type {
   CodexReasoningEffort,
   CodexSandboxMode,
 } from "@/lib/resources/opencrab-api-types";
-import type { ConversationItem, ConversationMessage } from "@/lib/seed-data";
 
 export type ProjectRoomStatus = "active" | "paused";
 export type ProjectRunStatus =
@@ -198,8 +197,6 @@ export type ProjectRoomRecord = {
   summary: string;
   status: ProjectRoomStatus;
   runStatus: ProjectRunStatus;
-  sourceConversationId: string | null;
-  sourceConversationTitle: string | null;
   latestUserRequest: string | null;
   currentStageLabel?: string | null;
   activeAgentId?: string | null;
@@ -499,8 +496,6 @@ export type ProjectDetail = {
   reviews: ProjectReviewRecord[];
   tasks: ProjectTaskRecord[];
   runs: ProjectRunRecord[];
-  sourceConversation: ConversationItem | null;
-  sourceMessages: ConversationMessage[];
 };
 
 export type ProjectListResponse = {
@@ -528,6 +523,4 @@ export type ProjectDetailResponse = {
   reviews: ProjectReviewRecord[];
   tasks: ProjectTaskRecord[];
   runs: ProjectRunRecord[];
-  sourceConversation: ConversationItem | null;
-  sourceMessages: ConversationMessage[];
 };

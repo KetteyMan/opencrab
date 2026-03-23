@@ -2,6 +2,11 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  seedTestTeamAgents,
+  STRATEGY_AGENT_ID,
+  STRATEGY_AGENT_NAME,
+} from "@/tests/helpers/team-agents";
 
 const runConversationTurnMock = vi.hoisted(() => vi.fn());
 
@@ -88,15 +93,16 @@ describe("project store phase 10 controlled autonomy", () => {
     const workspaceDir = path.join(tempHome, "workspace");
     tempHomes.push(tempHome);
     process.env.OPENCRAB_HOME = tempHome;
+    seedTestTeamAgents(tempHome);
 
     queueConversationReplies([
       JSON.stringify({
         decision: "delegate",
-        group_reply: "先由 @产品策略师 做第一棒，我拿到结果后继续安排。",
+        group_reply: `先由 @${STRATEGY_AGENT_NAME} 做第一棒，我拿到结果后继续安排。`,
         checkpoint_summary: "",
         delegations: [
           {
-            agentName: "产品策略师",
+            agentName: STRATEGY_AGENT_NAME,
             task: "给出第一版结构化判断。",
             artifactTitles: ["团队目标"],
           },
@@ -105,11 +111,11 @@ describe("project store phase 10 controlled autonomy", () => {
       "第 1 轮结果：已经完成结构化判断。",
       JSON.stringify({
         decision: "delegate",
-        group_reply: "继续由 @产品策略师 往下细化这一轮结果。",
+        group_reply: `继续由 @${STRATEGY_AGENT_NAME} 往下细化这一轮结果。`,
         checkpoint_summary: "",
         delegations: [
           {
-            agentName: "产品策略师",
+            agentName: STRATEGY_AGENT_NAME,
             task: "基于上一轮结果继续细化并补齐关键依赖。",
             artifactTitles: ["团队目标"],
           },
@@ -118,11 +124,11 @@ describe("project store phase 10 controlled autonomy", () => {
       "第 2 轮结果：已经补齐关键依赖。",
       JSON.stringify({
         decision: "delegate",
-        group_reply: "再由 @产品策略师 整理成更适合交接的版本。",
+        group_reply: `再由 @${STRATEGY_AGENT_NAME} 整理成更适合交接的版本。`,
         checkpoint_summary: "",
         delegations: [
           {
-            agentName: "产品策略师",
+            agentName: STRATEGY_AGENT_NAME,
             task: "把结果整理成更适合后续交接的版本。",
             artifactTitles: ["团队目标"],
           },
@@ -131,11 +137,11 @@ describe("project store phase 10 controlled autonomy", () => {
       "第 3 轮结果：已经整理成交接版。",
       JSON.stringify({
         decision: "delegate",
-        group_reply: "最后再由 @产品策略师 做一轮低风险收口。",
+        group_reply: `最后再由 @${STRATEGY_AGENT_NAME} 做一轮低风险收口。`,
         checkpoint_summary: "",
         delegations: [
           {
-            agentName: "产品策略师",
+            agentName: STRATEGY_AGENT_NAME,
             task: "做一轮低风险收口，确保交接信息完整。",
             artifactTitles: ["团队目标"],
           },
@@ -144,11 +150,11 @@ describe("project store phase 10 controlled autonomy", () => {
       "第 4 轮结果：已经完成低风险收口。",
       JSON.stringify({
         decision: "delegate",
-        group_reply: "继续由 @产品策略师 把最后一版整理成可确认的阶段结论。",
+        group_reply: `继续由 @${STRATEGY_AGENT_NAME} 把最后一版整理成可确认的阶段结论。`,
         checkpoint_summary: "",
         delegations: [
           {
-            agentName: "产品策略师",
+            agentName: STRATEGY_AGENT_NAME,
             task: "把当前结果整理成可确认的阶段结论。",
             artifactTitles: ["团队目标"],
           },
@@ -167,7 +173,7 @@ describe("project store phase 10 controlled autonomy", () => {
     const created = projectStore.createProject({
       goal: "验证 Phase 10 的自治预算 gate",
       workspaceDir,
-      agentProfileIds: ["project-manager", "product-strategist"],
+      agentProfileIds: ["project-manager", STRATEGY_AGENT_ID],
     });
     const projectId = created?.project?.id ?? null;
 
@@ -176,6 +182,22 @@ describe("project store phase 10 controlled autonomy", () => {
     if (!projectId) {
       throw new Error("projectId should exist after createProject");
     }
+
+    const storePath = path.join(tempHome, "state", "projects.json");
+    const rawState = JSON.parse(readFileSync(storePath, "utf8")) as {
+      rooms: Array<Record<string, unknown>>;
+    };
+
+    rawState.rooms = rawState.rooms.map((room) =>
+      room.id === projectId
+        ? {
+            ...room,
+            autonomyRoundBudget: 4,
+          }
+        : room,
+    );
+
+    writeFileSync(storePath, JSON.stringify(rawState, null, 2));
 
     await projectStore.runProject(projectId, {
       triggerLabel: "启动自治预算用例",
@@ -219,9 +241,10 @@ describe("project store phase 10 controlled autonomy", () => {
     const workspaceDir = path.join(tempHome, "workspace");
     tempHomes.push(tempHome);
     process.env.OPENCRAB_HOME = tempHome;
+    seedTestTeamAgents(tempHome);
 
     queueConversationReplies([
-      "这是产品策略师主动接手后给出的第一版结构化判断。",
+      `这是${STRATEGY_AGENT_NAME}主动接手后给出的第一版结构化判断。`,
       JSON.stringify({
         decision: "waiting_approval",
         group_reply: "自领任务的结果已经整理好了，你可以直接确认，或者告诉我还要补什么。",
@@ -234,7 +257,7 @@ describe("project store phase 10 controlled autonomy", () => {
     const created = projectStore.createProject({
       goal: "验证 self-claim 会自动执行",
       workspaceDir,
-      agentProfileIds: ["project-manager", "product-strategist"],
+      agentProfileIds: ["project-manager", STRATEGY_AGENT_ID],
     });
     const projectId = created?.project?.id ?? null;
 
@@ -259,7 +282,7 @@ describe("project store phase 10 controlled autonomy", () => {
       ) ?? null;
     const worker =
       rawState.agents.find(
-        (agent) => agent.projectId === projectId && agent.agentProfileId === "product-strategist",
+        (agent) => agent.projectId === projectId && agent.agentProfileId === STRATEGY_AGENT_ID,
       ) ?? null;
 
     if (!manager || !worker) {
@@ -286,7 +309,7 @@ describe("project store phase 10 controlled autonomy", () => {
       {
         id: `${projectId}-task-self-claim-run`,
         projectId,
-        title: "产品策略师整理可交接判断",
+        title: `${STRATEGY_AGENT_NAME}整理可交接判断`,
         description: "把当前目标整理成一版可继续交接的结构化判断。",
         status: "ready",
         ownerAgentId: worker.id,
@@ -370,7 +393,7 @@ describe("project store phase 10 controlled autonomy", () => {
       detail.mailboxThreads.find((thread) => thread.kind === "self_claim" && thread.relatedTaskId === claimedTask?.id) ??
       null;
     const claimedWorker =
-      detail.agents.find((agent) => agent.agentProfileId === "product-strategist") ?? null;
+      detail.agents.find((agent) => agent.agentProfileId === STRATEGY_AGENT_ID) ?? null;
 
     expect(claimedTask?.status).toBe("completed");
     expect(claimedTask?.resultSummary).toContain("第一版结构化判断");

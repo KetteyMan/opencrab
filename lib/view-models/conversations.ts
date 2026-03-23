@@ -30,7 +30,10 @@ export function buildSidebarViewModel(input: {
   const latestTimestampMap = new Map(
     input.conversations.map((conversation) => [
       conversation.id,
-      getConversationLatestTimestamp(input.conversationMessages[conversation.id] ?? []),
+      getConversationActivityTimestamp(
+        conversation,
+        input.conversationMessages[conversation.id] ?? [],
+      ),
     ]),
   );
 
@@ -86,14 +89,17 @@ export function buildSidebarViewModel(input: {
   };
 }
 
-function getConversationLatestTimestamp(messages: ConversationMessage[]) {
+function getConversationActivityTimestamp(
+  conversation: ConversationItem,
+  messages: ConversationMessage[],
+) {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     if (messages[index]?.timestamp) {
       return messages[index].timestamp ?? null;
     }
   }
 
-  return null;
+  return conversation.lastActivityAt ?? null;
 }
 
 export function buildConversationDetailViewModel(input: {

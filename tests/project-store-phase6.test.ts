@@ -2,6 +2,13 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  seedTestTeamAgents,
+  STRATEGY_AGENT_ID,
+  STRATEGY_AGENT_NAME,
+  WRITER_AGENT_ID,
+  WRITER_AGENT_NAME,
+} from "@/tests/helpers/team-agents";
 
 const runConversationTurnMock = vi.hoisted(() => vi.fn());
 
@@ -82,25 +89,79 @@ describe("project store phase 6 coordination", () => {
     });
   });
 
-  it("creates mailbox coordination threads across delegation, handoff, review, and self-claim", async () => {
+  it("lets system team agents inherit the current conversation runtime settings on create", async () => {
     const tempHome = mkdtempSync(path.join(os.tmpdir(), "opencrab-phase6-"));
     const workspaceDir = path.join(tempHome, "workspace");
     tempHomes.push(tempHome);
     process.env.OPENCRAB_HOME = tempHome;
 
+    const projectStore = await loadProjectStore();
+    const created = projectStore.createProject({
+      goal: "验证系统智能体跟随当前对话设置",
+      workspaceDir,
+      agentProfileIds: ["project-manager", "user-researcher", "aesthetic-designer"],
+      model: "gpt-5.4",
+      reasoningEffort: "xhigh",
+      sandboxMode: "danger-full-access",
+    });
+
+    if (!created) {
+      throw new Error("createProject should return a project detail");
+    }
+
+    const normalizedAgents = [...created.agents]
+      .map((agent) => ({
+        agentProfileId: agent.agentProfileId,
+        model: agent.model,
+        reasoningEffort: agent.reasoningEffort,
+        sandboxMode: agent.sandboxMode,
+      }))
+      .sort((left, right) => (left.agentProfileId ?? "").localeCompare(right.agentProfileId ?? ""));
+
+    expect(
+      normalizedAgents,
+    ).toEqual([
+      {
+        agentProfileId: "aesthetic-designer",
+        model: "gpt-5.4",
+        reasoningEffort: "xhigh",
+        sandboxMode: "danger-full-access",
+      },
+      {
+        agentProfileId: "project-manager",
+        model: "gpt-5.4",
+        reasoningEffort: "xhigh",
+        sandboxMode: "danger-full-access",
+      },
+      {
+        agentProfileId: "user-researcher",
+        model: "gpt-5.4",
+        reasoningEffort: "xhigh",
+        sandboxMode: "danger-full-access",
+      },
+    ]);
+  });
+
+  it("creates mailbox coordination threads across delegation, handoff, review, and self-claim", async () => {
+    const tempHome = mkdtempSync(path.join(os.tmpdir(), "opencrab-phase6-"));
+    const workspaceDir = path.join(tempHome, "workspace");
+    tempHomes.push(tempHome);
+    process.env.OPENCRAB_HOME = tempHome;
+    seedTestTeamAgents(tempHome);
+
     queueConversationReplies([
       JSON.stringify({
         decision: "delegate",
-        group_reply: "收到，先由 @产品策略师 输出执行草案，再由 @表达整理师 整理成阶段总结。",
+        group_reply: `收到，先由 @${STRATEGY_AGENT_NAME} 输出执行草案，再由 @${WRITER_AGENT_NAME} 整理成阶段总结。`,
         checkpoint_summary: "",
         delegations: [
           {
-            agentName: "产品策略师",
+            agentName: STRATEGY_AGENT_NAME,
             task: "基于团队目标输出一版执行草案，明确范围、结构和下一步。",
             artifactTitles: ["团队目标"],
           },
           {
-            agentName: "表达整理师",
+            agentName: WRITER_AGENT_NAME,
             task: "在上游结果基础上整理成一版清楚的阶段总结，方便项目经理收束。",
             artifactTitles: ["团队目标"],
           },
@@ -120,7 +181,7 @@ describe("project store phase 6 coordination", () => {
     const created = projectStore.createProject({
       goal: "梳理 Team Mode Phase 6 的协作闭环",
       workspaceDir,
-      agentProfileIds: ["project-manager", "product-strategist", "writer-editor"],
+      agentProfileIds: ["project-manager", STRATEGY_AGENT_ID, WRITER_AGENT_ID],
     });
     const projectId = created?.project?.id ?? null;
 
@@ -145,6 +206,12 @@ describe("project store phase 6 coordination", () => {
     expect(detail.project.runStatus).toBe("waiting_approval");
     expect(detail.reviews.filter((review) => review.status === "pending").length).toBeGreaterThanOrEqual(2);
     expect(detail.tasks.filter((task) => task.status === "completed")).toHaveLength(3);
+    expect(runConversationTurnMock).toHaveBeenCalled();
+    expect(
+      runConversationTurnMock.mock.calls.every(
+        ([input]) => input && typeof input === "object" && input.workingDirectory === workspaceDir,
+      ),
+    ).toBe(true);
 
     const mailboxKinds = new Set(detail.mailboxThreads.map((thread) => thread.kind));
 
@@ -178,12 +245,13 @@ describe("project store phase 6 coordination", () => {
     const workspaceDir = path.join(tempHome, "workspace");
     tempHomes.push(tempHome);
     process.env.OPENCRAB_HOME = tempHome;
+    seedTestTeamAgents(tempHome);
 
     const projectStore = await loadProjectStore();
     const created = projectStore.createProject({
       goal: "验证 self-claim 的边界触发条件",
       workspaceDir,
-      agentProfileIds: ["project-manager", "product-strategist"],
+      agentProfileIds: ["project-manager", STRATEGY_AGENT_ID],
     });
     const projectId = created?.project?.id ?? null;
 
@@ -206,7 +274,7 @@ describe("project store phase 6 coordination", () => {
     };
     const worker =
       rawState.agents.find(
-        (agent) => agent.projectId === projectId && agent.agentProfileId === "product-strategist",
+        (agent) => agent.projectId === projectId && agent.agentProfileId === STRATEGY_AGENT_ID,
       ) ?? null;
 
     if (!worker) {
@@ -228,7 +296,7 @@ describe("project store phase 6 coordination", () => {
       {
         id: `${projectId}-task-self-claim`,
         projectId,
-        title: "产品策略师 · 自领一条可执行任务",
+        title: `${STRATEGY_AGENT_NAME} · 自领一条可执行任务`,
         description: "把当前需求整理成一版可执行的结构化判断。",
         status: "ready",
         ownerAgentId: worker.id,
@@ -295,7 +363,7 @@ describe("project store phase 6 coordination", () => {
     const selfClaimThread =
       detail.mailboxThreads.find((thread) => thread.kind === "self_claim") ?? null;
     const claimedWorker =
-      detail.agents.find((agent) => agent.agentProfileId === "product-strategist") ?? null;
+      detail.agents.find((agent) => agent.agentProfileId === STRATEGY_AGENT_ID) ?? null;
 
     expect(claimedTask?.status).toBe("claimed");
     expect(claimedWorker?.currentTaskId).toBe(`${projectId}-task-self-claim`);
@@ -309,15 +377,16 @@ describe("project store phase 6 coordination", () => {
     const workspaceDir = path.join(tempHome, "workspace");
     tempHomes.push(tempHome);
     process.env.OPENCRAB_HOME = tempHome;
+    seedTestTeamAgents(tempHome);
 
     queueConversationReplies([
       JSON.stringify({
         decision: "delegate",
-        group_reply: "先由 @产品策略师 处理这一棒，我等结果回来后再判断下一步。",
+        group_reply: `先由 @${STRATEGY_AGENT_NAME} 处理这一棒，我等结果回来后再判断下一步。`,
         checkpoint_summary: "",
         delegations: [
           {
-            agentName: "产品策略师",
+            agentName: STRATEGY_AGENT_NAME,
             task: "基于当前目标给出第一版结构化判断。",
             artifactTitles: ["团队目标"],
           },
@@ -330,7 +399,7 @@ describe("project store phase 6 coordination", () => {
     const created = projectStore.createProject({
       goal: "验证 Phase 6 的异常升级链路",
       workspaceDir,
-      agentProfileIds: ["project-manager", "product-strategist"],
+      agentProfileIds: ["project-manager", STRATEGY_AGENT_ID],
     });
     const projectId = created?.project?.id ?? null;
 

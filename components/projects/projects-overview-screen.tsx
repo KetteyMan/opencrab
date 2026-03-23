@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOpenCrabApp } from "@/components/app-shell/opencrab-provider";
+import { isSelectableTeamAgent } from "@/lib/agents/display";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { MetaPill as UnifiedMetaPill, StatusPill as UnifiedStatusPill } from "@/components/ui/pill";
@@ -16,7 +17,12 @@ type ProjectsOverviewScreenProps = {
 
 export function ProjectsOverviewScreen({ projects }: ProjectsOverviewScreenProps) {
   const router = useRouter();
-  const { agents } = useOpenCrabApp();
+  const {
+    agents,
+    selectedModel,
+    selectedReasoningEffort,
+    selectedSandboxMode,
+  } = useOpenCrabApp();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [goal, setGoal] = useState("");
   const [workspaceDir, setWorkspaceDir] = useState("");
@@ -25,11 +31,20 @@ export function ProjectsOverviewScreen({ projects }: ProjectsOverviewScreenProps
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const teamAgents = useMemo(
-    () => agents.filter((agent) => agent.availability === "team" || agent.availability === "both"),
+    () => agents.filter(isSelectableTeamAgent),
     [agents],
   );
+  const validTeamAgentIds = useMemo(() => new Set(teamAgents.map((agent) => agent.id)), [teamAgents]);
+
+  useEffect(() => {
+    setSelectedAgentIds((current) => current.filter((agentId) => validTeamAgentIds.has(agentId)));
+  }, [validTeamAgentIds]);
 
   function handleToggleAgent(agentId: string) {
+    if (!validTeamAgentIds.has(agentId)) {
+      return;
+    }
+
     setSelectedAgentIds((current) =>
       current.includes(agentId) ? current.filter((item) => item !== agentId) : [...current, agentId],
     );
@@ -37,13 +52,16 @@ export function ProjectsOverviewScreen({ projects }: ProjectsOverviewScreenProps
 
   async function handleCreateProject() {
     const trimmedGoal = goal.trim();
+    const normalizedSelectedAgentIds = Array.from(
+      new Set(selectedAgentIds.filter((agentId) => validTeamAgentIds.has(agentId))),
+    );
 
     if (!trimmedGoal) {
       setErrorMessage("请先填写这个团队的目标。");
       return;
     }
 
-    if (selectedAgentIds.length === 0) {
+    if (normalizedSelectedAgentIds.length === 0) {
       setErrorMessage("请至少选择一个要加入团队的智能体。");
       return;
     }
@@ -55,12 +73,16 @@ export function ProjectsOverviewScreen({ projects }: ProjectsOverviewScreenProps
 
     setIsSubmitting(true);
     setErrorMessage(null);
+    setSelectedAgentIds(normalizedSelectedAgentIds);
 
     try {
       const response = await createProjectResource({
         goal: trimmedGoal,
         workspaceDir: workspaceDir.trim(),
-        agentProfileIds: selectedAgentIds,
+        agentProfileIds: normalizedSelectedAgentIds,
+        model: selectedModel,
+        reasoningEffort: selectedReasoningEffort,
+        sandboxMode: selectedSandboxMode,
       });
       const nextProjectId = response.project?.id;
 
@@ -118,7 +140,7 @@ export function ProjectsOverviewScreen({ projects }: ProjectsOverviewScreenProps
               {projects.map((project) => (
                 <article
                   key={project.id}
-                  className="flex min-h-[420px] flex-col rounded-[24px] border border-line bg-background p-5"
+                  className="flex flex-col rounded-[24px] border border-line bg-background p-5"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
@@ -138,13 +160,13 @@ export function ProjectsOverviewScreen({ projects }: ProjectsOverviewScreenProps
                   </div>
 
                   <div className="mt-4 rounded-[18px] border border-line bg-surface-muted/70 px-4 py-4">
-                    <div className="text-[11px] uppercase tracking-[0.14em] text-muted">阶段摘要</div>
-                    <p className="mt-2 line-clamp-5 min-h-[8rem] text-[14px] leading-7 text-muted-strong">
-                      {buildProjectSummaryPreview(project.summary)}
+                    <div className="text-[11px] uppercase tracking-[0.14em] text-muted">团队目标</div>
+                    <p className="mt-2 line-clamp-4 text-[14px] leading-7 text-muted-strong">
+                      {buildProjectGoalPreview(project.goal)}
                     </p>
                   </div>
 
-                  <div className="mt-4 rounded-[18px] border border-line bg-surface px-4 py-4">
+                  <div className="mt-4 rounded-[18px] border border-line bg-surface px-4 py-3.5">
                     <div className="flex flex-wrap items-center gap-2">
                       <div className="text-[11px] uppercase tracking-[0.14em] text-muted">运行联动</div>
                       <SignalPill tone="neutral">未完成任务 {project.openTaskCount ?? 0}</SignalPill>
@@ -158,7 +180,7 @@ export function ProjectsOverviewScreen({ projects }: ProjectsOverviewScreenProps
                         <SignalPill tone="warning">卡住信号 {project.openStuckSignalCount}</SignalPill>
                       ) : null}
                     </div>
-                    <div className="mt-3 space-y-2 text-[13px] leading-6 text-muted-strong">
+                    <div className="mt-3 grid gap-2 text-[13px] leading-6 text-muted-strong sm:grid-cols-2">
                       <p>
                         当前任务 ·{" "}
                         {project.activeTaskTitle
@@ -169,8 +191,7 @@ export function ProjectsOverviewScreen({ projects }: ProjectsOverviewScreenProps
                         当前 run · {project.latestRunStepLabel || "最近还没有新的运行记录"}
                       </p>
                       <p>
-                        自治预算 · {project.autonomyRoundCount ?? 0}/{project.autonomyRoundBudget ?? 4}
-                        {project.latestGateSummary ? ` · 最近 gate：${project.latestGateSummary}` : ""}
+                        自治预算 · {project.autonomyRoundCount ?? 0}/{project.autonomyRoundBudget ?? 20}
                       </p>
                       <p>
                         最近恢复 ·{" "}
@@ -179,15 +200,20 @@ export function ProjectsOverviewScreen({ projects }: ProjectsOverviewScreenProps
                           : "最近没有新的恢复动作"}
                       </p>
                     </div>
+                    {project.latestGateSummary ? (
+                      <p className="mt-2 text-[12px] leading-6 text-muted-strong">
+                        最近 gate · {project.latestGateSummary}
+                      </p>
+                    ) : null}
                   </div>
 
-                  <div className="mt-5 flex flex-wrap gap-2">
+                  <div className="mt-4 flex flex-wrap gap-2">
                     {project.workspaceDir ? <MetaPill>产出目录 · {formatWorkspaceLabel(project.workspaceDir)}</MetaPill> : null}
                     <MetaPill>{project.artifactCount} 个结果</MetaPill>
                     <MetaPill>{formatUpdatedAt(project.updatedAt)}</MetaPill>
                   </div>
 
-                  <div className="mt-auto pt-5">
+                  <div className="pt-4">
                     <Link href={`/projects/${project.id}`} className={buttonClassName({ variant: "primary" })}>
                       打开团队
                     </Link>
@@ -455,8 +481,8 @@ function formatRecoveryKind(kind: ProjectRoomRecord["latestRecoveryKind"]) {
   }
 }
 
-function buildProjectSummaryPreview(summary: string) {
-  const normalized = summary.replace(/\s+/g, " ").trim();
+function buildProjectGoalPreview(goal: string) {
+  const normalized = goal.replace(/\s+/g, " ").trim();
   return normalized.length > 260 ? `${normalized.slice(0, 257)}...` : normalized;
 }
 

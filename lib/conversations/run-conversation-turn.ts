@@ -33,6 +33,7 @@ type ConversationTurnInput = {
   model?: string;
   reasoningEffort?: CodexReasoningEffort;
   sandboxMode?: CodexSandboxMode;
+  workingDirectory?: string;
   attachmentIds?: string[];
   userMessageId?: string;
   assistantMessageId?: string;
@@ -181,6 +182,7 @@ export async function runConversationTurn(input: ConversationTurnInput) {
       model: input.model,
       reasoningEffort: input.reasoningEffort,
       sandboxMode: input.sandboxMode,
+      workingDirectory: input.workingDirectory,
       imagePaths: prepared.imagePaths,
       textAttachments: prepared.textAttachments,
     })) {
@@ -244,6 +246,7 @@ export async function runConversationTurn(input: ConversationTurnInput) {
     model: input.model,
     reasoningEffort: input.reasoningEffort,
     sandboxMode: input.sandboxMode,
+    workingDirectory: input.workingDirectory,
     imagePaths: prepared.imagePaths,
     textAttachments: prepared.textAttachments,
     onThreadReady: (threadId) => {

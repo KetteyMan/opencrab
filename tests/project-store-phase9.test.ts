@@ -2,6 +2,13 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  seedTestTeamAgents,
+  STRATEGY_AGENT_ID,
+  STRATEGY_AGENT_NAME,
+  WRITER_AGENT_ID,
+  WRITER_AGENT_NAME,
+} from "@/tests/helpers/team-agents";
 
 const runConversationTurnMock = vi.hoisted(() => vi.fn());
 
@@ -88,15 +95,16 @@ describe("project store phase 9 learning loop", () => {
     const workspaceDir = path.join(tempHome, "workspace");
     tempHomes.push(tempHome);
     process.env.OPENCRAB_HOME = tempHome;
+    seedTestTeamAgents(tempHome);
 
     queueConversationReplies([
       JSON.stringify({
         decision: "delegate",
-        group_reply: "先由 @产品策略师 输出阶段判断，我拿到结果后再收束。",
+        group_reply: `先由 @${STRATEGY_AGENT_NAME} 输出阶段判断，我拿到结果后再收束。`,
         checkpoint_summary: "",
         delegations: [
           {
-            agentName: "产品策略师",
+            agentName: STRATEGY_AGENT_NAME,
             task: "整理一版阶段判断，明确当前范围、依赖、里程碑风险和下一步建议。",
             artifactTitles: ["团队目标"],
           },
@@ -121,7 +129,7 @@ describe("project store phase 9 learning loop", () => {
     const created = projectStore.createProject({
       goal: "验证 Phase 9 的 learning loop 会影响下一轮派工判断",
       workspaceDir,
-      agentProfileIds: ["project-manager", "product-strategist"],
+      agentProfileIds: ["project-manager", STRATEGY_AGENT_ID],
     });
     const projectId = created?.project?.id ?? null;
 
@@ -183,12 +191,13 @@ describe("project store phase 9 learning loop", () => {
     const workspaceDir = path.join(tempHome, "workspace");
     tempHomes.push(tempHome);
     process.env.OPENCRAB_HOME = tempHome;
+    seedTestTeamAgents(tempHome);
 
     const projectStore = await loadProjectStore();
     const created = projectStore.createProject({
       goal: "验证 learning loop 的结构化对象",
       workspaceDir,
-      agentProfileIds: ["project-manager", "product-strategist", "writer-editor"],
+      agentProfileIds: ["project-manager", STRATEGY_AGENT_ID, WRITER_AGENT_ID],
     });
     const projectId = created?.project?.id ?? null;
 
@@ -225,11 +234,11 @@ describe("project store phase 9 learning loop", () => {
       ) ?? null;
     const strategist =
       rawState.agents.find(
-        (agent) => agent.projectId === projectId && agent.agentProfileId === "product-strategist",
+        (agent) => agent.projectId === projectId && agent.agentProfileId === STRATEGY_AGENT_ID,
       ) ?? null;
     const writer =
       rawState.agents.find(
-        (agent) => agent.projectId === projectId && agent.agentProfileId === "writer-editor",
+        (agent) => agent.projectId === projectId && agent.agentProfileId === WRITER_AGENT_ID,
       ) ?? null;
 
     if (!manager || !strategist || !writer) {
@@ -252,7 +261,7 @@ describe("project store phase 9 learning loop", () => {
       {
         id: `${projectId}-task-strategy`,
         projectId,
-        title: "产品策略师整理阶段判断",
+        title: `${STRATEGY_AGENT_NAME}整理阶段判断`,
         description: "先产出当前这一轮的结构化判断。",
         status: "completed",
         ownerAgentId: strategist.id,
@@ -285,7 +294,7 @@ describe("project store phase 9 learning loop", () => {
       {
         id: `${projectId}-task-writer`,
         projectId,
-        title: "表达整理师整理阶段总结",
+        title: `${WRITER_AGENT_NAME}整理阶段总结`,
         description: "在上游结果基础上整理成可直接确认的总结。",
         status: "cancelled",
         ownerAgentId: writer.id,
@@ -322,7 +331,7 @@ describe("project store phase 9 learning loop", () => {
         id: `${projectId}-review-learning`,
         projectId,
         taskId: `${projectId}-task-strategy`,
-        taskTitle: "产品策略师整理阶段判断",
+        taskTitle: `${STRATEGY_AGENT_NAME}整理阶段判断`,
         reviewTargetLabel: "阶段判断",
         requesterAgentId: strategist.id,
         requesterAgentName: strategist.name,
@@ -345,7 +354,7 @@ describe("project store phase 9 learning loop", () => {
         agentId: writer.id,
         agentName: writer.name,
         taskId: `${projectId}-task-writer`,
-        taskTitle: "表达整理师整理阶段总结",
+        taskTitle: `${WRITER_AGENT_NAME}整理阶段总结`,
         kind: "reply_timeout",
         status: "resolved",
         summary: "这条任务一度卡在等上游输入，回传超时。",
@@ -362,7 +371,7 @@ describe("project store phase 9 learning loop", () => {
         kind: "reassign_to_peer",
         summary: "项目经理曾把这条任务改派给更适合整理对外表达的成员继续。",
         taskId: `${projectId}-task-writer`,
-        taskTitle: "表达整理师整理阶段总结",
+        taskTitle: `${WRITER_AGENT_NAME}整理阶段总结`,
         fromAgentId: strategist.id,
         fromAgentName: strategist.name,
         toAgentId: writer.id,
@@ -424,15 +433,16 @@ describe("project store phase 9 learning loop", () => {
     const workspaceDir = path.join(tempHome, "workspace");
     tempHomes.push(tempHome);
     process.env.OPENCRAB_HOME = tempHome;
+    seedTestTeamAgents(tempHome);
 
     queueConversationReplies([
       JSON.stringify({
         decision: "delegate",
-        group_reply: "先由 @产品策略师 输出阶段判断，我拿到结果后再收束。",
+        group_reply: `先由 @${STRATEGY_AGENT_NAME} 输出阶段判断，我拿到结果后再收束。`,
         checkpoint_summary: "",
         delegations: [
           {
-            agentName: "产品策略师",
+            agentName: STRATEGY_AGENT_NAME,
             task: "整理一版阶段判断，明确当前范围、依赖、里程碑风险和下一步建议。",
             artifactTitles: ["团队目标"],
           },
@@ -451,7 +461,7 @@ describe("project store phase 9 learning loop", () => {
     const created = projectStore.createProject({
       goal: "验证 learning suggestion 的人审流",
       workspaceDir,
-      agentProfileIds: ["project-manager", "product-strategist"],
+      agentProfileIds: ["project-manager", STRATEGY_AGENT_ID],
     });
     const projectId = created?.project?.id ?? null;
 
@@ -523,15 +533,16 @@ describe("project store phase 9 learning loop", () => {
     const secondWorkspaceDir = path.join(tempHome, "workspace-2");
     tempHomes.push(tempHome);
     process.env.OPENCRAB_HOME = tempHome;
+    seedTestTeamAgents(tempHome);
 
     queueConversationReplies([
       JSON.stringify({
         decision: "delegate",
-        group_reply: "先由 @产品策略师 输出阶段判断，我拿到结果后再收束。",
+        group_reply: `先由 @${STRATEGY_AGENT_NAME} 输出阶段判断，我拿到结果后再收束。`,
         checkpoint_summary: "",
         delegations: [
           {
-            agentName: "产品策略师",
+            agentName: STRATEGY_AGENT_NAME,
             task: "整理一版阶段判断，明确当前范围、依赖、里程碑风险和下一步建议。",
             artifactTitles: ["团队目标"],
           },
@@ -556,7 +567,7 @@ describe("project store phase 9 learning loop", () => {
     const firstProject = projectStore.createProject({
       goal: "验证跨项目复用候选会进入后续项目 prompt",
       workspaceDir,
-      agentProfileIds: ["project-manager", "product-strategist"],
+      agentProfileIds: ["project-manager", STRATEGY_AGENT_ID],
     });
     const firstProjectId = firstProject?.project?.id ?? null;
 
@@ -620,7 +631,7 @@ describe("project store phase 9 learning loop", () => {
     const secondProject = projectStore.createProject({
       goal: "验证第二个项目能看到已确认的跨项目候选",
       workspaceDir: secondWorkspaceDir,
-      agentProfileIds: ["project-manager", "product-strategist"],
+      agentProfileIds: ["project-manager", STRATEGY_AGENT_ID],
     });
     const secondProjectId = secondProject?.project?.id ?? null;
 

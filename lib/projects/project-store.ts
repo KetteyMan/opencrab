@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
-import { getAgentProfile, getSuggestedTeamAgents } from "@/lib/agents/agent-store";
+import { getAgentProfile } from "@/lib/agents/agent-store";
 import { runConversationTurn } from "@/lib/conversations/run-conversation-turn";
 import {
   addMessage,
@@ -55,7 +55,7 @@ import type {
 const STORE_PATH = OPENCRAB_PROJECTS_STORE_PATH;
 const TASK_LEASE_WINDOW_MS = 6 * 60 * 1000;
 const TASK_RECOVERY_LIMIT_BEFORE_REASSIGN = 2;
-const PROJECT_AUTONOMY_ROUND_BUDGET = 4;
+const PROJECT_AUTONOMY_ROUND_BUDGET = 20;
 const CHECKPOINT_ARTIFACT_TITLES = ["阶段总结", "待补充事项"] as const;
 const CHECKPOINT_TASK_TITLES = ["项目经理整理阶段输出，等待确认", "等待用户补充方向后继续推进"] as const;
 const store = createSyncJsonFileStore<ProjectStoreState>({
@@ -80,15 +80,6 @@ export function getProjectDetail(projectId: string): ProjectDetail | null {
   if (!room) {
     return null;
   }
-
-  const snapshot = getSnapshot();
-  const sourceConversation = room.sourceConversationId
-    ? snapshot.conversations.find((item) => item.id === room.sourceConversationId) ?? null
-    : null;
-  const sourceMessages =
-    room.sourceConversationId && snapshot.conversationMessages[room.sourceConversationId]
-      ? structuredClone(snapshot.conversationMessages[room.sourceConversationId])
-      : [];
 
   return {
     project: structuredClone(buildProjectRoomWithInsights(state, room)),
@@ -162,8 +153,6 @@ export function getProjectDetail(projectId: string): ProjectDetail | null {
       .filter((item) => item.projectId === projectId)
       .sort((left, right) => Date.parse(right.startedAt) - Date.parse(left.startedAt))
       .map((item) => structuredClone(item)),
-    sourceConversation,
-    sourceMessages,
   };
 }
 
@@ -389,55 +378,14 @@ function detectProjectAutonomyRiskGate(
   };
 }
 
-export function createProjectFromConversation(conversationId: string) {
-  const state = readState();
-  const existing = state.rooms.find((item) => item.sourceConversationId === conversationId);
-
-  if (existing) {
-    return getProjectDetail(existing.id);
-  }
-
-  const snapshot = getSnapshot();
-  const sourceConversation =
-    snapshot.conversations.find((item) => item.id === conversationId) ?? null;
-
-  if (!sourceConversation) {
-    const error = new Error("原始对话不存在，暂时无法升级为团队模式。");
-    (error as Error & { statusCode?: number }).statusCode = 404;
-    throw error;
-  }
-
-  const sourceMessages = snapshot.conversationMessages[conversationId] ?? [];
-  const latestUserMessage =
-    [...sourceMessages].reverse().find((message) => message.role === "user")?.content?.trim() ||
-    sourceConversation.preview ||
-    sourceConversation.title;
-  const now = new Date().toISOString();
-  const projectId = `project-${crypto.randomUUID()}`;
-  const room = buildRoom({
-    projectId,
-    conversationId,
-    title: sourceConversation.title,
-    latestUserMessage,
-    leadAgentProfileId: sourceConversation.agentProfileId ?? null,
-    model: snapshot.settings.defaultModel,
-    reasoningEffort: snapshot.settings.defaultReasoningEffort,
-    sandboxMode: snapshot.settings.defaultSandboxMode,
-    createdAt: now,
-  });
-
-  state.rooms = [room.room, ...state.rooms];
-  state.agents = [...room.agents, ...state.agents];
-  state.events = [...room.events, ...state.events];
-  state.artifacts = [...room.artifacts, ...state.artifacts];
-  state.reviews = [...room.reviews, ...state.reviews];
-  state.tasks = [...room.tasks, ...state.tasks];
-  writeState(state);
-
-  return getProjectDetail(projectId);
-}
-
-export function createProject(input: { goal: string; workspaceDir: string; agentProfileIds: string[] }) {
+export function createProject(input: {
+  goal: string;
+  workspaceDir: string;
+  agentProfileIds: string[];
+  model?: string | null;
+  reasoningEffort?: ProjectAgentRecord["reasoningEffort"] | null;
+  sandboxMode?: ProjectAgentRecord["sandboxMode"] | null;
+}) {
   const goal = input.goal.trim();
 
   if (!goal) {
@@ -471,6 +419,7 @@ export function createProject(input: { goal: string; workspaceDir: string; agent
       id: detail.id,
       name: detail.name,
       summary: detail.summary,
+      source: detail.source,
       teamRole: detail.teamRole,
       defaultModel: detail.defaultModel,
       defaultReasoningEffort: detail.defaultReasoningEffort,
@@ -479,6 +428,9 @@ export function createProject(input: { goal: string; workspaceDir: string; agent
   });
 
   const snapshot = getSnapshot();
+  const model = input.model?.trim() || snapshot.settings.defaultModel;
+  const reasoningEffort = input.reasoningEffort ?? snapshot.settings.defaultReasoningEffort;
+  const sandboxMode = input.sandboxMode ?? snapshot.settings.defaultSandboxMode;
   const now = new Date().toISOString();
   const projectId = `project-${crypto.randomUUID()}`;
   const room = buildManualRoom({
@@ -486,9 +438,9 @@ export function createProject(input: { goal: string; workspaceDir: string; agent
     goal,
     workspaceDir,
     profiles: selectedProfiles,
-    model: snapshot.settings.defaultModel,
-    reasoningEffort: snapshot.settings.defaultReasoningEffort,
-    sandboxMode: snapshot.settings.defaultSandboxMode,
+    model,
+    reasoningEffort,
+    sandboxMode,
     createdAt: now,
   });
   const state = readState();
@@ -1020,6 +972,7 @@ async function planProjectConversationWithManager(
     model: manager.model,
     reasoningEffort: manager.reasoningEffort,
     sandboxMode: manager.sandboxMode,
+    workingDirectory: room.workspaceDir || undefined,
     onThreadReady: () => {
       const nextState = readState();
       updateAgentPublicProgress(nextState, manager.id, {
@@ -1386,6 +1339,7 @@ async function executeAgentTask(
     model: agent.model,
     reasoningEffort: agent.reasoningEffort,
     sandboxMode: agent.sandboxMode,
+    workingDirectory: room.workspaceDir || undefined,
     onThreadReady: () => {
       const nextState = readState();
       updateAgentPublicProgress(nextState, agent.id, {
@@ -4824,168 +4778,6 @@ export function reviewProjectLearningReuseCandidate(
   return getProjectDetail(projectId);
 }
 
-function buildRoom(input: {
-  projectId: string;
-  conversationId: string;
-  title: string;
-  latestUserMessage: string;
-  leadAgentProfileId: string | null;
-  model: string;
-  reasoningEffort: ProjectAgentRecord["reasoningEffort"];
-  sandboxMode: ProjectAgentRecord["sandboxMode"];
-  createdAt: string;
-}) {
-  const teamProfiles = getSuggestedTeamAgents(input.leadAgentProfileId);
-  const normalizedAgents = buildTeamAgents({
-    projectId: input.projectId,
-    profiles: teamProfiles,
-    defaultModel: input.model,
-    defaultReasoningEffort: input.reasoningEffort,
-    defaultSandboxMode: input.sandboxMode,
-  });
-  const projectTitle = buildProjectDisplayTitle({
-    goal: input.latestUserMessage,
-    fallback: input.title,
-  });
-  const teamName = buildProjectTeamName(projectTitle);
-  const room: ProjectRoomRecord = {
-    id: input.projectId,
-    title: projectTitle,
-    teamName,
-    goal: input.latestUserMessage,
-    workspaceDir: null,
-    teamConversationId: null,
-    summary: "当前以“先把需求拆清楚，再让成员分头推进”的协作方式启动。",
-    status: "active",
-    runStatus: "ready",
-    sourceConversationId: input.conversationId,
-    sourceConversationTitle: input.title,
-    latestUserRequest: input.latestUserMessage,
-    currentStageLabel: "待启动",
-    activeAgentId: null,
-    nextAgentId: null,
-    memberCount: normalizedAgents.length,
-    artifactCount: 3,
-    openGateCount: 0,
-    latestGateSummary: null,
-    autonomyStatus: "guarded",
-    autonomyRoundBudget: PROJECT_AUTONOMY_ROUND_BUDGET,
-    autonomyRoundCount: 0,
-    autonomyApprovedAt: input.createdAt,
-    autonomyPauseReason: null,
-    lastActivityLabel: "刚刚升级",
-    createdAt: input.createdAt,
-    updatedAt: input.createdAt,
-  };
-  const agents = normalizedAgents;
-
-  const events: ProjectEventRecord[] = [
-    {
-      id: `${input.projectId}-event-1`,
-      projectId: input.projectId,
-      actorName: "OpenCrab PM",
-      title: "已接收团队目标",
-      description: "把当前对话里的最新需求识别为项目 brief，并准备拆解执行计划。",
-      visibility: "frontstage",
-      createdAt: input.createdAt,
-    },
-    {
-      id: `${input.projectId}-event-2`,
-      projectId: input.projectId,
-      actorName: "OpenCrab PM",
-      title: "正在组织成员分工",
-      description: "优先把需求拆成研究、汇总和对外表达三块，以避免前台对话过吵。",
-      visibility: "backstage",
-      createdAt: input.createdAt,
-    },
-    {
-      id: `${input.projectId}-event-3`,
-      projectId: input.projectId,
-      actorName: "Writer",
-      title: "已准备 frontstage 输出位",
-      description: "后续会把总结、关键提问和最终结论优先放在主对话层展示。",
-      visibility: "backstage",
-      createdAt: input.createdAt,
-    },
-  ];
-
-  const artifacts: ProjectArtifactRecord[] = [
-    {
-      id: `${input.projectId}-artifact-1`,
-      projectId: input.projectId,
-      title: "项目简报",
-      typeLabel: "Brief",
-      summary: input.latestUserMessage,
-      status: "ready",
-      sourceTaskId: null,
-      sourceTaskTitle: null,
-      ownerAgentId: null,
-      ownerAgentName: null,
-      reviewStatus: null,
-      reviewerAgentId: null,
-      reviewerAgentName: null,
-      dependsOnArtifactIds: [],
-      consumedByTaskIds: [],
-      updatedAt: input.createdAt,
-    },
-    {
-      id: `${input.projectId}-artifact-2`,
-      projectId: input.projectId,
-      title: "成员分工草案",
-      typeLabel: "Plan",
-      summary: `已从智能体库装配 ${agents.map((agent) => agent.name).join("、")} 三位成员，先按轻量团队推进。`,
-      status: "draft",
-      sourceTaskId: null,
-      sourceTaskTitle: null,
-      ownerAgentId: null,
-      ownerAgentName: null,
-      reviewStatus: null,
-      reviewerAgentId: null,
-      reviewerAgentName: null,
-      dependsOnArtifactIds: [],
-      consumedByTaskIds: [],
-      updatedAt: input.createdAt,
-    },
-    {
-      id: `${input.projectId}-artifact-3`,
-      projectId: input.projectId,
-      title: "Runtime 协作方式",
-      typeLabel: "Runtime",
-      summary:
-        "团队会以前台群聊为协作入口，由项目经理负责分工，并把后台成员 runtime 的结果逐步回流到 Team Room。",
-      status: "ready",
-      sourceTaskId: null,
-      sourceTaskTitle: null,
-      ownerAgentId: null,
-      ownerAgentName: null,
-      reviewStatus: null,
-      reviewerAgentId: null,
-      reviewerAgentName: null,
-      dependsOnArtifactIds: [],
-      consumedByTaskIds: [],
-      updatedAt: input.createdAt,
-    },
-  ];
-
-  const tasks = buildInitialProjectTasks({
-    projectId: input.projectId,
-    goal: input.latestUserMessage,
-    manager: agents.find((agent) => agent.canDelegate) ?? null,
-    workspaceDir: null,
-    initialArtifactIds: artifacts.map((artifact) => artifact.id),
-    createdAt: input.createdAt,
-  });
-
-  return {
-    room,
-    agents,
-    events,
-    artifacts,
-    reviews: [],
-    tasks,
-  };
-}
-
 function buildManualRoom(input: {
   projectId: string;
   goal: string;
@@ -5027,8 +4819,6 @@ function buildManualRoom(input: {
     summary: `围绕“${stripTrailingSentencePunctuation(shortLabel)}”启动的新团队，已装配 ${normalizedAgents.length} 位智能体，默认产出目录已设置完成。`,
     status: "active",
     runStatus: "ready",
-    sourceConversationId: null,
-    sourceConversationTitle: null,
     latestUserRequest: input.goal,
     currentStageLabel: "待启动",
     activeAgentId: null,
@@ -5155,7 +4945,7 @@ function buildManualRoom(input: {
 
 function buildTeamAgents(input: {
   projectId: string;
-  profiles: Array<{ id: string; name: string; summary: string; teamRole: string; defaultModel: string | null; defaultReasoningEffort: ProjectAgentRecord["reasoningEffort"] | null; defaultSandboxMode: ProjectAgentRecord["sandboxMode"] | null }>;
+  profiles: Array<{ id: string; name: string; summary: string; source?: "system" | "custom"; teamRole: string; defaultModel: string | null; defaultReasoningEffort: ProjectAgentRecord["reasoningEffort"] | null; defaultSandboxMode: ProjectAgentRecord["sandboxMode"] | null }>;
   defaultModel: string;
   defaultReasoningEffort: ProjectAgentRecord["reasoningEffort"];
   defaultSandboxMode: ProjectAgentRecord["sandboxMode"];
@@ -5172,6 +4962,7 @@ function buildTeamAgents(input: {
     const storedTeamRole = detail?.teamRole || profile.teamRole;
     const isLead = profile.id === managerProfileId;
     const teamRole = isLead ? "lead" : normalizeNonManagerTeamRole(storedTeamRole);
+    const prefersProjectRuntimeDefaults = (detail?.source || profile.source) === "system";
 
     return {
       id: `${input.projectId}-${profile.id}`,
@@ -5197,16 +4988,40 @@ function buildTeamAgents(input: {
       progressTrail: [],
       blockedByAgentId: null,
       lastCompletedAt: null,
-      model: detail?.defaultModel || profile.defaultModel || input.defaultModel,
-      reasoningEffort:
-        detail?.defaultReasoningEffort ||
-        profile.defaultReasoningEffort ||
-        input.defaultReasoningEffort,
-      sandboxMode:
-        detail?.defaultSandboxMode || profile.defaultSandboxMode || input.defaultSandboxMode,
+      model: resolveProjectAgentRuntimeDefault({
+        detailValue: detail?.defaultModel,
+        profileValue: profile.defaultModel,
+        projectValue: input.defaultModel,
+        preferProjectDefault: prefersProjectRuntimeDefaults,
+      }),
+      reasoningEffort: resolveProjectAgentRuntimeDefault({
+        detailValue: detail?.defaultReasoningEffort,
+        profileValue: profile.defaultReasoningEffort,
+        projectValue: input.defaultReasoningEffort,
+        preferProjectDefault: prefersProjectRuntimeDefaults,
+      }),
+      sandboxMode: resolveProjectAgentRuntimeDefault({
+        detailValue: detail?.defaultSandboxMode,
+        profileValue: profile.defaultSandboxMode,
+        projectValue: input.defaultSandboxMode,
+        preferProjectDefault: prefersProjectRuntimeDefaults,
+      }),
       canDelegate: isLead,
     } satisfies ProjectAgentRecord;
   });
+}
+
+function resolveProjectAgentRuntimeDefault<T>(input: {
+  detailValue: T | null | undefined;
+  profileValue: T | null | undefined;
+  projectValue: NonNullable<T>;
+  preferProjectDefault: boolean;
+}) {
+  if (input.preferProjectDefault) {
+    return input.projectValue ?? input.detailValue ?? input.profileValue;
+  }
+
+  return (input.detailValue ?? input.profileValue ?? input.projectValue) as NonNullable<T>;
 }
 
 function buildFallbackAgents(input: {
@@ -5237,7 +5052,7 @@ function buildFallbackAgents(input: {
       lastCompletedAt: null,
       model: input.defaultModel,
       reasoningEffort: input.defaultReasoningEffort,
-      sandboxMode: "workspace-write",
+      sandboxMode: input.defaultSandboxMode,
       canDelegate: true,
     },
     {
@@ -5285,7 +5100,7 @@ function buildFallbackAgents(input: {
       lastCompletedAt: null,
       model: input.defaultModel,
       reasoningEffort: input.defaultReasoningEffort,
-      sandboxMode: "read-only",
+      sandboxMode: input.defaultSandboxMode,
       canDelegate: false,
     },
   ] satisfies ProjectAgentRecord[];
@@ -9430,7 +9245,10 @@ function createInitialState(): ProjectStoreState {
 
 function normalizeProjectStoreState(parsed: Partial<ProjectStoreState>): ProjectStoreState {
   const rooms = Array.isArray(parsed.rooms)
-    ? parsed.rooms.map((room) => ({
+    ? parsed.rooms.map((storedRoom) => {
+        const room = stripLegacyProjectRoomFields(storedRoom);
+
+        return {
         ...room,
         workspaceDir: room.workspaceDir ?? null,
         teamConversationId: room.teamConversationId ?? null,
@@ -9444,7 +9262,8 @@ function normalizeProjectStoreState(parsed: Partial<ProjectStoreState>): Project
         autonomyRoundCount: room.autonomyRoundCount ?? 0,
         autonomyApprovedAt: room.autonomyApprovedAt ?? room.updatedAt ?? room.createdAt ?? null,
         autonomyPauseReason: room.autonomyPauseReason ?? null,
-      }))
+      };
+      })
     : [];
   const agents = normalizeStoredProjectAgents(Array.isArray(parsed.agents) ? parsed.agents : [], rooms);
 
@@ -9633,6 +9452,24 @@ function normalizeProjectStoreState(parsed: Partial<ProjectStoreState>): Project
       : [],
     runs: Array.isArray(parsed.runs) ? parsed.runs : [],
   };
+}
+
+function stripLegacyProjectRoomFields(
+  room: ProjectRoomRecord & {
+    sourceConversationId?: string | null;
+    sourceConversationTitle?: string | null;
+  },
+) {
+  const {
+    sourceConversationId,
+    sourceConversationTitle,
+    ...nextRoom
+  } = room;
+
+  void sourceConversationId;
+  void sourceConversationTitle;
+
+  return nextRoom;
 }
 
 function finalizeProjectRun(

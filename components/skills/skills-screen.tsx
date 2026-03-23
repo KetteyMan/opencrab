@@ -169,19 +169,19 @@ export function SkillsScreen() {
           description="把常用能力装进 OpenCrab，统一在这里启用、禁用和管理。"
           className="mb-6"
           actions={
-            <div className="flex w-full flex-wrap items-center justify-end gap-3 lg:w-[700px] lg:flex-nowrap">
+            <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-3 lg:max-w-[700px]">
               <Button
                 type="button"
                 onClick={() => void loadSkills({ silent: true })}
                 variant="ghost"
-                className="gap-2"
+                className="shrink-0 gap-2"
                 disabled={isRefreshing}
               >
                 <RefreshIcon />
                 <span>{isRefreshing ? "刷新中..." : "刷新"}</span>
               </Button>
 
-              <label className="flex h-10 min-w-[260px] flex-1 items-center gap-2 rounded-full border border-line bg-surface px-4 text-[13px] text-muted-strong">
+              <label className="flex h-10 min-w-0 flex-1 basis-[280px] items-center gap-2 rounded-full border border-line bg-surface px-4 text-[13px] text-muted-strong sm:min-w-[260px]">
                 <SearchIcon />
                 <input
                   value={query}
@@ -195,7 +195,7 @@ export function SkillsScreen() {
                 type="button"
                 onClick={() => setCreateDialog({ name: "", summary: "", detailsMarkdown: "" })}
                 variant="primary"
-                className="gap-2"
+                className="shrink-0 gap-2"
               >
                 <PlusIcon />
                 <span>新技能</span>

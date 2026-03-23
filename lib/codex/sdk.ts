@@ -38,6 +38,7 @@ type GenerateCodexReplyInput = {
   model?: string;
   reasoningEffort?: CodexReasoningEffort;
   sandboxMode?: CodexSandboxMode;
+  workingDirectory?: string;
   onThreadReady?: (threadId: string | null) => void;
 };
 
@@ -83,6 +84,7 @@ export async function generateCodexReply({
   model,
   reasoningEffort,
   sandboxMode,
+  workingDirectory,
   onThreadReady,
 }: GenerateCodexReplyInput) {
   try {
@@ -94,8 +96,8 @@ export async function generateCodexReply({
     });
     const codex = getCodexClient();
     const thread = threadId
-      ? codex.resumeThread(threadId, buildThreadOptions({ ...modelConfig, sandboxMode }))
-      : codex.startThread(buildThreadOptions({ ...modelConfig, sandboxMode }));
+      ? codex.resumeThread(threadId, buildThreadOptions({ ...modelConfig, sandboxMode, workingDirectory }))
+      : codex.startThread(buildThreadOptions({ ...modelConfig, sandboxMode, workingDirectory }));
 
     onThreadReady?.(thread.id);
 
@@ -172,6 +174,7 @@ export async function* streamCodexReply({
   model,
   reasoningEffort,
   sandboxMode,
+  workingDirectory,
   signal,
 }: StreamCodexReplyInput): AsyncGenerator<CodexReplyStreamEvent> {
   try {
@@ -183,8 +186,8 @@ export async function* streamCodexReply({
     });
     const codex = getCodexClient();
     const thread = threadId
-      ? codex.resumeThread(threadId, buildThreadOptions({ ...modelConfig, sandboxMode }))
-      : codex.startThread(buildThreadOptions({ ...modelConfig, sandboxMode }));
+      ? codex.resumeThread(threadId, buildThreadOptions({ ...modelConfig, sandboxMode, workingDirectory }))
+      : codex.startThread(buildThreadOptions({ ...modelConfig, sandboxMode, workingDirectory }));
 
     const prompt = buildPrompt({
       conversationTitle,
@@ -330,6 +333,7 @@ function buildThreadOptions(input?: {
   model?: string;
   reasoningEffort?: CodexReasoningEffort;
   sandboxMode?: CodexSandboxMode;
+  workingDirectory?: string;
 }) {
   const modelConfig = resolveModelConfig({
     model: input?.model,
@@ -339,7 +343,7 @@ function buildThreadOptions(input?: {
   return {
     model: modelConfig.model,
     sandboxMode: input?.sandboxMode || DEFAULT_SANDBOX_MODE,
-    workingDirectory: process.cwd(),
+    workingDirectory: input?.workingDirectory || process.cwd(),
     skipGitRepoCheck: true,
     modelReasoningEffort: modelConfig.reasoningEffort,
     networkAccessEnabled: DEFAULT_NETWORK_ACCESS,

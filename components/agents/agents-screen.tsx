@@ -6,21 +6,13 @@ import { useRouter } from "next/navigation";
 import { AgentAvatar } from "@/components/agents/agent-avatar";
 import { AgentOnboardingDialog } from "@/components/agents/agent-onboarding-dialog";
 import { useOpenCrabApp } from "@/components/app-shell/opencrab-provider";
+import {
+  isCustomAgentForDisplay,
+  isSystemAgentForDisplay,
+} from "@/lib/agents/display";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { MetaPill as UnifiedMetaPill, StatusPill as UnifiedStatusPill } from "@/components/ui/pill";
-
-const HIDDEN_SYSTEM_AGENT_IDS = new Set([
-  "product-strategist",
-  "research-analyst",
-  "writer-editor",
-]);
-
-const PROMOTED_SYSTEM_AGENT_IDS = new Set([
-  "agent-5567fae0-173c-4b15-8d64-db83ffb058ab",
-  "agent-6e418784-be7c-4e6f-9d4e-3b55806f08f0",
-  "agent-7b89ec55-53d2-47c7-affd-58e672d1b226",
-]);
 
 export function AgentsScreen() {
   const router = useRouter();
@@ -74,8 +66,8 @@ export function AgentsScreen() {
           descriptionClassName="truncate whitespace-nowrap"
           className="mb-6"
           actions={
-            <div className="flex w-full flex-wrap items-center justify-end gap-3 lg:w-[680px] lg:flex-nowrap">
-              <label className="flex h-10 min-w-[240px] flex-1 items-center gap-2 rounded-full border border-line bg-surface px-4 text-[13px] text-muted-strong">
+            <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-3 lg:max-w-[680px]">
+              <label className="flex h-10 min-w-0 flex-1 basis-[260px] items-center gap-2 rounded-full border border-line bg-surface px-4 text-[13px] text-muted-strong sm:min-w-[240px]">
                 <SearchIcon />
                 <input
                   value={query}
@@ -89,7 +81,7 @@ export function AgentsScreen() {
                 type="button"
                 onClick={() => setIsOnboardingOpen(true)}
                 variant="primary"
-                className="gap-2"
+                className="shrink-0 gap-2"
               >
                 <PlusIcon />
                 <span>新智能体</span>
@@ -237,18 +229,6 @@ function Badge({ children, tone }: { children: React.ReactNode; tone: "warm" | "
 
 function MetaPill({ children }: { children: React.ReactNode }) {
   return <UnifiedMetaPill>{children}</UnifiedMetaPill>;
-}
-
-function isSystemAgentForDisplay(agent: ReturnType<typeof useOpenCrabApp>["agents"][number]) {
-  if (PROMOTED_SYSTEM_AGENT_IDS.has(agent.id)) {
-    return true;
-  }
-
-  return agent.source === "system" && !HIDDEN_SYSTEM_AGENT_IDS.has(agent.id);
-}
-
-function isCustomAgentForDisplay(agent: ReturnType<typeof useOpenCrabApp>["agents"][number]) {
-  return agent.source === "custom" && !PROMOTED_SYSTEM_AGENT_IDS.has(agent.id);
 }
 
 function formatAvailability(value: "solo" | "team" | "both") {

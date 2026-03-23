@@ -965,7 +965,8 @@ function areConversationsEqual(
         conversation.remoteUserLabel === target.remoteUserLabel &&
         conversation.codexThreadId === target.codexThreadId &&
         conversation.lastAssistantModel === target.lastAssistantModel &&
-        conversation.agentProfileId === target.agentProfileId
+        conversation.agentProfileId === target.agentProfileId &&
+        conversation.lastActivityAt === target.lastActivityAt
       );
     })
   );

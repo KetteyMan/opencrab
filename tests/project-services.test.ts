@@ -15,8 +15,6 @@ function createProjectRoom(overrides: Partial<ProjectRoomRecord> = {}): ProjectR
     summary: "Running",
     status: "active",
     runStatus: "running",
-    sourceConversationId: null,
-    sourceConversationTitle: null,
     latestUserRequest: "Ship it",
     currentStageLabel: "项目经理统筹",
     activeAgentId: null,
@@ -52,8 +50,6 @@ function createProjectDetail(overrides: Partial<ProjectDetail> = {}): ProjectDet
     reviews: [],
     tasks: [],
     runs: [],
-    sourceConversation: null,
-    sourceMessages: [],
     ...overrides,
   };
 }
@@ -72,14 +68,12 @@ describe("project module services", () => {
     expect(getDetail).toHaveBeenCalledWith("project-1");
   });
 
-  it("delegates create, upgrade, and delete through the management service", () => {
+  it("delegates create and delete through the management service", () => {
     const detail = createProjectDetail();
     const create = vi.fn(() => detail);
-    const createFromConversation = vi.fn(() => detail);
     const remove = vi.fn(() => true);
     const service = createProjectManagementService({
       create,
-      createFromConversation,
       remove,
     });
 
@@ -88,16 +82,20 @@ describe("project module services", () => {
         goal: "Ship a feature",
         workspaceDir: "/tmp/team-alpha",
         agentProfileIds: ["project-manager"],
+        model: "gpt-5.4",
+        reasoningEffort: "high",
+        sandboxMode: "workspace-write",
       }),
     ).toEqual(detail);
-    expect(service.createFromConversation("conversation-1")).toEqual(detail);
     expect(service.remove("project-1")).toBe(true);
     expect(create).toHaveBeenCalledWith({
       goal: "Ship a feature",
       workspaceDir: "/tmp/team-alpha",
       agentProfileIds: ["project-manager"],
+      model: "gpt-5.4",
+      reasoningEffort: "high",
+      sandboxMode: "workspace-write",
     });
-    expect(createFromConversation).toHaveBeenCalledWith("conversation-1");
     expect(remove).toHaveBeenCalledWith("project-1");
   });
 

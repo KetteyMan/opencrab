@@ -29,6 +29,7 @@ export type ConversationItem = {
   id: string;
   title: string;
   timeLabel: string;
+  lastActivityAt?: string | null;
   preview: string;
   folderId: string | null;
   hidden?: boolean;

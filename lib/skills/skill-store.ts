@@ -202,6 +202,7 @@ const RECOMMENDED_SKILLS_IDS = [
   "claude-api",
   "mcp-builder",
   "figma",
+  "ui-ux-pro-max",
   "frontend-design",
   "webapp-testing",
 ] as const;
@@ -646,6 +647,17 @@ const RECOMMENDED_SKILLS: CatalogSeed[] = [
     sourceLabel: "OpenAI Curated",
     sourceUrl: "https://github.com/openai/skills/tree/main/skills/.curated/figma",
     installHint: "$skill-installer figma",
+  }),
+  createRecommendedSkill({
+    id: "ui-ux-pro-max",
+    name: "UI UX Pro Max",
+    summary: "Design intelligence for web and mobile UI/UX across multiple stacks, with style systems, color palettes, typography, accessibility, and layout rules.",
+    category: "product-tech",
+    icon: "figma",
+    scenarios: ["网页与移动端界面设计", "设计系统与视觉规范", "UI/UX 评审与优化"],
+    sourceLabel: "Community Verified",
+    sourceUrl: "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill/tree/main/.claude/skills/ui-ux-pro-max",
+    installHint: "复制上游技能目录到 ~/.opencrab/skills/ui-ux-pro-max/",
   }),
   createRecommendedSkill({
     id: "frontend-design",

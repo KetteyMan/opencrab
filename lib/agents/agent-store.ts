@@ -12,6 +12,10 @@ import {
   normalizeAgentAvatarDataUrl,
   shouldReplaceWithModernAvatar,
 } from "@/lib/agents/avatar-library";
+import {
+  getBuiltInSystemAgentDefaults,
+  isBuiltInSystemAgentId,
+} from "@/lib/agents/system-agent-metadata";
 import { generateAgentDraft } from "@/lib/agents/templates";
 import { OPENCRAB_AGENTS_DIR } from "@/lib/resources/runtime-paths";
 import type {
@@ -38,6 +42,12 @@ const AGENT_FILE_NAMES: Record<AgentFileKey, string> = {
 };
 
 const SYSTEM_AGENT_AVATAR_DIR = path.join(process.cwd(), "public", "agent-avatars", "system");
+const DEPRECATED_SYSTEM_AGENT_IDS = new Set([
+  "product-strategist",
+  "research-analyst",
+  "writer-editor",
+]);
+let didSyncBuiltInSystemProfiles = false;
 
 type StoredAgentProfile = Omit<AgentProfileDetail, "fileCount">;
 
@@ -70,7 +80,7 @@ const SYSTEM_AGENT_SEEDS: AgentSeed[] = [
     availability: "team",
     teamRole: "lead",
     defaultModel: null,
-    defaultReasoningEffort: "high",
+    defaultReasoningEffort: null,
     defaultSandboxMode: "workspace-write",
     starterPrompts: [
       "基于当前团队目标，帮我安排下一轮分工和推进节奏。",
@@ -81,7 +91,7 @@ const SYSTEM_AGENT_SEEDS: AgentSeed[] = [
         "你是 OpenCrab Team Mode 默认绑定的项目经理。",
         "你的第一职责不是自己把所有事做完，而是让团队按清晰节奏向目标推进。",
         "你要主动判断什么时候应该继续自己回复，什么时候应该点名其他智能体加入。",
-        "你不是产品策略师、研究员或设计师，不要替专业角色抢结论。",
+        "你不是各个专业角色的替身，不要替专业成员抢结论。",
         "你说话要稳、清楚、像一个真正负责统筹的人，不要拖泥带水。",
       ].join("\n"),
       responsibility: [
@@ -111,103 +121,6 @@ const SYSTEM_AGENT_SEEDS: AgentSeed[] = [
     },
   },
   {
-    id: "product-strategist",
-    name: "产品策略师",
-    avatarDataUrl: readSystemAgentAvatarDataUrl("product-strategist.svg"),
-    summary: "把模糊想法收束成产品目标、用户价值、优先级和方案取舍，不负责团队流程管理。",
-    roleLabel: "Strategy",
-    description: "适合做产品方向判断、功能拆解、路线设计和方案取舍，但不替项目经理负责团队调度与推进。",
-    source: "system",
-    availability: "both",
-    teamRole: "specialist",
-    defaultModel: null,
-    defaultReasoningEffort: "high",
-    defaultSandboxMode: "workspace-write",
-    starterPrompts: [
-      "帮我把这个产品想法拆成一个可执行的 MVP 路线。",
-      "从目标用户、价值、入口和风险四个维度评估这个功能。",
-    ],
-    files: {
-      soul: [
-        "你是 OpenCrab 的产品策略师。",
-        "你的风格要稳、清楚、判断明确，但不要装腔作势。",
-        "面对模糊需求时，先收束目标和边界，再谈方案细节。",
-        "你负责产品判断，不负责团队流程调度。",
-        "如果存在关键取舍，要直接指出取舍关系，而不是给一堆并列选项却不表态。",
-      ].join("\n"),
-      responsibility: [
-        "你的职责：",
-        "- 明确任务目标、范围和优先级",
-        "- 拆解关键路径和阶段产物",
-        "- 判断产品价值、用户收益和方案取舍",
-        "- 在信息不足时提出最关键的澄清问题",
-        "",
-        "你的输出应该尽量包含：目标、判断、方案、风险、下一步。",
-      ].join("\n"),
-      tools: [
-        "工具偏好：",
-        "- 优先阅读现有文档、代码和本地上下文",
-        "- 需要外部事实时再检索资料",
-        "- 不要为了显得全面而做无意义的大范围搜索",
-      ].join("\n"),
-      user: [
-        "你面对的是 OpenCrab 的产品建设者。",
-        "默认对方重视结构、产品心智、实现路径和后续可扩展性。",
-      ].join("\n"),
-      knowledge: [
-        "OpenCrab 当前重点在 chat-native 的工作台体验。",
-        "Team Mode 应该是对话能力的升级，而不是新的 builder-first 系统。",
-        "当项目经理已经在场时，你更应该提供产品判断，而不是抢占协作主控位。",
-      ].join("\n"),
-    },
-  },
-  {
-    id: "research-analyst",
-    name: "研究分析师",
-    avatarDataUrl: readSystemAgentAvatarDataUrl("research-analyst.svg"),
-    summary: "收拢事实、样本、证据和外部参照，给团队提供可靠输入，不替用户做体验代言。",
-    roleLabel: "Evidence",
-    description: "适合做竞品调研、证据整理、对比分析和结论支撑，重点负责事实与证据，不负责用户感受判断。",
-    source: "system",
-    availability: "both",
-    teamRole: "research",
-    defaultModel: null,
-    defaultReasoningEffort: "medium",
-    defaultSandboxMode: "read-only",
-    starterPrompts: [
-      "帮我梳理这几个产品在智能体设计上的差异。",
-      "把现有结论背后的证据和风险点整理出来。",
-    ],
-    files: {
-      soul: [
-        "你是谨慎的研究分析师。",
-        "优先确保信息准确、结构清楚、结论有来源支撑。",
-        "不要把猜测包装成事实；推断必须明确标注为推断。",
-        "你更偏事实研究，而不是用户体验代言。",
-      ].join("\n"),
-      responsibility: [
-        "你的职责：",
-        "- 收集并整理事实、样本和引用",
-        "- 做对比表、差异点和证据归纳",
-        "- 标明哪些是确认事实，哪些是基于事实的推断",
-        "- 当问题转向用户感受、理解成本和行为动机时，主动把视角让给用户研究角色",
-      ].join("\n"),
-      tools: [
-        "工具偏好：",
-        "- 优先读取本地文档和用户给出的材料",
-        "- 涉及最新信息时再检索外部来源",
-        "- 输出时保留高信号来源，不要堆砌链接",
-      ].join("\n"),
-      user: [
-        "用户希望结果能直接服务产品判断，不是为了写学术综述。",
-      ].join("\n"),
-      knowledge: [
-        "研究结论最终要回到产品设计和实现取舍上。",
-        "你负责的是事实、证据和外部参照，不要把自己写成用户本人。",
-      ].join("\n"),
-    },
-  },
-  {
     id: "user-researcher",
     name: "UX-寡姐",
     avatarDataUrl: readSystemAgentAvatarDataUrl("user-researcher.jpeg"),
@@ -218,8 +131,8 @@ const SYSTEM_AGENT_SEEDS: AgentSeed[] = [
     availability: "both",
     teamRole: "research",
     defaultModel: null,
-    defaultReasoningEffort: "medium",
-    defaultSandboxMode: "read-only",
+    defaultReasoningEffort: null,
+    defaultSandboxMode: "workspace-write",
     starterPrompts: [
       "从用户研究视角看，这个产品方案最容易让用户困惑或流失的地方是什么？",
       "永远站在用户立场，帮我判断这个流程哪里不顺、哪里不值、哪里不够安心。",
@@ -244,7 +157,7 @@ const SYSTEM_AGENT_SEEDS: AgentSeed[] = [
         "- 优先根据现有页面、文案、流程和上下文判断用户体验问题",
         "- 需要时可以参考用户反馈、对话记录和公开样本",
         "- 输出时少讲空泛原则，多讲具体使用场景里的真实感受和行为",
-        "- 如果需要严格证据和外部参照，交给研究分析师补充",
+        "- 如果需要严格证据和外部参照，交给更偏证据导向的成员补充",
       ].join("\n"),
       user: [
         "默认用户希望这个角色真正代表用户，而不是另一种产品经理。",
@@ -254,49 +167,6 @@ const SYSTEM_AGENT_SEEDS: AgentSeed[] = [
         "用户视角不等于只提意见，而是把判断落到理解门槛、信任感、回报感、操作负担和持续使用意愿上。",
         "在 OpenCrab 的 Team Mode 里，你适合在需求评审、流程设计、文案判断和体验取舍时主动发声。",
         "你负责的是用户视角，不是事实调研归档。",
-      ].join("\n"),
-    },
-  },
-  {
-    id: "writer-editor",
-    name: "表达整理师",
-    avatarDataUrl: readSystemAgentAvatarDataUrl("writer-editor.svg"),
-    summary: "把复杂结果整理成清楚、可交付、可直接对外的表达，不负责替团队新增判断。",
-    roleLabel: "Writer",
-    description: "适合把研究、讨论和方案收束成说明文档、对外文案或阶段结论，重点是整理表达而不是重新定义策略。",
-    source: "system",
-    availability: "both",
-    teamRole: "writer",
-    defaultModel: null,
-    defaultReasoningEffort: "medium",
-    defaultSandboxMode: "read-only",
-    starterPrompts: [
-      "把这段设计讨论整理成一版能直接过会的说明。",
-      "基于现有结论，写一版清楚但不冗长的产品方案摘要。",
-    ],
-    files: {
-      soul: [
-        "你是冷静、克制、表达力很强的整理者。",
-        "你会主动压缩噪音、提炼重点、让内容更好读。",
-      ].join("\n"),
-      responsibility: [
-        "你的职责：",
-        "- 把复杂内容整理成清楚结构",
-        "- 优先突出结论、判断和下一步",
-        "- 保持表达自然，不堆术语，不写空话",
-        "- 基于现有判断做整理，不替团队凭空新增关键结论",
-      ].join("\n"),
-      tools: [
-        "工具偏好：",
-        "- 优先基于现有内容做整理和重写",
-        "- 当事实不够时，先提示缺口，不要自行编造",
-      ].join("\n"),
-      user: [
-        "用户希望内容可直接给同事、老板或合作方阅读。",
-      ].join("\n"),
-      knowledge: [
-        "在 OpenCrab 的 Team Mode 里，你更偏 frontstage 输出角色。",
-        "你的价值在于把已有结论变成可读、可交付、可直接复用的内容。",
       ].join("\n"),
     },
   },
@@ -311,7 +181,7 @@ const SYSTEM_AGENT_SEEDS: AgentSeed[] = [
     availability: "both",
     teamRole: "specialist",
     defaultModel: null,
-    defaultReasoningEffort: "high",
+    defaultReasoningEffort: null,
     defaultSandboxMode: "workspace-write",
     starterPrompts: [
       "帮我把这个页面的视觉层级、版式和气质收一版，让它更像成熟产品。",
@@ -510,6 +380,8 @@ function ensureAgentsReady() {
     mkdirSync(OPENCRAB_AGENTS_DIR, { recursive: true });
   }
 
+  cleanupDeprecatedSystemAgents();
+
   SYSTEM_AGENT_SEEDS.forEach((seed) => {
     if (existsSync(getAgentDir(seed.id))) {
       return;
@@ -524,6 +396,21 @@ function ensureAgentsReady() {
         updatedAt: now,
       }),
     );
+  });
+
+  if (!didSyncBuiltInSystemProfiles) {
+    syncBuiltInSystemProfiles();
+    didSyncBuiltInSystemProfiles = true;
+  }
+}
+
+function cleanupDeprecatedSystemAgents() {
+  DEPRECATED_SYSTEM_AGENT_IDS.forEach((agentId) => {
+    const agentDir = getAgentDir(agentId);
+
+    if (existsSync(agentDir)) {
+      rmSync(agentDir, { recursive: true, force: true });
+    }
   });
 }
 
@@ -548,8 +435,12 @@ function readAgentProfile(agentId: string): AgentProfileDetail | null {
     return null;
   }
 
-  const raw = readFileSync(profilePath, "utf8");
-  const parsed = JSON.parse(raw) as Partial<StoredAgentProfile>;
+  const parsed = readStoredAgentProfile(agentId);
+
+  if (!parsed) {
+    return null;
+  }
+
   const files = readAgentFiles(agentId, parsed.files);
 
   return normalizeAgentDetail({
@@ -570,6 +461,16 @@ function readAgentProfile(agentId: string): AgentProfileDetail | null {
     updatedAt: parsed.updatedAt || parsed.createdAt || new Date().toISOString(),
     files,
   });
+}
+
+function readStoredAgentProfile(agentId: string): Partial<StoredAgentProfile> | null {
+  const profilePath = getAgentProfilePath(agentId);
+
+  if (!existsSync(profilePath)) {
+    return null;
+  }
+
+  return JSON.parse(readFileSync(profilePath, "utf8")) as Partial<StoredAgentProfile>;
 }
 
 function readAgentFiles(agentId: string, fallback?: Partial<AgentFiles>) {
@@ -624,6 +525,12 @@ function toAgentRecord(detail: AgentProfileDetail): AgentProfileRecord {
 function normalizeAgentDetail(input: Omit<StoredAgentProfile, "fileCount">): AgentProfileDetail {
   const files = buildAgentFiles(input.files);
   const normalizedName = input.name.trim() || "未命名智能体";
+  const source =
+    isBuiltInSystemAgentId(input.id) || input.source !== "custom" ? "system" : "custom";
+  const teamRole =
+    source === "system"
+      ? normalizeSystemTeamRole(input.id, input.teamRole)
+      : normalizeTeamRole(input.teamRole);
   const rawAvatarDataUrl = normalizeAgentAvatarDataUrl(input.avatarDataUrl);
   const avatarDataUrl =
     rawAvatarDataUrl && !shouldReplaceWithModernAvatar(rawAvatarDataUrl)
@@ -640,12 +547,16 @@ function normalizeAgentDetail(input: Omit<StoredAgentProfile, "fileCount">): Age
     summary: input.summary.trim() || "暂未填写说明。",
     roleLabel: input.roleLabel.trim() || "Specialist",
     description: input.description.trim() || input.summary.trim() || "暂未填写说明。",
-    source: input.source === "custom" ? "custom" : "system",
+    source,
     availability: normalizeAvailability(input.availability),
-    teamRole: normalizeTeamRole(input.teamRole),
-    defaultModel: normalizeNullableString(input.defaultModel),
-    defaultReasoningEffort: normalizeReasoningEffort(input.defaultReasoningEffort),
-    defaultSandboxMode: normalizeSandboxMode(input.defaultSandboxMode),
+    teamRole,
+    defaultModel: source === "system" ? null : normalizeNullableString(input.defaultModel),
+    defaultReasoningEffort:
+      source === "system" ? null : normalizeReasoningEffort(input.defaultReasoningEffort),
+    defaultSandboxMode:
+      source === "system"
+        ? normalizeSystemSandboxMode(input.id, input.defaultSandboxMode)
+        : normalizeSandboxMode(input.defaultSandboxMode),
     starterPrompts: normalizeStarterPrompts(input.starterPrompts),
     fileCount: countAgentFiles(files),
     createdAt: input.createdAt,
@@ -691,6 +602,10 @@ function normalizeTeamRole(value: AgentTeamRole | undefined) {
   }
 }
 
+function normalizeSystemTeamRole(agentId: string, value: AgentTeamRole | undefined) {
+  return getBuiltInSystemAgentDefaults(agentId)?.teamRole ?? normalizeTeamRole(value);
+}
+
 function normalizeReasoningEffort(value: CodexReasoningEffort | null | undefined) {
   switch (value) {
     case "minimal":
@@ -713,6 +628,43 @@ function normalizeSandboxMode(value: CodexSandboxMode | null | undefined) {
     default:
       return null;
   }
+}
+
+function normalizeSystemSandboxMode(
+  agentId: string,
+  value: CodexSandboxMode | null | undefined,
+) {
+  return getBuiltInSystemAgentDefaults(agentId)?.defaultSandboxMode ?? normalizeSandboxMode(value) ?? "workspace-write";
+}
+
+function syncBuiltInSystemProfiles() {
+  readAgentDirectoryIds().forEach((agentId) => {
+    if (!isBuiltInSystemAgentId(agentId)) {
+      return;
+    }
+
+    const stored = readStoredAgentProfile(agentId);
+
+    if (!stored) {
+      return;
+    }
+
+    const detail = readAgentProfile(agentId);
+
+    if (!detail) {
+      return;
+    }
+
+    if (
+      stored.source !== detail.source ||
+      stored.teamRole !== detail.teamRole ||
+      stored.defaultModel !== detail.defaultModel ||
+      stored.defaultReasoningEffort !== detail.defaultReasoningEffort ||
+      stored.defaultSandboxMode !== detail.defaultSandboxMode
+    ) {
+      persistAgentProfile(detail);
+    }
+  });
 }
 
 function normalizeStarterPrompts(value: string[] | undefined, fallback: string[] = []) {

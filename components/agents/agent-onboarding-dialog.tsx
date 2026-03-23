@@ -100,7 +100,7 @@ const FIELD_ORDER: Array<{
     id: "knowledge",
     label: "长期知识",
     prompt: "最后补长期知识。有没有什么背景、术语、上下文、产品事实，是它应该长期记住的？这个会进入 knowledge.md。",
-    placeholder: "例如：OpenCrab 是 chat-native 工作台，Team Mode 是对话升级，不是 builder-first",
+    placeholder: "例如：OpenCrab 是 chat-native 工作台，Team Mode 强调多人协作与运行收口，而不是 builder-first",
   },
 ];
 

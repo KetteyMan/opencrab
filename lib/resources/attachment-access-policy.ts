@@ -12,6 +12,7 @@ type StoredProjectRooms = {
 };
 
 const STATIC_ATTACHMENT_ROOTS = [
+  process.cwd(),
   OPENCRAB_UPLOADS_DIR,
   path.join(process.cwd(), "output"),
   path.join(process.cwd(), "tmp"),
