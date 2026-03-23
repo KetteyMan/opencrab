@@ -708,11 +708,7 @@ function RowActionMenu({ label, kind, isOpen, onToggle, onRename, onDelete }: Ro
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [menuDirection, setMenuDirection] = useState<"down" | "up">("down");
 
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
+  function updateMenuDirection() {
     const root = rootRef.current;
 
     if (!root) {
@@ -727,7 +723,7 @@ function RowActionMenu({ label, kind, isOpen, onToggle, onRename, onDelete }: Ro
     setMenuDirection(
       spaceBelow < estimatedMenuHeight + 12 && spaceAbove > spaceBelow ? "up" : "down",
     );
-  }, [isOpen]);
+  }
 
   return (
     <div ref={rootRef} data-sidebar-action-root="true" className="relative shrink-0">
@@ -736,6 +732,11 @@ function RowActionMenu({ label, kind, isOpen, onToggle, onRename, onDelete }: Ro
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
+
+          if (!isOpen) {
+            updateMenuDirection();
+          }
+
           onToggle();
         }}
         className={`flex h-7 w-7 items-center justify-center rounded-lg transition ${
