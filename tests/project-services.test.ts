@@ -36,6 +36,8 @@ function createProjectDetail(overrides: Partial<ProjectDetail> = {}): ProjectDet
     agents: [],
     events: [],
     artifacts: [],
+    reviews: [],
+    tasks: [],
     runs: [],
     sourceConversation: null,
     sourceMessages: [],

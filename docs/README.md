@@ -39,6 +39,7 @@ docs/
 
 ### 想看 Team Mode 与多 Agent 路线
 
+- [OpenCrab Team Mode 详细执行计划](/Users/sky/SkyProjects/opencrab/docs/team/team-mode-execution-plan.md)
 - [OpenCrab Team Runtime 设计方案](/Users/sky/SkyProjects/opencrab/docs/team/multi-agent-design.md)
 - [OpenCrab Team Runtime 调研补充](/Users/sky/SkyProjects/opencrab/docs/team/multi-agent-research.md)
 - [OpenCrab Team OS 设计稿](/Users/sky/SkyProjects/opencrab/docs/team/team-os-design.md)

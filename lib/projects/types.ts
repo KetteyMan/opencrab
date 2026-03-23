@@ -16,6 +16,19 @@ export type ProjectAgentVisibility = "frontstage" | "backstage" | "mixed";
 export type ProjectAgentStatus = "idle" | "planning" | "working" | "reviewing";
 export type ProjectEventVisibility = "frontstage" | "backstage";
 export type ProjectArtifactStatus = "draft" | "ready" | "planned";
+export type ProjectReviewStatus = "pending" | "approved" | "changes_requested" | "cancelled";
+export type ProjectTaskLockStatus = "none" | "held" | "waiting";
+export type ProjectTaskStatus =
+  | "draft"
+  | "ready"
+  | "claimed"
+  | "in_progress"
+  | "in_review"
+  | "waiting_input"
+  | "blocked"
+  | "completed"
+  | "reopened"
+  | "cancelled";
 export type ProjectRunRecordStatus =
   | "running"
   | "paused"
@@ -30,6 +43,58 @@ export type ProjectAgentProgressEntry = {
   label: string;
   detail: string;
   createdAt: string;
+};
+
+export type ProjectTaskRecord = {
+  id: string;
+  projectId: string;
+  title: string;
+  description: string;
+  status: ProjectTaskStatus;
+  ownerAgentId: string | null;
+  ownerAgentName: string | null;
+  stageLabel: string | null;
+  acceptanceCriteria: string | null;
+  queuedStatus: ProjectTaskStatus | null;
+  dependsOnTaskIds: string[];
+  blockedByTaskId: string | null;
+  blockedReason: string | null;
+  lockScopePaths: string[];
+  lockStatus: ProjectTaskLockStatus;
+  lockBlockedByTaskId: string | null;
+  resultSummary: string | null;
+  artifactIds: string[];
+  createdAt: string;
+  updatedAt: string;
+  claimedAt: string | null;
+  recoveryAttemptCount: number;
+  ownerReplacementCount: number;
+  lastReassignedAt: string | null;
+  lastReassignmentReason: string | null;
+  leaseAcquiredAt: string | null;
+  leaseHeartbeatAt: string | null;
+  leaseExpiresAt: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+};
+
+export type ProjectReviewRecord = {
+  id: string;
+  projectId: string;
+  taskId: string;
+  taskTitle: string;
+  reviewTargetLabel: string;
+  requesterAgentId: string | null;
+  requesterAgentName: string | null;
+  reviewerAgentId: string | null;
+  reviewerAgentName: string | null;
+  status: ProjectReviewStatus;
+  summary: string;
+  blockingComments: string | null;
+  followUpTaskId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
 };
 
 export type ProjectRoomRecord = {
@@ -65,6 +130,7 @@ export type ProjectAgentRecord = {
   status: ProjectAgentStatus;
   visibility: ProjectAgentVisibility;
   runtimeConversationId?: string | null;
+  currentTaskId?: string | null;
   lastAssignedTask?: string | null;
   lastResultSummary?: string | null;
   progressLabel?: string | null;
@@ -115,6 +181,8 @@ export type ProjectStoreState = {
   agents: ProjectAgentRecord[];
   events: ProjectEventRecord[];
   artifacts: ProjectArtifactRecord[];
+  reviews: ProjectReviewRecord[];
+  tasks: ProjectTaskRecord[];
   runs: ProjectRunRecord[];
 };
 
@@ -123,6 +191,8 @@ export type ProjectDetail = {
   agents: ProjectAgentRecord[];
   events: ProjectEventRecord[];
   artifacts: ProjectArtifactRecord[];
+  reviews: ProjectReviewRecord[];
+  tasks: ProjectTaskRecord[];
   runs: ProjectRunRecord[];
   sourceConversation: ConversationItem | null;
   sourceMessages: ConversationMessage[];
@@ -137,6 +207,8 @@ export type ProjectDetailResponse = {
   agents: ProjectAgentRecord[];
   events: ProjectEventRecord[];
   artifacts: ProjectArtifactRecord[];
+  reviews: ProjectReviewRecord[];
+  tasks: ProjectTaskRecord[];
   runs: ProjectRunRecord[];
   sourceConversation: ConversationItem | null;
   sourceMessages: ConversationMessage[];

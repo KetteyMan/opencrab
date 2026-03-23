@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -25,7 +25,9 @@ import type {
   ProjectAgentStatus,
   ProjectAgentRecord,
   ProjectDetail,
+  ProjectReviewRecord,
   ProjectRunStatus,
+  ProjectTaskRecord,
 } from "@/lib/projects/types";
 import type { ConversationMessage } from "@/lib/seed-data";
 
@@ -61,6 +63,8 @@ export function ProjectRoomScreen({ detail: initialDetail }: { detail: ProjectDe
   const projectId = detail?.project?.id ?? null;
   const projectRunStatus = detail?.project?.runStatus ?? null;
   const agents = useMemo(() => detail?.agents ?? [], [detail?.agents]);
+  const reviews = useMemo(() => detail?.reviews ?? [], [detail?.reviews]);
+  const tasks = useMemo(() => detail?.tasks ?? [], [detail?.tasks]);
 
   useEffect(() => {
     if (!projectId) {
@@ -210,6 +214,73 @@ export function ProjectRoomScreen({ detail: initialDetail }: { detail: ProjectDe
     selectedActivityMessage && project
       ? resolveActivityDescriptor(selectedActivityMessage, project, agentsById)
       : null;
+  const tasksById = useMemo(
+    () => new Map(tasks.map((task) => [task.id, task] as const)),
+    [tasks],
+  );
+  const dependencyRailTasks = useMemo(
+    () => buildDependencyRailTasks(tasks, tasksById).slice(0, 6),
+    [tasks, tasksById],
+  );
+  const dependencyEdges = useMemo(
+    () => buildTaskDependencyEdges(tasks, tasksById).slice(0, 6),
+    [tasks, tasksById],
+  );
+  const reviewsByTaskId = useMemo(() => {
+    const map = new Map<string, ProjectReviewRecord[]>();
+
+    reviews.forEach((review) => {
+      const current = map.get(review.taskId) ?? [];
+      current.push(review);
+      map.set(review.taskId, current);
+    });
+
+    map.forEach((items, taskId) => {
+      map.set(
+        taskId,
+        [...items].sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt)),
+      );
+    });
+
+    return map;
+  }, [reviews]);
+  const pendingReviewTaskIds = useMemo(
+    () =>
+      new Set(
+        reviews
+          .filter((review) => review.status === "pending")
+          .map((review) => review.taskId),
+      ),
+    [reviews],
+  );
+  const executionTasks = useMemo(
+    () =>
+      tasks
+        .filter(
+          (task) =>
+            task.status === "in_progress" ||
+            task.status === "claimed" ||
+            task.status === "ready" ||
+            task.status === "reopened",
+        )
+        .slice(0, 4),
+    [tasks],
+  );
+  const reviewTasks = useMemo(
+    () =>
+      tasks
+        .filter((task) => task.status === "in_review" || pendingReviewTaskIds.has(task.id))
+        .slice(0, 4),
+    [pendingReviewTaskIds, tasks],
+  );
+  const stalledTasks = useMemo(
+    () => tasks.filter((task) => task.status === "blocked" || task.status === "waiting_input").slice(0, 4),
+    [tasks],
+  );
+  const completedTasks = useMemo(
+    () => tasks.filter((task) => task.status === "completed" && !pendingReviewTaskIds.has(task.id)).slice(0, 4),
+    [pendingReviewTaskIds, tasks],
+  );
 
   if (!project) {
     return (
@@ -631,6 +702,106 @@ export function ProjectRoomScreen({ detail: initialDetail }: { detail: ProjectDe
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-muted">
+                    Task Graph
+                  </p>
+                  <h2 className="mt-2 text-[24px] font-semibold tracking-[-0.04em] text-text">
+                    任务图摘要
+                  </h2>
+                  <p className="mt-2 text-[14px] leading-7 text-muted-strong">
+                    这里开始把团队推进从消息驱动收成任务驱动。现在除了任务状态，也会把复核动作独立显示出来。
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-line bg-surface-muted px-3 py-1.5 text-[12px] text-muted-strong">
+                    共 {tasks.length} 条任务
+                  </span>
+                  <span className="rounded-full border border-line bg-surface-muted px-3 py-1.5 text-[12px] text-muted-strong">
+                    {reviews.filter((review) => review.status === "pending").length} 条待复核
+                  </span>
+                </div>
+              </div>
+
+              {dependencyRailTasks.length > 0 ? (
+                <div className="mt-5 rounded-[22px] border border-line bg-background px-4 py-4">
+                  <div className="text-[11px] uppercase tracking-[0.14em] text-muted">接力依赖</div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-muted-strong">
+                    {dependencyRailTasks.map((task, index) => (
+                      <Fragment key={task.id}>
+                        <span className={`rounded-full border px-3 py-1.5 ${getTaskTone(task.status)}`}>
+                          {task.ownerAgentName || "未分配"} · {compactTaskRailLabel(task.title)}
+                        </span>
+                        {index < dependencyRailTasks.length - 1 ? (
+                          <span className="text-muted">→</span>
+                        ) : null}
+                      </Fragment>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {dependencyEdges.length > 0 ? (
+                <div className="mt-3 rounded-[22px] border border-line bg-background px-4 py-4">
+                  <div className="text-[11px] uppercase tracking-[0.14em] text-muted">依赖边</div>
+                  <div className="mt-3 space-y-2">
+                    {dependencyEdges.map((edge) => (
+                      <div
+                        key={edge.id}
+                        className="flex flex-wrap items-center gap-2 text-[12px] leading-6 text-muted-strong"
+                      >
+                        <span className="rounded-full border border-line bg-surface-muted px-2.5 py-1 text-[11px] text-text">
+                          {edge.from}
+                        </span>
+                        <span>完成后开始</span>
+                        <span className="rounded-full border border-line bg-surface-muted px-2.5 py-1 text-[11px] text-text">
+                          {edge.to}
+                        </span>
+                        {edge.reason ? <span className="text-muted">· {edge.reason}</span> : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="mt-5 grid gap-3 xl:grid-cols-2 2xl:grid-cols-4">
+                <TaskColumn
+                  title="当前执行"
+                  description="正在跑、已 ready 或刚 reopen 的任务"
+                  tasks={executionTasks}
+                  emptyState="当前还没有进入可执行任务阶段。项目经理下一次派工后，这里会先出现第一棒任务。"
+                  tasksById={tasksById}
+                  reviewsByTaskId={reviewsByTaskId}
+                />
+                <TaskColumn
+                  title="待复核"
+                  description="已经交回结果，等待项目经理或用户确认"
+                  tasks={reviewTasks}
+                  emptyState="当前没有进入复核队列的任务。"
+                  tasksById={tasksById}
+                  reviewsByTaskId={reviewsByTaskId}
+                />
+                <TaskColumn
+                  title="等补充 / 阻塞"
+                  description="等待用户输入，或还挂在依赖上的任务"
+                  tasks={stalledTasks}
+                  emptyState="当前没有等待补充或阻塞中的任务。"
+                  tasksById={tasksById}
+                  reviewsByTaskId={reviewsByTaskId}
+                />
+                <TaskColumn
+                  title="最近完成"
+                  description="已经完成收束的任务"
+                  tasks={completedTasks}
+                  emptyState="当前还没有可回看的已完成任务。"
+                  tasksById={tasksById}
+                  reviewsByTaskId={reviewsByTaskId}
+                />
+              </div>
+            </section>
+
+            <section className="rounded-[28px] border border-line bg-surface p-6 shadow-soft">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-muted">
                     Team Board
                   </p>
                   <h2 className="mt-2 text-[24px] font-semibold tracking-[-0.04em] text-text">
@@ -1024,6 +1195,119 @@ export function ProjectRoomScreen({ detail: initialDetail }: { detail: ProjectDe
         </DialogShell>
       ) : null}
     </>
+  );
+}
+
+function TaskColumn(input: {
+  title: string;
+  description: string;
+  tasks: ProjectTaskRecord[];
+  emptyState: string;
+  tasksById: Map<string, ProjectTaskRecord>;
+  reviewsByTaskId: Map<string, ProjectReviewRecord[]>;
+}) {
+  return (
+    <div className="rounded-[22px] border border-line bg-background p-4">
+      <div>
+        <div className="text-[11px] uppercase tracking-[0.14em] text-muted">{input.title}</div>
+        <p className="mt-2 text-[13px] leading-6 text-muted-strong">{input.description}</p>
+      </div>
+
+      <div className="mt-4 space-y-3">
+        {input.tasks.length > 0 ? (
+          input.tasks.map((task) => {
+            const blocker =
+              task.blockedByTaskId ? input.tasksById.get(task.blockedByTaskId) ?? null : null;
+            const lockHolder =
+              task.lockBlockedByTaskId ? input.tasksById.get(task.lockBlockedByTaskId) ?? null : null;
+            const latestReview = input.reviewsByTaskId.get(task.id)?.[0] ?? null;
+
+            return (
+              <article key={task.id} className="rounded-[18px] border border-line bg-surface-muted/70 px-4 py-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${getTaskTone(task.status)}`}>
+                    {formatTaskStatus(task.status)}
+                  </span>
+                  {task.stageLabel ? <MetaPill>{task.stageLabel}</MetaPill> : null}
+                  {task.ownerAgentName ? <MetaPill>{task.ownerAgentName}</MetaPill> : null}
+                  {latestReview ? (
+                    <span
+                      className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${getReviewTone(latestReview.status)}`}
+                    >
+                      复核：{formatReviewStatus(latestReview.status)}
+                    </span>
+                  ) : null}
+                </div>
+                <h3 className="mt-3 text-[15px] font-semibold tracking-[-0.02em] text-text">
+                  {task.title}
+                </h3>
+                <p className="mt-2 line-clamp-3 text-[13px] leading-6 text-muted-strong">
+                  {task.description}
+                </p>
+                {blocker ? (
+                  <p className="mt-2 text-[12px] leading-6 text-muted-strong">
+                    依赖：{blocker.title}
+                  </p>
+                ) : null}
+                {task.blockedReason ? (
+                  <p className="mt-2 line-clamp-2 text-[12px] leading-6 text-muted-strong">
+                    阻塞：{task.blockedReason}
+                  </p>
+                ) : null}
+                {task.lockScopePaths.length > 0 ? (
+                  <p className="mt-2 line-clamp-2 text-[12px] leading-6 text-muted-strong">
+                    锁定范围：{formatTaskLockScope(task.lockScopePaths)}
+                  </p>
+                ) : null}
+                {lockHolder ? (
+                  <p className="mt-2 line-clamp-2 text-[12px] leading-6 text-muted-strong">
+                    锁占用：{lockHolder.ownerAgentName || "上游成员"} 正在处理相同路径
+                  </p>
+                ) : null}
+                {renderTaskLeaseStatus(task)}
+                {task.lastReassignmentReason ? (
+                  <p className="mt-2 line-clamp-2 text-[12px] leading-6 text-muted-strong">
+                    接管：{task.lastReassignmentReason}
+                  </p>
+                ) : null}
+                {task.acceptanceCriteria ? (
+                  <p className="mt-2 line-clamp-2 text-[12px] leading-6 text-muted-strong">
+                    验收：{task.acceptanceCriteria}
+                  </p>
+                ) : null}
+                {task.resultSummary ? (
+                  <p className="mt-2 line-clamp-2 text-[12px] leading-6 text-muted-strong">
+                    结果：{task.resultSummary}
+                  </p>
+                ) : null}
+                {task.artifactIds.length > 0 ? (
+                  <p className="mt-2 text-[12px] leading-6 text-muted-strong">
+                    交付物：已挂接 {task.artifactIds.length} 项
+                  </p>
+                ) : null}
+                {latestReview ? (
+                  <p className="mt-2 line-clamp-2 text-[12px] leading-6 text-muted-strong">
+                    复核说明：{latestReview.blockingComments || latestReview.summary}
+                  </p>
+                ) : null}
+                {latestReview?.followUpTaskId ? (
+                  <p className="mt-2 text-[12px] leading-6 text-muted-strong">
+                    返工：已生成后续 follow-up task
+                  </p>
+                ) : null}
+                <div className="mt-3 text-[11px] text-muted-strong">
+                  更新于 {formatActivityTimestamp(task.updatedAt)}
+                </div>
+              </article>
+            );
+          })
+        ) : (
+          <div className="rounded-[18px] border border-dashed border-line bg-surface-muted/60 px-4 py-4 text-[13px] leading-6 text-muted-strong">
+            {input.emptyState}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -1630,6 +1914,186 @@ function mapAgentStatusToProjectStatus(status: ProjectAgentStatus): ProjectRunSt
     default:
       return "ready";
   }
+}
+
+function formatTaskStatus(status: ProjectTaskRecord["status"]) {
+  switch (status) {
+    case "claimed":
+      return "已接手";
+    case "ready":
+      return "待执行";
+    case "in_progress":
+      return "执行中";
+    case "in_review":
+      return "待复核";
+    case "waiting_input":
+      return "待补充";
+    case "blocked":
+      return "等待依赖";
+    case "completed":
+      return "已完成";
+    case "reopened":
+      return "待重开";
+    case "cancelled":
+      return "已取消";
+    default:
+      return "草稿";
+  }
+}
+
+function getTaskTone(status: ProjectTaskRecord["status"]) {
+  switch (status) {
+    case "claimed":
+      return "border-[#dfe7f4] bg-[#f4f7fb] text-[#4c607d]";
+    case "in_progress":
+      return "border-[#d7e4ff] bg-[#eef4ff] text-[#2959b8]";
+    case "ready":
+    case "reopened":
+      return "border-[#e6e1d5] bg-[#f9f7f2] text-[#7a6751]";
+    case "in_review":
+      return "border-[#e7dcc7] bg-[#fff8ec] text-[#9a6513]";
+    case "waiting_input":
+    case "blocked":
+      return "border-[#f3dfbc] bg-[#fff6e8] text-[#9b6210]";
+    case "completed":
+      return "border-[#d7e9d9] bg-[#eef8f0] text-[#25623e]";
+    case "cancelled":
+      return "border-line bg-surface-muted text-muted-strong";
+    default:
+      return "border-line bg-surface-muted text-muted-strong";
+  }
+}
+
+function formatReviewStatus(status: ProjectReviewRecord["status"]) {
+  switch (status) {
+    case "approved":
+      return "已通过";
+    case "changes_requested":
+      return "需修改";
+    case "cancelled":
+      return "已取消";
+    default:
+      return "待复核";
+  }
+}
+
+function getReviewTone(status: ProjectReviewRecord["status"]) {
+  switch (status) {
+    case "approved":
+      return "border-[#d7e9d9] bg-[#eef8f0] text-[#25623e]";
+    case "changes_requested":
+      return "border-[#f3dfbc] bg-[#fff6e8] text-[#9b6210]";
+    case "cancelled":
+      return "border-line bg-surface-muted text-muted-strong";
+    default:
+      return "border-[#e7dcc7] bg-[#fff8ec] text-[#9a6513]";
+  }
+}
+
+function renderTaskLeaseStatus(task: ProjectTaskRecord) {
+  const lines: string[] = [];
+
+  if (task.leaseExpiresAt) {
+    const expired = Date.parse(task.leaseExpiresAt) <= Date.now();
+    lines.push(expired ? "租约：已过期" : `租约：有效至 ${formatActivityTimestamp(task.leaseExpiresAt)}`);
+  }
+
+  if (task.recoveryAttemptCount > 0) {
+    lines.push(`恢复：已尝试 ${task.recoveryAttemptCount} 次`);
+  }
+
+  if (task.ownerReplacementCount > 0) {
+    lines.push(`接管：已改派 ${task.ownerReplacementCount} 次`);
+  }
+
+  if (lines.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-2 space-y-1">
+      {lines.map((line) => (
+        <p key={line} className="text-[12px] leading-6 text-muted-strong">
+          {line}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+function formatTaskLockScope(paths: string[]) {
+  const compact = paths
+    .slice(0, 2)
+    .map((item) => item.replace(/^.*\/(?=(?:app|components|lib|src|pages|styles|docs|public|tests|skills|scripts)\b)/, ""));
+
+  const suffix = paths.length > 2 ? ` 等 ${paths.length} 项` : "";
+  return `${compact.join("、")}${suffix}`;
+}
+
+function buildDependencyRailTasks(
+  tasks: ProjectTaskRecord[],
+  tasksById: Map<string, ProjectTaskRecord>,
+) {
+  const nonTerminalTasks = tasks.filter((task) => task.status !== "completed" && task.status !== "cancelled");
+
+  if (nonTerminalTasks.length === 0) {
+    return [];
+  }
+
+  const activeTask =
+    nonTerminalTasks.find((task) => task.status === "in_progress") ||
+    nonTerminalTasks.find((task) => task.status === "claimed") ||
+    nonTerminalTasks.find((task) => task.status === "ready") ||
+    nonTerminalTasks[0] ||
+    null;
+
+  if (!activeTask) {
+    return [];
+  }
+
+  const chain: ProjectTaskRecord[] = [];
+  const seen = new Set<string>();
+  let cursor: ProjectTaskRecord | null = activeTask;
+
+  while (cursor && !seen.has(cursor.id)) {
+    seen.add(cursor.id);
+    chain.unshift(cursor);
+    cursor = cursor.blockedByTaskId ? tasksById.get(cursor.blockedByTaskId) ?? null : null;
+  }
+
+  let downstream =
+    tasks.find((task) => task.blockedByTaskId === activeTask.id && task.status !== "cancelled") ?? null;
+
+  while (downstream && !seen.has(downstream.id)) {
+    seen.add(downstream.id);
+    chain.push(downstream);
+    downstream =
+      tasks.find((task) => task.blockedByTaskId === downstream?.id && task.status !== "cancelled") ?? null;
+  }
+
+  return chain;
+}
+
+function compactTaskRailLabel(value: string) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  return normalized.length > 18 ? `${normalized.slice(0, 18)}...` : normalized;
+}
+
+function buildTaskDependencyEdges(
+  tasks: ProjectTaskRecord[],
+  tasksById: Map<string, ProjectTaskRecord>,
+) {
+  return tasks.flatMap((task) =>
+    task.dependsOnTaskIds.map((dependencyTaskId) => {
+      const dependencyTask = tasksById.get(dependencyTaskId) ?? null;
+      return {
+        id: `${dependencyTaskId}-${task.id}`,
+        from: dependencyTask ? compactTaskRailLabel(dependencyTask.title) : "未知上游",
+        to: compactTaskRailLabel(task.title),
+        reason: task.blockedReason,
+      };
+    }),
+  );
 }
 
 function MetaPill({ children }: { children: ReactNode }) {

@@ -21,11 +21,15 @@ import type {
   ProjectCheckpointAction,
   ProjectDetail,
   ProjectEventRecord,
+  ProjectReviewRecord,
   ProjectRoomRecord,
   ProjectStoreState,
+  ProjectTaskRecord,
 } from "@/lib/projects/types";
 
 const STORE_PATH = OPENCRAB_PROJECTS_STORE_PATH;
+const TASK_LEASE_WINDOW_MS = 6 * 60 * 1000;
+const TASK_RECOVERY_LIMIT_BEFORE_REASSIGN = 2;
 const store = createSyncJsonFileStore<ProjectStoreState>({
   filePath: STORE_PATH,
   seed: createInitialState,
@@ -69,6 +73,14 @@ export function getProjectDetail(projectId: string): ProjectDetail | null {
     artifacts: state.artifacts
       .filter((item) => item.projectId === projectId)
       .sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt))
+      .map((item) => structuredClone(item)),
+    reviews: state.reviews
+      .filter((item) => item.projectId === projectId)
+      .sort((left, right) => sortProjectReviews(left, right))
+      .map((item) => structuredClone(item)),
+    tasks: state.tasks
+      .filter((item) => item.projectId === projectId)
+      .sort((left, right) => sortProjectTasks(left, right))
       .map((item) => structuredClone(item)),
     runs: state.runs
       .filter((item) => item.projectId === projectId)
@@ -120,6 +132,8 @@ export function createProjectFromConversation(conversationId: string) {
   state.agents = [...room.agents, ...state.agents];
   state.events = [...room.events, ...state.events];
   state.artifacts = [...room.artifacts, ...state.artifacts];
+  state.reviews = [...room.reviews, ...state.reviews];
+  state.tasks = [...room.tasks, ...state.tasks];
   writeState(state);
 
   return getProjectDetail(projectId);
@@ -185,6 +199,8 @@ export function createProject(input: { goal: string; workspaceDir: string; agent
   state.agents = [...room.agents, ...state.agents];
   state.events = [...room.events, ...state.events];
   state.artifacts = [...room.artifacts, ...state.artifacts];
+  state.reviews = [...room.reviews, ...state.reviews];
+  state.tasks = [...room.tasks, ...state.tasks];
   writeState(state);
 
   return getProjectDetail(projectId);
@@ -230,6 +246,8 @@ export function deleteProject(projectId: string) {
   state.agents = state.agents.filter((item) => item.projectId !== projectId);
   state.events = state.events.filter((item) => item.projectId !== projectId);
   state.artifacts = state.artifacts.filter((item) => item.projectId !== projectId);
+  state.reviews = state.reviews.filter((item) => item.projectId !== projectId);
+  state.tasks = state.tasks.filter((item) => item.projectId !== projectId);
   state.runs = state.runs.filter((item) => item.projectId !== projectId);
   writeState(state);
 
@@ -807,18 +825,36 @@ async function executeAgentTask(
   recentMessages: RuntimeConversationMessage[],
 ) {
   const runtimeConversationId = ensureAgentRuntimeConversation(state, room, agent);
+  const startedAt = new Date().toISOString();
 
   updateProjectAgent(state, agent.id, {
     status: "working",
     lastAssignedTask: task,
+    currentTaskId: agent.currentTaskId ?? null,
     progressLabel: "准备开始执行",
     progressDetails: `已接到新任务：${compactConversationExcerpt(task, 120)}`,
-    lastHeartbeatAt: new Date().toISOString(),
+    lastHeartbeatAt: startedAt,
     progressTrail: appendAgentProgressTrail(agent.progressTrail, {
       label: "准备开始执行",
       detail: `已接到新任务：${compactConversationExcerpt(task, 120)}`,
     }),
   });
+  if (agent.currentTaskId) {
+    updateProjectTask(state, agent.currentTaskId, {
+      status: "in_progress",
+      description: task,
+      queuedStatus: null,
+      claimedAt: state.tasks.find((taskItem) => taskItem.id === agent.currentTaskId)?.claimedAt ?? startedAt,
+      recoveryAttemptCount: 0,
+      leaseAcquiredAt:
+        state.tasks.find((taskItem) => taskItem.id === agent.currentTaskId)?.leaseAcquiredAt ?? startedAt,
+      startedAt,
+      updatedAt: startedAt,
+      blockedByTaskId: null,
+      blockedReason: null,
+    });
+    refreshTaskLease(state, agent.currentTaskId, startedAt);
+  }
   writeState(state);
 
   const prompt = buildWorkerExecutionPrompt(room, agent, task, recentMessages);
@@ -834,6 +870,10 @@ async function executeAgentTask(
         label: "已接入运行时",
         detail: "已经拿到新的 runtime 会话，开始读取上下文和当前这棒任务。",
       });
+      const nextTaskId = nextState.agents.find((item) => item.id === agent.id)?.currentTaskId ?? null;
+      if (nextTaskId) {
+        refreshTaskLease(nextState, nextTaskId, new Date().toISOString());
+      }
       writeState(nextState);
     },
     onThinking: (entries) => {
@@ -844,6 +884,10 @@ async function executeAgentTask(
         fallbackLabel: "正在处理当前任务",
         fallbackDetail: "正在梳理任务上下文、已有结果和可交付边界。",
       }));
+      const nextTaskId = nextState.agents.find((item) => item.id === agent.id)?.currentTaskId ?? null;
+      if (nextTaskId) {
+        refreshTaskLease(nextState, nextTaskId, new Date().toISOString());
+      }
       writeState(nextState);
     },
     onAssistantText: (text) => {
@@ -852,6 +896,10 @@ async function executeAgentTask(
         fallbackLabel: "正在整理阶段结果",
         fallbackDetail: "已经进入产出阶段，正在把当前这棒的结果整理成可交付说明。",
       }));
+      const nextTaskId = nextState.agents.find((item) => item.id === agent.id)?.currentTaskId ?? null;
+      if (nextTaskId) {
+        refreshTaskLease(nextState, nextTaskId, new Date().toISOString());
+      }
       writeState(nextState);
     },
   });
@@ -859,6 +907,10 @@ async function executeAgentTask(
   syncMutableProjectState(state, readState());
   const latestState = readState();
   const latestAgent = latestState.agents.find((item) => item.id === agent.id) ?? null;
+  const manager =
+    latestState.agents.find((item) => item.projectId === room.id && item.agentProfileId === "project-manager") ||
+    latestState.agents.find((item) => item.projectId === room.id && item.canDelegate) ||
+    null;
 
   if (latestAgent?.runtimeConversationId !== runtimeConversationId) {
     throw new ProjectRuntimeReplacedError();
@@ -866,6 +918,7 @@ async function executeAgentTask(
 
   updateProjectAgent(state, agent.id, {
     status: "reviewing",
+    currentTaskId: null,
     lastResultSummary: compactRuntimeText(replyText),
     blockedByAgentId: null,
     lastCompletedAt: new Date().toISOString(),
@@ -877,6 +930,50 @@ async function executeAgentTask(
       detail: compactConversationExcerpt(replyText, 160),
     }),
   });
+  if (latestAgent?.currentTaskId) {
+    const completedAt = new Date().toISOString();
+    updateProjectTask(state, latestAgent.currentTaskId, {
+      status: "completed",
+      queuedStatus: null,
+      resultSummary: compactRuntimeText(replyText),
+      updatedAt: completedAt,
+      completedAt,
+      recoveryAttemptCount: 0,
+    });
+    expireTaskLease(state, latestAgent.currentTaskId, completedAt);
+    unlockProjectTaskDependents(state, {
+      projectId: room.id,
+      completedTaskId: latestAgent.currentTaskId,
+      now: completedAt,
+    });
+    const taskResultArtifact = upsertTaskResultArtifact(state.artifacts, {
+      projectId: room.id,
+      taskId: latestAgent.currentTaskId,
+      taskTitle:
+        latestState.tasks.find((taskItem) => taskItem.id === latestAgent.currentTaskId)?.title ||
+        `${agent.name} 的阶段结果`,
+      ownerName: agent.name,
+      summary: replyText,
+      updatedAt: completedAt,
+    });
+    state.artifacts = taskResultArtifact.artifacts;
+    attachArtifactsToTask(state, latestAgent.currentTaskId, [taskResultArtifact.artifactId]);
+    syncProjectArtifactCount(state, room.id);
+    createProjectReview(state, {
+      projectId: room.id,
+      taskId: latestAgent.currentTaskId,
+      taskTitle:
+        latestState.tasks.find((taskItem) => taskItem.id === latestAgent.currentTaskId)?.title ||
+        `${agent.name} 的阶段结果`,
+      reviewTargetLabel: `${agent.name} 交回的阶段结果`,
+      requesterAgentId: agent.id,
+      requesterAgentName: agent.name,
+      reviewerAgentId: manager?.id ?? null,
+      reviewerAgentName: manager?.name ?? "项目经理",
+      summary: `这条任务已经完成，等待 ${manager?.name ?? "项目经理"} 复核本轮结果并决定下一步。`,
+      createdAt: new Date().toISOString(),
+    });
+  }
   writeState(state);
 
   return replyText;
@@ -887,6 +984,7 @@ function syncMutableProjectState(target: ProjectStoreState, source: ProjectStore
   target.agents = source.agents;
   target.events = source.events;
   target.artifacts = source.artifacts;
+  target.reviews = source.reviews;
   target.runs = source.runs;
 }
 
@@ -1007,7 +1105,40 @@ function collectPendingDelegationsForResume(
   projectAgents: ProjectAgentRecord[],
   managerId: string,
   room: ProjectRoomRecord,
+  tasks: ProjectTaskRecord[],
 ) {
+  const taskQueue = tasks
+    .filter(
+      (task) =>
+        task.projectId === room.id &&
+        task.ownerAgentId !== managerId &&
+        (task.status === "reopened" || task.status === "claimed" || task.status === "ready" || task.status === "blocked"),
+    )
+    .sort((left, right) => sortProjectTasks(left, right));
+
+  if (taskQueue.length > 0) {
+    const ordered: Array<{ agentName: string; task: string }> = [];
+    const seenTaskIds = new Set<string>();
+    let currentTask =
+      taskQueue.find((task) => task.status === "reopened" || task.status === "claimed" || task.status === "ready") ||
+      null;
+
+    while (currentTask && !seenTaskIds.has(currentTask.id) && ordered.length < 4) {
+      seenTaskIds.add(currentTask.id);
+      ordered.push({
+        agentName: currentTask.ownerAgentName || "未命名成员",
+        task: currentTask.description,
+      });
+
+      currentTask =
+        taskQueue.find((task) => task.blockedByTaskId === currentTask?.id && !seenTaskIds.has(task.id)) || null;
+    }
+
+    if (ordered.length > 0) {
+      return ordered;
+    }
+  }
+
   const ordered: Array<{ agentName: string; task: string }> = [];
   const seen = new Set<string>();
 
@@ -1353,6 +1484,103 @@ function recoverStalledProjectRuntime(input: {
   }
 
   const now = new Date().toISOString();
+  const activeTask =
+    activeAgent.currentTaskId
+      ? input.state.tasks.find((task) => task.id === activeAgent.currentTaskId) ?? null
+      : null;
+  const nextRecoveryAttemptCount = (activeTask?.recoveryAttemptCount ?? 0) + 1;
+  const shouldReassignToManager =
+    Boolean(activeTask) && nextRecoveryAttemptCount >= TASK_RECOVERY_LIMIT_BEFORE_REASSIGN;
+
+  if (activeTask) {
+    updateProjectTask(input.state, activeTask.id, {
+      recoveryAttemptCount: nextRecoveryAttemptCount,
+      updatedAt: now,
+    });
+  }
+
+  if (shouldReassignToManager && activeTask) {
+    const reason = `这条任务已经连续 ${nextRecoveryAttemptCount} 次在后台执行中租约过期或没有正常回传，项目经理已收回 ownership 准备重新编排。`;
+    const reassignedTask = reassignTaskOwner(input.state, {
+      taskId: activeTask.id,
+      ownerAgentId: input.manager.id,
+      ownerAgentName: input.manager.name,
+      reason,
+      now,
+      nextStatus: activeTask.blockedByTaskId || activeTask.lockBlockedByTaskId ? "blocked" : "claimed",
+    });
+
+    updateProjectAgent(input.state, activeAgent.id, {
+      runtimeConversationId: null,
+      status: "idle",
+      currentTaskId: null,
+      blockedByAgentId: null,
+      lastResultSummary: "这一棒连续异常，任务已被项目经理回收重新编排。",
+      progressLabel: "任务已被项目经理接管",
+      progressDetails: reason,
+      lastHeartbeatAt: now,
+      progressTrail: appendAgentProgressTrail(activeAgent.progressTrail, {
+        label: "任务已被项目经理接管",
+        detail: reason,
+        createdAt: now,
+      }),
+    });
+    updateProjectAgent(input.state, input.manager.id, {
+      status: "planning",
+      currentTaskId: reassignedTask?.id ?? input.manager.currentTaskId ?? null,
+      blockedByAgentId: null,
+      progressLabel: "已接管异常任务",
+      progressDetails: compactConversationExcerpt(reason, 180),
+      lastHeartbeatAt: now,
+      progressTrail: appendAgentProgressTrail(input.manager.progressTrail, {
+        label: "已接管异常任务",
+        detail: reason,
+        createdAt: now,
+      }),
+    });
+
+    input.state.rooms = input.state.rooms.map((room) =>
+      room.id === input.room.id
+        ? {
+            ...room,
+            activeAgentId: input.manager.id,
+            nextAgentId: activeAgent.id,
+            currentStageLabel: "项目经理统筹",
+            summary: reason,
+            lastActivityLabel: "项目经理已接管异常任务",
+            updatedAt: now,
+          }
+        : room,
+    );
+    input.state.events = [
+      {
+        id: `${input.room.id}-event-owner-replacement-${crypto.randomUUID()}`,
+        projectId: input.room.id,
+        actorName: input.manager.name,
+        title: "项目经理已接管卡住任务",
+        description: `@${activeAgent.name} 这一棒连续异常，任务 ownership 已回收到项目经理名下，后续会由 PM 重新拆解或重新派工。`,
+        visibility: "backstage",
+        createdAt: now,
+      },
+      ...input.state.events,
+    ];
+
+    const managerReply = [
+      `我检查到 @${activeAgent.name} 这一棒已经连续 ${nextRecoveryAttemptCount} 次没有正常续约，卡点是：${runtimeState.detail}`,
+      "我这次不再简单重试，而是先把这条任务回收到项目经理名下，避免它一直无限等待。",
+      "接下来我会基于现有结果重新拆解或重新派工，再继续推进。",
+    ].join("\n");
+
+    appendTeamConversationMessages(input.conversationId, [
+      {
+        actorLabel: input.manager.name,
+        content: managerReply,
+      },
+    ]);
+    writeState(input.state);
+    return managerReply;
+  }
+
   updateProjectAgent(input.state, activeAgent.id, {
     runtimeConversationId: null,
     status: "idle",
@@ -1367,6 +1595,12 @@ function recoverStalledProjectRuntime(input: {
       createdAt: now,
     }),
   });
+  if (activeTask) {
+    updateProjectTask(input.state, activeTask.id, {
+      lastReassignedAt: now,
+      lastReassignmentReason: "项目经理已重建后台会话，准备按同一 ownership 重试当前棒次。",
+    });
+  }
   const managerReply = [
     `我检查到 @${activeAgent.name} 这一棒已经卡住了，卡点是：${runtimeState.detail}`,
     "我已经中断旧的后台会话，并按当前同一任务重新推了一次，不会影响上一棒已经完成的结果。",
@@ -1526,6 +1760,7 @@ function handleProjectRuntimeFailure(
 
   updateProjectAgent(state, input.failedAgent.id, {
     status: "idle",
+    currentTaskId: null,
     blockedByAgentId: null,
     lastResultSummary: `执行遇到问题：${compactError}`,
     progressLabel: "执行遇到问题",
@@ -1537,6 +1772,22 @@ function handleProjectRuntimeFailure(
       createdAt: input.now,
     }),
   });
+  if (input.failedAgent.currentTaskId) {
+    updateProjectTask(state, input.failedAgent.currentTaskId, {
+      status: "cancelled",
+      resultSummary: `执行遇到问题：${compactError}`,
+      updatedAt: input.now,
+      completedAt: input.now,
+    });
+    expireTaskLease(state, input.failedAgent.currentTaskId, input.now);
+    settleProjectReviews(state, {
+      projectId: input.projectId,
+      taskIds: [input.failedAgent.currentTaskId],
+      status: "cancelled",
+      updatedAt: input.now,
+      blockingComments: compactError,
+    });
+  }
 
   applyProjectManagerCheckpoint(state, {
     projectId: input.projectId,
@@ -1563,21 +1814,30 @@ function inspectAgentRuntimeState(agent: ProjectAgentRecord) {
   const conversation =
     snapshot.conversations.find((item) => item.id === agent.runtimeConversationId) ?? null;
   const messages = snapshot.conversationMessages[agent.runtimeConversationId] ?? [];
+  const projectId = agent.projectId;
+  const task =
+    agent.currentTaskId
+      ? readState().tasks.find((item) => item.projectId === projectId && item.id === agent.currentTaskId) ?? null
+      : null;
   const lastMessage = messages[messages.length - 1] ?? null;
   const hasAssistantReply = messages.some((message) => message.role === "assistant");
   const lastTimestamp = lastMessage?.timestamp ?? null;
   const ageMs = lastTimestamp ? Date.now() - Date.parse(lastTimestamp) : Number.POSITIVE_INFINITY;
+  const leaseExpired = isTaskLeaseExpired(task);
   const isLikelyStalled =
     agent.status === "working" &&
-    (!conversation?.codexThreadId || !hasAssistantReply) &&
-    ageMs > 5 * 60 * 1000;
+    ((!conversation?.codexThreadId || !hasAssistantReply) &&
+      ageMs > 5 * 60 * 1000 ||
+      leaseExpired);
 
   if (isLikelyStalled) {
     return {
       status: "stalled" as const,
-      detail: conversation?.codexThreadId
-        ? "runtime 会话已经创建，但超过 5 分钟都没有新的成员结果写回。"
-        : "runtime 会话里只有任务下发，没有拿到有效 thread 回传或成员输出。",
+      detail: leaseExpired
+        ? "这条任务的执行租约已经过期，说明后台执行在预期窗口内没有正常续约。"
+        : conversation?.codexThreadId
+          ? "runtime 会话已经创建，但超过 5 分钟都没有新的成员结果写回。"
+          : "runtime 会话里只有任务下发，没有拿到有效 thread 回传或成员输出。",
     };
   }
 
@@ -1823,12 +2083,32 @@ function applyRuntimeDelegationState(
   },
 ) {
   const projectAgents = state.agents.filter((agent) => agent.projectId === input.projectId);
+  const manager = input.managerId
+    ? projectAgents.find((agent) => agent.id === input.managerId) ?? null
+    : null;
   const delegatedAgents = input.delegations
     .map((delegation) => projectAgents.find((agent) => agent.name === delegation.agentName) ?? null)
     .filter(Boolean) as ProjectAgentRecord[];
   const primaryAgent = delegatedAgents[0] ?? null;
   const secondaryAgent = delegatedAgents[1] ?? null;
   const primaryDelegation = input.delegations[0] ?? null;
+  const now = new Date().toISOString();
+  if (manager?.currentTaskId) {
+    updateProjectTask(state, manager.currentTaskId, {
+      status: "completed",
+      resultSummary: "项目经理已完成当前阶段拆解，并把 baton 正式交给执行成员。",
+      updatedAt: now,
+      completedAt: now,
+    });
+  }
+
+  createDelegationTasks(state, {
+    projectId: input.projectId,
+    delegations: input.delegations,
+    delegatedAgents,
+    stageLabel: inferRuntimeStageLabel(primaryAgent, primaryDelegation?.task || null),
+    now,
+  });
 
   state.rooms = state.rooms.map((room) =>
     room.id === input.projectId
@@ -1853,13 +2133,14 @@ function applyRuntimeDelegationState(
       return {
         ...agent,
         status: input.delegations.length > 0 ? "planning" : "reviewing",
+        currentTaskId: null,
         blockedByAgentId: null,
         progressLabel: input.delegations.length > 0 ? "已完成本轮派工" : agent.progressLabel ?? null,
         progressDetails:
           input.delegations.length > 0
             ? `当前先由 ${delegatedAgents.map((item) => item.name).join("、")} 接力推进，项目经理会等结果回来后继续判断。`
             : agent.progressDetails ?? null,
-        lastHeartbeatAt: new Date().toISOString(),
+        lastHeartbeatAt: now,
         progressTrail:
           input.delegations.length > 0
             ? appendAgentProgressTrail(agent.progressTrail, {
@@ -1877,13 +2158,14 @@ function applyRuntimeDelegationState(
         ...agent,
         status: "working",
         blockedByAgentId: null,
+        currentTaskId: agent.currentTaskId ?? null,
         lastAssignedTask: input.delegations[delegationIndex]?.task || agent.lastAssignedTask || null,
         progressLabel: "等待开始执行",
         progressDetails: `项目经理已把当前这棒交给他：${compactConversationExcerpt(
           input.delegations[delegationIndex]?.task || agent.lastAssignedTask || "当前任务待同步。",
           120,
         )}`,
-        lastHeartbeatAt: new Date().toISOString(),
+        lastHeartbeatAt: now,
         progressTrail: appendAgentProgressTrail(agent.progressTrail, {
           label: "等待开始执行",
           detail: `项目经理已把当前这棒交给他：${compactConversationExcerpt(
@@ -1899,12 +2181,13 @@ function applyRuntimeDelegationState(
         ...agent,
         status: "idle",
         blockedByAgentId: delegatedAgents[delegationIndex - 1]?.id ?? primaryAgent?.id ?? null,
+        currentTaskId: agent.currentTaskId ?? null,
         lastAssignedTask: input.delegations[delegationIndex]?.task || agent.lastAssignedTask || null,
         progressLabel: "等待上游结果",
         progressDetails: `这位成员已经在接力链上，但需要等 ${
           delegatedAgents[delegationIndex - 1]?.name || primaryAgent?.name || "上游成员"
         } 先交回结果后才会真正开工。`,
-        lastHeartbeatAt: new Date().toISOString(),
+        lastHeartbeatAt: now,
         progressTrail: appendAgentProgressTrail(agent.progressTrail, {
           label: "等待上游结果",
           detail: `这位成员已经在接力链上，但需要等 ${
@@ -1918,13 +2201,14 @@ function applyRuntimeDelegationState(
       ...agent,
       status: agent.lastResultSummary ? "reviewing" : "idle",
       blockedByAgentId: primaryAgent?.id ?? null,
+      currentTaskId: null,
       progressLabel: agent.lastResultSummary ? "已交回阶段结果" : "尚未上场",
       progressDetails: agent.lastResultSummary
         ? compactConversationExcerpt(agent.lastResultSummary, 120)
         : primaryAgent
           ? `当前不在这轮接力链里，项目经理会先观察 ${primaryAgent.name} 这棒的结果。`
           : "当前还没有进入这轮接力链。",
-      lastHeartbeatAt: agent.lastHeartbeatAt ?? new Date().toISOString(),
+      lastHeartbeatAt: agent.lastHeartbeatAt ?? now,
     };
   });
 }
@@ -1956,6 +2240,7 @@ function clearRuntimeDelegationState(
     return {
       ...agent,
       status: agent.id === input.managerId ? "reviewing" : agent.lastResultSummary ? "reviewing" : "idle",
+      currentTaskId: agent.id === input.managerId ? agent.currentTaskId ?? null : null,
       blockedByAgentId: null,
       progressLabel:
         agent.id === input.managerId
@@ -1984,6 +2269,23 @@ function applyProjectManagerCheckpoint(
     now: string;
   },
 ) {
+  settleOpenProjectTasks(state, {
+    projectId: input.projectId,
+    now: input.now,
+    nextStatus: input.decision,
+  });
+  const managerName =
+    input.managerId
+      ? state.agents.find((agent) => agent.id === input.managerId)?.name ?? "项目经理"
+      : "项目经理";
+  createCheckpointTask(state, {
+    projectId: input.projectId,
+    managerId: input.managerId,
+    managerName,
+    decision: input.decision,
+    summary: input.summary,
+    now: input.now,
+  });
   const stageLabel = input.decision === "waiting_approval" ? "等待你确认" : "等待你补充";
   const activityLabel =
     input.decision === "waiting_approval" ? "项目经理刚刚交付了阶段总结" : "项目经理正在等待你的补充";
@@ -2018,6 +2320,7 @@ function applyProjectManagerCheckpoint(
     return {
       ...agent,
       status: agent.id === input.managerId ? "reviewing" : agent.lastResultSummary ? "reviewing" : "idle",
+      currentTaskId: agent.id === input.managerId ? agent.currentTaskId ?? null : null,
       blockedByAgentId: null,
       progressLabel:
         agent.id === input.managerId
@@ -2048,8 +2351,8 @@ function applyProjectManagerCheckpoint(
   if (latestRun) {
     state.runs = state.runs.map((run) =>
       run.id === latestRun.id
-        ? {
-            ...run,
+      ? {
+              ...run,
             status: runStatus,
             summary: formattedSummary,
             currentStepLabel:
@@ -2080,6 +2383,7 @@ function applyProjectManagerCheckpoint(
     updatedAt: input.now,
     phase: runStatus,
   });
+  syncProjectArtifactCount(state, input.projectId);
 }
 
 export async function runProject(
@@ -2119,7 +2423,12 @@ export async function runProject(
     }
 
     const resumeAt = new Date().toISOString();
-    const pendingDelegations = collectPendingDelegationsForResume(projectAgents, manager.id, room);
+    const pendingDelegations = collectPendingDelegationsForResume(
+      projectAgents,
+      manager.id,
+      room,
+      state.tasks,
+    );
     const resumeReply =
       pendingDelegations.length > 0
         ? `继续上一次暂停点。我会先让 ${pendingDelegations
@@ -2351,10 +2660,19 @@ export async function runProject(
       ? {
           ...agent,
           status: agent.canDelegate ? "planning" : "idle",
+          currentTaskId: agent.canDelegate ? agent.currentTaskId ?? null : null,
           blockedByAgentId: null,
         }
       : agent,
   );
+
+  activateManagerPlanningTask(state, {
+    projectId,
+    managerId: manager?.id ?? null,
+    managerName: manager?.name ?? "项目经理",
+    taskDescription: triggerPrompt,
+    now,
+  });
 
   state.runs = [
     {
@@ -2611,6 +2929,40 @@ export async function updateProjectCheckpoint(
     }
 
     const normalizedNote = stripTrailingSentencePunctuation(note);
+    const managerId =
+      state.agents.find((agent) => agent.projectId === projectId && agent.canDelegate)?.id ?? null;
+    const managerName =
+      managerId
+        ? state.agents.find((agent) => agent.id === managerId)?.name ?? "项目经理"
+        : "项目经理";
+
+    settleOpenProjectTasks(state, {
+      projectId,
+      now,
+      nextStatus: "waiting_user",
+    });
+    createCheckpointTask(state, {
+      projectId,
+      managerId,
+      managerName,
+      decision: "waiting_user",
+      summary: normalizedNote,
+      now,
+    });
+    const followUp = createFollowUpTasksFromPendingReviews(state, {
+      projectId,
+      managerId,
+      managerName,
+      note: normalizedNote,
+      now,
+    });
+    settleProjectReviews(state, {
+      projectId,
+      status: "changes_requested",
+      updatedAt: now,
+      blockingComments: normalizedNote,
+      followUpTaskIdByReviewId: followUp.followUpTaskIdByReviewId,
+    });
 
     state.rooms = state.rooms.map((item) =>
       item.id === projectId
@@ -2618,9 +2970,14 @@ export async function updateProjectCheckpoint(
             ...item,
             runStatus: "waiting_user",
             currentStageLabel: "等待你补充",
-            activeAgentId:
-              state.agents.find((agent) => agent.projectId === projectId && agent.canDelegate)?.id ?? null,
-            nextAgentId: null,
+            activeAgentId: managerId,
+            nextAgentId:
+              state.tasks.find(
+                (task) =>
+                  task.projectId === projectId &&
+                  (task.status === "reopened" || task.status === "claimed" || task.status === "ready") &&
+                  task.ownerAgentId !== managerId,
+              )?.ownerAgentId ?? null,
             summary: `已记录你的补充方向：${normalizedNote}。团队会等待你确认后再继续推进。`,
             latestUserRequest: note,
             lastActivityLabel: "等待你补充后继续",
@@ -2638,7 +2995,7 @@ export async function updateProjectCheckpoint(
         return { ...agent, status: "planning", blockedByAgentId: null };
       }
 
-      return { ...agent, status: "idle", blockedByAgentId: null };
+      return { ...agent, status: "idle", currentTaskId: null, blockedByAgentId: null };
     });
 
     if (latestRun) {
@@ -2668,8 +3025,11 @@ export async function updateProjectCheckpoint(
         id: `${projectId}-event-waiting-user-backstage-${crypto.randomUUID()}`,
         projectId,
         actorName: "OpenCrab PM",
-        title: "已记录新的用户补充",
-        description: "Lead 已暂停当前收尾流程，等待用户确认后按新方向重启团队协作。",
+        title: "已生成返工任务",
+        description:
+          followUp.createdTaskIds.length > 0
+            ? `Lead 已根据这次复核意见生成 ${followUp.createdTaskIds.length} 条 follow-up task，恢复运行后会优先从返工链继续。`
+            : "Lead 已暂停当前收尾流程，等待用户确认后按新方向重启团队协作。",
         visibility: "backstage",
         createdAt: now,
       },
@@ -2682,6 +3042,7 @@ export async function updateProjectCheckpoint(
       updatedAt: now,
       phase: "waiting_user",
     });
+    syncProjectArtifactCount(state, projectId);
     appendTeamConversationMessages(teamConversationId, [
       {
         role: "user",
@@ -2702,6 +3063,23 @@ export async function updateProjectCheckpoint(
   }
 
   const nextPrompt = note || room.latestUserRequest || room.goal;
+
+  state.tasks = state.tasks.map((task) =>
+    task.projectId === projectId && task.status === "waiting_input"
+      ? {
+          ...task,
+          status: "completed",
+          resultSummary: task.resultSummary || "用户已补充新的方向，项目经理将继续推进下一轮。",
+          updatedAt: now,
+          completedAt: task.completedAt ?? now,
+        }
+      : task,
+  );
+  settleProjectReviews(state, {
+    projectId,
+    status: "approved",
+    updatedAt: now,
+  });
 
   state.rooms = state.rooms.map((item) =>
     item.id === projectId
@@ -2864,11 +3242,22 @@ function buildRoom(input: {
     },
   ];
 
+  const tasks = buildInitialProjectTasks({
+    projectId: input.projectId,
+    goal: input.latestUserMessage,
+    manager: agents.find((agent) => agent.canDelegate) ?? null,
+    workspaceDir: null,
+    initialArtifactIds: artifacts.map((artifact) => artifact.id),
+    createdAt: input.createdAt,
+  });
+
   return {
     room,
     agents,
     events,
     artifacts,
+    reviews: [],
+    tasks,
   };
 }
 
@@ -2986,11 +3375,22 @@ function buildManualRoom(input: {
     },
   ];
 
+  const tasks = buildInitialProjectTasks({
+    projectId: input.projectId,
+    goal: input.goal,
+    manager: normalizedAgents.find((agent) => agent.canDelegate) ?? null,
+    workspaceDir: input.workspaceDir,
+    initialArtifactIds: artifacts.map((artifact) => artifact.id),
+    createdAt: input.createdAt,
+  });
+
   return {
     room,
     agents: normalizedAgents,
     events,
     artifacts,
+    reviews: [],
+    tasks,
   };
 }
 
@@ -3027,6 +3427,7 @@ function buildTeamAgents(input: {
       status: isLead ? "planning" : "idle",
       visibility: resolveVisibility(teamRole, isLead),
       runtimeConversationId: null,
+      currentTaskId: null,
       lastAssignedTask: null,
       lastResultSummary: null,
       progressLabel: isLead ? "准备统筹首轮协作" : "等待项目经理安排",
@@ -3066,6 +3467,7 @@ function buildFallbackAgents(input: {
       status: "planning",
       visibility: "mixed",
       runtimeConversationId: null,
+      currentTaskId: null,
       lastAssignedTask: null,
       lastResultSummary: null,
       progressLabel: "准备统筹首轮协作",
@@ -3089,6 +3491,7 @@ function buildFallbackAgents(input: {
       status: "idle",
       visibility: "backstage",
       runtimeConversationId: null,
+      currentTaskId: null,
       lastAssignedTask: null,
       lastResultSummary: null,
       progressLabel: "等待项目经理安排",
@@ -3112,6 +3515,7 @@ function buildFallbackAgents(input: {
       status: "idle",
       visibility: "frontstage",
       runtimeConversationId: null,
+      currentTaskId: null,
       lastAssignedTask: null,
       lastResultSummary: null,
       progressLabel: "等待项目经理安排",
@@ -3235,6 +3639,7 @@ function normalizeStoredProjectAgents(
         role: formatProjectRoleLabel(teamRole, isLead),
         visibility,
         runtimeConversationId: agent.runtimeConversationId ?? null,
+        currentTaskId: agent.currentTaskId ?? null,
         lastAssignedTask: agent.lastAssignedTask ?? null,
         lastResultSummary: agent.lastResultSummary ?? null,
         progressLabel: agent.progressLabel ?? null,
@@ -3441,6 +3846,1141 @@ function buildManagerReply(input: {
   };
 }
 
+function buildInitialProjectTasks(input: {
+  projectId: string;
+  goal: string;
+  manager: ProjectAgentRecord | null;
+  workspaceDir: string | null;
+  initialArtifactIds?: string[];
+  createdAt: string;
+}) {
+  const managerName = input.manager?.name ?? "项目经理";
+
+  return [
+    {
+      id: `${input.projectId}-task-bootstrap`,
+      projectId: input.projectId,
+      title: "项目经理收束目标并拆解首轮任务",
+      description: input.workspaceDir
+        ? `阅读团队目标与工作空间目录（${input.workspaceDir}），形成第一轮可执行拆解。`
+        : "阅读当前目标与上下文，形成第一轮可执行拆解。",
+      status: "ready",
+      ownerAgentId: input.manager?.id ?? null,
+      ownerAgentName: managerName,
+      stageLabel: "待启动",
+      acceptanceCriteria: "给出第一轮清晰分工或阶段计划。",
+      queuedStatus: null,
+      dependsOnTaskIds: [],
+      blockedByTaskId: null,
+      blockedReason: null,
+      lockScopePaths: [],
+      lockStatus: "none",
+      lockBlockedByTaskId: null,
+      resultSummary: null,
+      artifactIds: input.initialArtifactIds ?? [],
+      createdAt: input.createdAt,
+      updatedAt: input.createdAt,
+      claimedAt: null,
+      recoveryAttemptCount: 0,
+      ownerReplacementCount: 0,
+      lastReassignedAt: null,
+      lastReassignmentReason: null,
+      leaseAcquiredAt: null,
+      leaseHeartbeatAt: null,
+      leaseExpiresAt: null,
+      startedAt: null,
+      completedAt: null,
+    } satisfies ProjectTaskRecord,
+  ];
+}
+
+function sortProjectTasks(left: ProjectTaskRecord, right: ProjectTaskRecord) {
+  const leftTerminal = isProjectTaskTerminal(left.status);
+  const rightTerminal = isProjectTaskTerminal(right.status);
+
+  if (leftTerminal !== rightTerminal) {
+    return leftTerminal ? 1 : -1;
+  }
+
+  const priorityDelta = resolveProjectTaskPriority(left.status) - resolveProjectTaskPriority(right.status);
+
+  if (priorityDelta !== 0) {
+    return priorityDelta;
+  }
+
+  const rightUpdatedAt = Date.parse(right.updatedAt);
+  const leftUpdatedAt = Date.parse(left.updatedAt);
+
+  if (Number.isFinite(rightUpdatedAt) && Number.isFinite(leftUpdatedAt) && rightUpdatedAt !== leftUpdatedAt) {
+    return rightUpdatedAt - leftUpdatedAt;
+  }
+
+  return right.id.localeCompare(left.id, "en");
+}
+
+function sortProjectReviews(left: ProjectReviewRecord, right: ProjectReviewRecord) {
+  const leftPending = left.status === "pending";
+  const rightPending = right.status === "pending";
+
+  if (leftPending !== rightPending) {
+    return leftPending ? -1 : 1;
+  }
+
+  const rightUpdatedAt = Date.parse(right.updatedAt);
+  const leftUpdatedAt = Date.parse(left.updatedAt);
+
+  if (Number.isFinite(rightUpdatedAt) && Number.isFinite(leftUpdatedAt) && rightUpdatedAt !== leftUpdatedAt) {
+    return rightUpdatedAt - leftUpdatedAt;
+  }
+
+  return right.id.localeCompare(left.id, "en");
+}
+
+function isProjectTaskTerminal(status: ProjectTaskRecord["status"]) {
+  return status === "completed" || status === "cancelled";
+}
+
+function resolveProjectTaskPriority(status: ProjectTaskRecord["status"]) {
+  switch (status) {
+    case "in_progress":
+      return 0;
+    case "claimed":
+      return 1;
+    case "ready":
+    case "reopened":
+      return 2;
+    case "in_review":
+      return 3;
+    case "waiting_input":
+      return 4;
+    case "blocked":
+      return 5;
+    case "completed":
+      return 6;
+    case "cancelled":
+      return 7;
+    default:
+      return 8;
+  }
+}
+
+function updateProjectTask(
+  state: ProjectStoreState,
+  taskId: string,
+  patch: Partial<ProjectTaskRecord>,
+) {
+  state.tasks = state.tasks.map((task) =>
+    task.id === taskId
+      ? {
+          ...task,
+          ...patch,
+        }
+      : task,
+  );
+}
+
+function isRestorableProjectTaskStatus(
+  status: ProjectTaskRecord["status"] | null | undefined,
+): status is "ready" | "claimed" | "reopened" {
+  return status === "ready" || status === "claimed" || status === "reopened";
+}
+
+function findNextOutstandingDependencyId(state: ProjectStoreState, dependencyIds: string[]) {
+  return (
+    dependencyIds.find((dependencyId) => {
+      const dependencyTask = state.tasks.find((task) => task.id === dependencyId) ?? null;
+      return !dependencyTask || dependencyTask.status !== "completed";
+    }) ?? null
+  );
+}
+
+function getProjectWorkspaceDir(state: ProjectStoreState, projectId: string) {
+  return state.rooms.find((room) => room.id === projectId)?.workspaceDir?.trim() || null;
+}
+
+function extractTaskLockScopePaths(
+  state: ProjectStoreState,
+  input: {
+    projectId: string;
+    title: string;
+    description: string;
+    existingLockScopePaths?: string[];
+  },
+) {
+  if (input.existingLockScopePaths && input.existingLockScopePaths.length > 0) {
+    return Array.from(new Set(input.existingLockScopePaths.map((item) => item.trim()).filter(Boolean)));
+  }
+
+  const workspaceDir = getProjectWorkspaceDir(state, input.projectId);
+  const source = `${input.title}\n${input.description}`;
+  const candidates = new Set<string>();
+
+  for (const match of source.matchAll(/`([^`\n]+)`/g)) {
+    const value = match[1]?.trim();
+    if (looksLikeTaskLockPath(value)) {
+      candidates.add(value);
+    }
+  }
+
+  for (const match of source.matchAll(/(?:\/Users\/[^\s，。；、"'`()]+|\/[A-Za-z0-9._~/-]+)/g)) {
+    const value = match[0]?.trim();
+    if (looksLikeTaskLockPath(value)) {
+      candidates.add(value);
+    }
+  }
+
+  for (const match of source.matchAll(/\b(?:app|components|lib|src|pages|styles|docs|public|tests|skills|scripts|hooks|features)\/[A-Za-z0-9._/-]+\b/g)) {
+    const value = match[0]?.trim();
+    if (looksLikeTaskLockPath(value)) {
+      candidates.add(value);
+    }
+  }
+
+  return Array.from(candidates)
+    .map((item) => normalizeTaskLockPath(item, workspaceDir))
+    .filter(Boolean)
+    .slice(0, 6) as string[];
+}
+
+function looksLikeTaskLockPath(value: string | null | undefined) {
+  if (!value) {
+    return false;
+  }
+
+  return (
+    value.startsWith("/") ||
+    /^(app|components|lib|src|pages|styles|docs|public|tests|skills|scripts|hooks|features)\//.test(value)
+  );
+}
+
+function normalizeTaskLockPath(value: string, workspaceDir: string | null) {
+  const normalized = value.trim().replace(/[),.;:]+$/g, "");
+
+  if (!normalized) {
+    return null;
+  }
+
+  if (normalized.startsWith("/")) {
+    return path.normalize(normalized);
+  }
+
+  if (!workspaceDir) {
+    return normalized;
+  }
+
+  return path.normalize(path.resolve(workspaceDir, normalized));
+}
+
+function taskLockPathsOverlap(left: string[], right: string[]) {
+  return left.some((leftPath) =>
+    right.some(
+      (rightPath) =>
+        leftPath === rightPath ||
+        leftPath.startsWith(`${rightPath}${path.sep}`) ||
+        rightPath.startsWith(`${leftPath}${path.sep}`),
+    ),
+  );
+}
+
+function compactTaskLockPathForDisplay(
+  workspaceDir: string | null,
+  rawPath: string,
+) {
+  const normalizedPath = rawPath.replace(/\\/g, "/");
+  const normalizedWorkspaceDir = workspaceDir?.replace(/\\/g, "/") ?? null;
+
+  if (normalizedWorkspaceDir && normalizedPath.startsWith(`${normalizedWorkspaceDir}/`)) {
+    return normalizedPath.slice(normalizedWorkspaceDir.length + 1);
+  }
+
+  return normalizedPath;
+}
+
+function buildTaskLockBlockedReason(
+  state: ProjectStoreState,
+  task: ProjectTaskRecord,
+  blockingTaskId: string | null,
+) {
+  if (!blockingTaskId) {
+    return task.blockedReason ?? null;
+  }
+
+  const blockingTask = state.tasks.find((item) => item.id === blockingTaskId) ?? null;
+  const lockPath = task.lockScopePaths[0] ?? null;
+  const workspaceDir = getProjectWorkspaceDir(state, task.projectId);
+
+  if (!blockingTask) {
+    return lockPath ? `等待释放文件锁：${lockPath}` : "等待上游成员释放当前路径锁后继续。";
+  }
+
+  const label = lockPath ? compactTaskLockPathForDisplay(workspaceDir, lockPath) : "当前工作路径";
+  return `等待 ${blockingTask.ownerAgentName || "上游成员"} 释放“${label}”的工作锁后继续。`;
+}
+
+function isTaskHoldingLock(status: ProjectTaskRecord["status"]) {
+  return (
+    status === "claimed" ||
+    status === "in_progress" ||
+    status === "in_review" ||
+    status === "waiting_input"
+  );
+}
+
+function synchronizeProjectGovernanceState(state: ProjectStoreState, now: string) {
+  const projectIds = Array.from(
+    new Set([...state.rooms.map((room) => room.id), ...state.tasks.map((task) => task.projectId)]),
+  );
+
+  projectIds.forEach((projectId) => {
+    refreshProjectTaskLocks(state, projectId, now);
+  });
+}
+
+function refreshProjectTaskLocks(
+  state: ProjectStoreState,
+  projectId: string,
+  now: string,
+) {
+  const projectTasks = state.tasks
+    .filter((task) => task.projectId === projectId && !isProjectTaskTerminal(task.status))
+    .sort((left, right) => sortProjectTasks(left, right));
+  const holders: ProjectTaskRecord[] = [];
+
+  projectTasks.forEach((task) => {
+    const lockScopePaths = extractTaskLockScopePaths(state, {
+      projectId,
+      title: task.title,
+      description: task.description,
+      existingLockScopePaths: task.lockScopePaths,
+    });
+    const blockingLockTask =
+      lockScopePaths.length > 0
+        ? holders.find((holder) => holder.id !== task.id && taskLockPathsOverlap(holder.lockScopePaths, lockScopePaths)) ?? null
+        : null;
+    const restoreStatus = isRestorableProjectTaskStatus(task.queuedStatus) ? task.queuedStatus : "ready";
+    const dependencyStillBlocking = Boolean(task.blockedByTaskId);
+    const nextPatch: Partial<ProjectTaskRecord> = {
+      lockScopePaths,
+      lockStatus: lockScopePaths.length === 0 ? "none" : isTaskHoldingLock(task.status) ? "held" : "none",
+      lockBlockedByTaskId: null,
+    };
+
+    if (blockingLockTask) {
+      nextPatch.lockStatus = "waiting";
+      nextPatch.lockBlockedByTaskId = blockingLockTask.id;
+      nextPatch.blockedReason = dependencyStillBlocking
+        ? task.blockedReason || buildTaskBlockedReason(state, task.blockedByTaskId)
+        : buildTaskLockBlockedReason(state, { ...task, lockScopePaths }, blockingLockTask.id);
+      if (task.status !== "in_progress" && task.status !== "in_review" && task.status !== "waiting_input") {
+        nextPatch.status = "blocked";
+        nextPatch.queuedStatus = isRestorableProjectTaskStatus(task.status)
+          ? task.status
+          : task.queuedStatus ?? restoreStatus;
+        nextPatch.updatedAt = now;
+      }
+    } else {
+      if (task.lockBlockedByTaskId && !dependencyStillBlocking && task.status === "blocked") {
+        nextPatch.status = restoreStatus;
+        nextPatch.queuedStatus = null;
+        nextPatch.blockedReason = null;
+        nextPatch.updatedAt = now;
+        if (restoreStatus === "claimed") {
+          nextPatch.claimedAt = task.claimedAt ?? now;
+          nextPatch.leaseAcquiredAt = task.leaseAcquiredAt ?? now;
+          nextPatch.leaseHeartbeatAt = task.leaseHeartbeatAt ?? now;
+          nextPatch.leaseExpiresAt = task.leaseExpiresAt ?? computeTaskLeaseExpiresAt(now);
+        }
+      } else if (!dependencyStillBlocking && task.lockBlockedByTaskId) {
+        nextPatch.blockedReason = null;
+      }
+    }
+
+    const changed = Object.entries(nextPatch).some(([key, value]) => {
+      const currentValue = task[key as keyof ProjectTaskRecord];
+      return Array.isArray(value)
+        ? JSON.stringify(currentValue) !== JSON.stringify(value)
+        : currentValue !== value;
+    });
+
+    if (changed) {
+      updateProjectTask(state, task.id, nextPatch);
+    }
+
+    const latestTask = state.tasks.find((item) => item.id === task.id) ?? task;
+
+    if (latestTask.lockScopePaths.length > 0 && isTaskHoldingLock(latestTask.status) && !latestTask.lockBlockedByTaskId) {
+      holders.push(latestTask);
+    }
+  });
+}
+
+function reassignTaskOwner(
+  state: ProjectStoreState,
+  input: {
+    taskId: string;
+    ownerAgentId: string | null;
+    ownerAgentName: string | null;
+    reason: string;
+    now: string;
+    nextStatus?: "ready" | "claimed" | "reopened" | "blocked";
+  },
+) {
+  const task = state.tasks.find((item) => item.id === input.taskId) ?? null;
+
+  if (!task) {
+    return null;
+  }
+
+  const nextStatus =
+    input.nextStatus ??
+    (task.blockedByTaskId || task.lockBlockedByTaskId ? "blocked" : task.status === "reopened" ? "reopened" : "claimed");
+  const nextQueuedStatus =
+    nextStatus === "blocked"
+      ? isRestorableProjectTaskStatus(task.queuedStatus)
+        ? task.queuedStatus
+        : task.status === "reopened"
+          ? "reopened"
+          : "claimed"
+      : null;
+
+  updateProjectTask(state, input.taskId, {
+    ownerAgentId: input.ownerAgentId,
+    ownerAgentName: input.ownerAgentName,
+    status: nextStatus,
+    queuedStatus: nextQueuedStatus,
+    claimedAt: nextStatus === "claimed" ? input.now : task.claimedAt,
+    recoveryAttemptCount: 0,
+    ownerReplacementCount: (task.ownerReplacementCount ?? 0) + 1,
+    lastReassignedAt: input.now,
+    lastReassignmentReason: compactConversationExcerpt(input.reason, 160),
+    leaseAcquiredAt: nextStatus === "claimed" ? input.now : null,
+    leaseHeartbeatAt: nextStatus === "claimed" ? input.now : null,
+    leaseExpiresAt: nextStatus === "claimed" ? computeTaskLeaseExpiresAt(input.now) : null,
+    updatedAt: input.now,
+  });
+
+  return state.tasks.find((item) => item.id === input.taskId) ?? null;
+}
+
+function buildTaskBlockedReason(
+  state: ProjectStoreState,
+  dependencyTaskId: string | null,
+) {
+  if (!dependencyTaskId) {
+    return null;
+  }
+
+  const dependencyTask = state.tasks.find((task) => task.id === dependencyTaskId) ?? null;
+
+  if (!dependencyTask) {
+    return "等待上游任务完成后继续。";
+  }
+
+  return `等待 ${dependencyTask.ownerAgentName || "上游成员"} 完成“${compactConversationExcerpt(dependencyTask.title, 24)}”后继续。`;
+}
+
+function unlockProjectTaskDependents(
+  state: ProjectStoreState,
+  input: {
+    projectId: string;
+    completedTaskId: string;
+    now: string;
+  },
+) {
+  state.tasks = state.tasks.map((task) => {
+    if (task.projectId !== input.projectId || isProjectTaskTerminal(task.status)) {
+      return task;
+    }
+
+    if (!task.dependsOnTaskIds.includes(input.completedTaskId)) {
+      return task;
+    }
+
+    const nextOutstandingDependencyId = findNextOutstandingDependencyId(state, task.dependsOnTaskIds);
+
+    if (nextOutstandingDependencyId) {
+      return {
+        ...task,
+        blockedByTaskId: nextOutstandingDependencyId,
+        blockedReason: buildTaskBlockedReason(state, nextOutstandingDependencyId),
+        leaseAcquiredAt: null,
+        leaseHeartbeatAt: null,
+        leaseExpiresAt: null,
+        updatedAt: input.now,
+      };
+    }
+
+    if (task.status === "blocked") {
+      const nextStatus = isRestorableProjectTaskStatus(task.queuedStatus) ? task.queuedStatus : "ready";
+      return {
+        ...task,
+        status: nextStatus,
+        queuedStatus: null,
+        blockedByTaskId: null,
+        blockedReason: null,
+        claimedAt: null,
+        leaseAcquiredAt: null,
+        leaseHeartbeatAt: null,
+        leaseExpiresAt: null,
+        updatedAt: input.now,
+      };
+    }
+
+    return {
+      ...task,
+      blockedByTaskId: null,
+      blockedReason: null,
+      updatedAt: input.now,
+    };
+  });
+}
+
+function mergeArtifactIds(currentArtifactIds: string[], nextArtifactIds: string[]) {
+  return Array.from(new Set([...currentArtifactIds, ...nextArtifactIds].filter(Boolean)));
+}
+
+function computeTaskLeaseExpiresAt(at: string) {
+  return new Date(Date.parse(at) + TASK_LEASE_WINDOW_MS).toISOString();
+}
+
+function refreshTaskLease(
+  state: ProjectStoreState,
+  taskId: string,
+  at: string,
+) {
+  const task = state.tasks.find((item) => item.id === taskId) ?? null;
+
+  if (!task) {
+    return;
+  }
+
+  updateProjectTask(state, taskId, {
+    leaseAcquiredAt: task.leaseAcquiredAt ?? task.claimedAt ?? at,
+    leaseHeartbeatAt: at,
+    leaseExpiresAt: computeTaskLeaseExpiresAt(at),
+  });
+}
+
+function expireTaskLease(
+  state: ProjectStoreState,
+  taskId: string,
+  at: string,
+) {
+  const task = state.tasks.find((item) => item.id === taskId) ?? null;
+
+  if (!task) {
+    return;
+  }
+
+  updateProjectTask(state, taskId, {
+    leaseHeartbeatAt: task.leaseHeartbeatAt ?? at,
+    leaseExpiresAt: at,
+  });
+}
+
+function isTaskLeaseExpired(task: ProjectTaskRecord | null) {
+  if (!task?.leaseExpiresAt) {
+    return false;
+  }
+
+  return Date.parse(task.leaseExpiresAt) <= Date.now();
+}
+
+function attachArtifactsToTask(
+  state: ProjectStoreState,
+  taskId: string,
+  artifactIds: string[],
+) {
+  if (artifactIds.length === 0) {
+    return;
+  }
+
+  const currentTask = state.tasks.find((task) => task.id === taskId) ?? null;
+
+  if (!currentTask) {
+    return;
+  }
+
+  updateProjectTask(state, taskId, {
+    artifactIds: mergeArtifactIds(currentTask.artifactIds, artifactIds),
+  });
+}
+
+function syncProjectArtifactCount(state: ProjectStoreState, projectId: string) {
+  const artifactCount = state.artifacts.filter((artifact) => artifact.projectId === projectId).length;
+
+  state.rooms = state.rooms.map((room) =>
+    room.id === projectId
+      ? {
+          ...room,
+          artifactCount,
+        }
+      : room,
+  );
+}
+
+function createProjectReview(
+  state: ProjectStoreState,
+  input: {
+    projectId: string;
+    taskId: string;
+    taskTitle: string;
+    reviewTargetLabel: string;
+    requesterAgentId: string | null;
+    requesterAgentName: string | null;
+    reviewerAgentId: string | null;
+    reviewerAgentName: string | null;
+    summary: string;
+    createdAt: string;
+  },
+) {
+  const existingPendingReview =
+    state.reviews.find(
+      (review) =>
+        review.projectId === input.projectId &&
+        review.taskId === input.taskId &&
+        review.reviewerAgentId === input.reviewerAgentId &&
+        review.status === "pending",
+    ) ?? null;
+
+  if (existingPendingReview) {
+    state.reviews = state.reviews.map((review) =>
+      review.id === existingPendingReview.id
+        ? {
+            ...review,
+            taskTitle: input.taskTitle,
+            reviewTargetLabel: input.reviewTargetLabel,
+            requesterAgentId: input.requesterAgentId,
+            requesterAgentName: input.requesterAgentName,
+            reviewerAgentName: input.reviewerAgentName,
+            summary: compactConversationExcerpt(input.summary, 180),
+            updatedAt: input.createdAt,
+          }
+        : review,
+    );
+
+    return existingPendingReview.id;
+  }
+
+  const reviewId = `${input.projectId}-review-${crypto.randomUUID()}`;
+  const review: ProjectReviewRecord = {
+    id: reviewId,
+    projectId: input.projectId,
+    taskId: input.taskId,
+    taskTitle: input.taskTitle,
+    reviewTargetLabel: input.reviewTargetLabel,
+    requesterAgentId: input.requesterAgentId,
+    requesterAgentName: input.requesterAgentName,
+    reviewerAgentId: input.reviewerAgentId,
+    reviewerAgentName: input.reviewerAgentName,
+    status: "pending",
+    summary: compactConversationExcerpt(input.summary, 180),
+    blockingComments: null,
+    followUpTaskId: null,
+    createdAt: input.createdAt,
+    updatedAt: input.createdAt,
+    completedAt: null,
+  };
+
+  state.reviews = [review, ...state.reviews];
+
+  return reviewId;
+}
+
+function settleProjectReviews(
+  state: ProjectStoreState,
+  input: {
+    projectId: string;
+    status: Exclude<ProjectReviewRecord["status"], "pending">;
+    updatedAt: string;
+    blockingComments?: string | null;
+    followUpTaskId?: string | null;
+    followUpTaskIdByReviewId?: Record<string, string> | null;
+    taskIds?: string[] | null;
+  },
+) {
+  const taskIdSet = input.taskIds?.length ? new Set(input.taskIds) : null;
+
+  state.reviews = state.reviews.map((review) => {
+    if (review.projectId !== input.projectId || review.status !== "pending") {
+      return review;
+    }
+
+    if (taskIdSet && !taskIdSet.has(review.taskId)) {
+      return review;
+    }
+
+    return {
+      ...review,
+      status: input.status,
+      blockingComments: input.blockingComments ?? review.blockingComments,
+      followUpTaskId:
+        input.followUpTaskIdByReviewId?.[review.id] ??
+        input.followUpTaskId ??
+        review.followUpTaskId,
+      updatedAt: input.updatedAt,
+      completedAt: input.updatedAt,
+    };
+  });
+}
+
+function createFollowUpTasksFromPendingReviews(
+  state: ProjectStoreState,
+  input: {
+    projectId: string;
+    managerId: string | null;
+    managerName: string;
+    note: string;
+    now: string;
+  },
+) {
+  const pendingReviews = state.reviews
+    .filter((review) => review.projectId === input.projectId && review.status === "pending")
+    .sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt));
+
+  if (pendingReviews.length === 0) {
+    return { followUpTaskIdByReviewId: {} as Record<string, string>, createdTaskIds: [] as string[] };
+  }
+
+  const reviewTaskMap = new Map(
+    pendingReviews.map((review) => [review.taskId, state.tasks.find((task) => task.id === review.taskId) ?? null] as const),
+  );
+  const previousFollowUpTaskIdByOriginalTaskId = new Map<string, string>();
+  const followUpTaskIdByReviewId: Record<string, string> = {};
+  const nextTasks = pendingReviews.map((review, index) => {
+    const sourceTask = reviewTaskMap.get(review.taskId) ?? null;
+    const followUpTaskId = `${input.projectId}-task-follow-up-${crypto.randomUUID()}`;
+    followUpTaskIdByReviewId[review.id] = followUpTaskId;
+    previousFollowUpTaskIdByOriginalTaskId.set(review.taskId, followUpTaskId);
+
+    const remappedDependencies = (sourceTask?.dependsOnTaskIds ?? [])
+      .map((dependencyId) => previousFollowUpTaskIdByOriginalTaskId.get(dependencyId) ?? null)
+      .filter(Boolean) as string[];
+    const fallbackDependencyId =
+      remappedDependencies.length === 0 && index > 0 ? followUpTaskIdByReviewId[pendingReviews[index - 1]?.id] ?? null : null;
+    const dependsOnTaskIds = remappedDependencies.length > 0 ? remappedDependencies : fallbackDependencyId ? [fallbackDependencyId] : [];
+    const blockedByTaskId = dependsOnTaskIds[0] ?? null;
+
+    return {
+      id: followUpTaskId,
+      projectId: input.projectId,
+      title: `返工 · ${sourceTask?.title || review.taskTitle}`,
+      description:
+        `根据复核意见继续推进：${review.blockingComments || input.note}` +
+        (sourceTask?.description ? `\n\n原任务：${sourceTask.description}` : ""),
+      status: blockedByTaskId ? ("blocked" as const) : ("reopened" as const),
+      ownerAgentId: sourceTask?.ownerAgentId ?? input.managerId,
+      ownerAgentName: sourceTask?.ownerAgentName ?? input.managerName,
+      stageLabel: sourceTask?.stageLabel || "返工处理中",
+      acceptanceCriteria:
+        sourceTask?.acceptanceCriteria ||
+        "根据这次复核意见补充、修正并交回新的阶段结果。",
+      queuedStatus: blockedByTaskId ? ("reopened" as const) : null,
+      dependsOnTaskIds,
+      blockedByTaskId,
+      blockedReason: blockedByTaskId ? buildTaskBlockedReason(state, blockedByTaskId) : compactConversationExcerpt(review.blockingComments || input.note, 120),
+      lockScopePaths: sourceTask?.lockScopePaths ?? [],
+      lockStatus: "none" as const,
+      lockBlockedByTaskId: null,
+      resultSummary: null,
+      artifactIds: [],
+      createdAt: input.now,
+      updatedAt: input.now,
+      claimedAt: blockedByTaskId ? null : input.now,
+      recoveryAttemptCount: 0,
+      ownerReplacementCount: 0,
+      lastReassignedAt: null,
+      lastReassignmentReason: null,
+      leaseAcquiredAt: blockedByTaskId ? null : input.now,
+      leaseHeartbeatAt: blockedByTaskId ? null : input.now,
+      leaseExpiresAt: blockedByTaskId ? null : computeTaskLeaseExpiresAt(input.now),
+      startedAt: null,
+      completedAt: null,
+    } satisfies ProjectTaskRecord;
+  });
+
+  state.tasks = [...nextTasks, ...state.tasks];
+
+  state.agents = state.agents.map((agent) => {
+    if (agent.projectId !== input.projectId) {
+      return agent;
+    }
+
+    const linkedFollowUpTask =
+      nextTasks.find((task) => task.ownerAgentId === agent.id && !task.blockedByTaskId) ??
+      nextTasks.find((task) => task.ownerAgentId === agent.id) ??
+      null;
+    const blockerTask =
+      linkedFollowUpTask?.blockedByTaskId
+        ? nextTasks.find((task) => task.id === linkedFollowUpTask.blockedByTaskId) ?? null
+        : null;
+
+    if (!linkedFollowUpTask) {
+      return agent;
+    }
+
+    return {
+      ...agent,
+      currentTaskId: linkedFollowUpTask.id,
+      lastAssignedTask: linkedFollowUpTask.description,
+      blockedByAgentId: blockerTask?.ownerAgentId ?? null,
+      status: agent.canDelegate ? "planning" : "idle",
+    };
+  });
+
+  return {
+    followUpTaskIdByReviewId,
+    createdTaskIds: nextTasks.map((task) => task.id),
+  };
+}
+
+function settleOpenProjectTasks(
+  state: ProjectStoreState,
+  input: {
+    projectId: string;
+    now: string;
+    nextStatus: "completed" | "waiting_user" | "waiting_approval";
+  },
+) {
+  state.tasks = state.tasks.map((task) => {
+    if (task.projectId !== input.projectId || isProjectTaskTerminal(task.status)) {
+      return task;
+    }
+
+    if (input.nextStatus === "waiting_approval") {
+      const shouldReview =
+        Boolean(task.resultSummary) ||
+        task.status === "in_progress" ||
+        task.status === "claimed" ||
+        task.status === "ready" ||
+        task.status === "reopened";
+
+      return {
+        ...task,
+        status: shouldReview ? "in_review" : "cancelled",
+        updatedAt: input.now,
+        completedAt: shouldReview ? null : task.completedAt ?? input.now,
+        leaseHeartbeatAt: task.leaseHeartbeatAt ?? input.now,
+        leaseExpiresAt: shouldReview ? task.leaseExpiresAt : input.now,
+        resultSummary:
+          task.resultSummary ||
+          (shouldReview
+            ? "这条任务已进入阶段复核，等待项目经理整理交付结果。"
+            : "这条任务在本轮阶段收束时被取消，不再继续推进。"),
+      };
+    }
+
+    if (input.nextStatus === "waiting_user") {
+      const shouldKeepAsDone = Boolean(task.resultSummary) || task.status === "in_review";
+
+      return {
+        ...task,
+        status: shouldKeepAsDone ? "completed" : "cancelled",
+        updatedAt: input.now,
+        completedAt: task.completedAt ?? input.now,
+        leaseHeartbeatAt: task.leaseHeartbeatAt ?? input.now,
+        leaseExpiresAt: input.now,
+        resultSummary:
+          task.resultSummary ||
+          (shouldKeepAsDone
+            ? "这条任务已在等待用户补充前完成收束。"
+            : "这条任务在等待用户补充前被暂停，不再继续推进。"),
+      };
+    }
+
+    const shouldComplete =
+      Boolean(task.resultSummary) ||
+      task.status === "in_progress" ||
+      task.status === "claimed" ||
+      task.status === "in_review" ||
+      task.status === "waiting_input";
+
+    return {
+      ...task,
+      status: shouldComplete ? "completed" : "cancelled",
+      updatedAt: input.now,
+      completedAt: task.completedAt ?? input.now,
+      leaseHeartbeatAt: task.leaseHeartbeatAt ?? input.now,
+      leaseExpiresAt: input.now,
+      resultSummary:
+        task.resultSummary ||
+        (shouldComplete
+          ? "这条任务已经在本轮阶段收束时视为完成。"
+          : "这条任务在项目经理新的阶段判断中被取消，不再继续推进。"),
+    };
+  });
+}
+
+function createCheckpointTask(
+  state: ProjectStoreState,
+  input: {
+    projectId: string;
+    managerId: string | null;
+    managerName: string;
+    decision: "waiting_user" | "waiting_approval";
+    summary: string;
+    now: string;
+  },
+) {
+  const checkpointTask: ProjectTaskRecord = {
+    id: `${input.projectId}-task-checkpoint-${crypto.randomUUID()}`,
+    projectId: input.projectId,
+    title:
+      input.decision === "waiting_approval"
+        ? "项目经理整理阶段输出，等待确认"
+        : "等待用户补充方向后继续推进",
+    description:
+      input.decision === "waiting_approval"
+        ? "当前团队已经进入阶段交付检查点，等待用户确认是否结束，或提出新的修改意见。"
+        : "当前团队已停在用户输入检查点，等待新的方向、约束或验收标准后再继续推进。",
+    status: input.decision === "waiting_approval" ? "in_review" : "waiting_input",
+    ownerAgentId: input.managerId,
+    ownerAgentName: input.managerName,
+    stageLabel: input.decision === "waiting_approval" ? "等待你确认" : "等待你补充",
+    acceptanceCriteria:
+      input.decision === "waiting_approval"
+        ? "用户确认完成，或给出明确修改意见。"
+        : "用户补充新的方向、约束或验收标准。",
+    queuedStatus: null,
+    dependsOnTaskIds: [] as string[],
+    blockedByTaskId: null,
+    blockedReason: null,
+    lockScopePaths: [] as string[],
+    lockStatus: "none",
+    lockBlockedByTaskId: null,
+    resultSummary: compactConversationExcerpt(input.summary, 180),
+    artifactIds: [] as string[],
+    createdAt: input.now,
+    updatedAt: input.now,
+    claimedAt: input.now,
+    recoveryAttemptCount: 0,
+    ownerReplacementCount: 0,
+    lastReassignedAt: null,
+    lastReassignmentReason: null,
+    leaseAcquiredAt: input.now,
+    leaseHeartbeatAt: input.now,
+    leaseExpiresAt: computeTaskLeaseExpiresAt(input.now),
+    startedAt: input.now,
+    completedAt: null,
+  };
+
+  state.tasks = [checkpointTask, ...state.tasks];
+  const checkpointArtifact = upsertCheckpointArtifact(state.artifacts, {
+    projectId: input.projectId,
+    decision: input.decision,
+    summary: input.summary,
+    updatedAt: input.now,
+  });
+  state.artifacts = checkpointArtifact.artifacts;
+  attachArtifactsToTask(state, checkpointTask.id, [checkpointArtifact.artifactId]);
+  syncProjectArtifactCount(state, input.projectId);
+  if (input.decision === "waiting_approval") {
+    createProjectReview(state, {
+      projectId: input.projectId,
+      taskId: checkpointTask.id,
+      taskTitle: checkpointTask.title,
+      reviewTargetLabel: "阶段交付总结",
+      requesterAgentId: input.managerId,
+      requesterAgentName: input.managerName,
+      reviewerAgentId: null,
+      reviewerAgentName: "你",
+      summary: "项目经理已经整理好阶段总结，等待你确认是否完成，或提出修改意见。",
+      createdAt: input.now,
+    });
+  }
+  if (input.managerId) {
+    updateProjectAgent(state, input.managerId, {
+      currentTaskId: checkpointTask.id,
+    });
+  }
+}
+
+function activateManagerPlanningTask(
+  state: ProjectStoreState,
+  input: {
+    projectId: string;
+    managerId: string | null;
+    managerName: string;
+    taskDescription: string;
+    now: string;
+  },
+) {
+  const existingPlanningTask =
+    state.tasks.find(
+      (task) =>
+        task.projectId === input.projectId &&
+        task.ownerAgentId === input.managerId &&
+        (task.status === "ready" || task.status === "reopened"),
+    ) ?? null;
+
+  if (existingPlanningTask) {
+    updateProjectTask(state, existingPlanningTask.id, {
+      title: `${input.managerName} · 收束目标并拆解首轮任务`,
+      description: input.taskDescription,
+      status: "in_progress",
+      updatedAt: input.now,
+      startedAt: existingPlanningTask.startedAt ?? input.now,
+    });
+    if (input.managerId) {
+      updateProjectAgent(state, input.managerId, {
+        currentTaskId: existingPlanningTask.id,
+      });
+    }
+    return;
+  }
+
+  const planningTask: ProjectTaskRecord = {
+    id: `${input.projectId}-task-bootstrap-${crypto.randomUUID()}`,
+    projectId: input.projectId,
+    title: `${input.managerName} · 收束目标并拆解首轮任务`,
+    description: input.taskDescription,
+    status: "in_progress",
+    ownerAgentId: input.managerId,
+    ownerAgentName: input.managerName,
+    stageLabel: "项目经理统筹",
+    acceptanceCriteria: "形成第一轮可执行分工，或者明确当前应该进入的 checkpoint。",
+    queuedStatus: null,
+    dependsOnTaskIds: [] as string[],
+    blockedByTaskId: null,
+    blockedReason: null,
+    lockScopePaths: [],
+    lockStatus: "none",
+    lockBlockedByTaskId: null,
+    resultSummary: null,
+    artifactIds: [] as string[],
+    createdAt: input.now,
+    updatedAt: input.now,
+    claimedAt: input.now,
+    recoveryAttemptCount: 0,
+    ownerReplacementCount: 0,
+    lastReassignedAt: null,
+    lastReassignmentReason: null,
+    leaseAcquiredAt: input.now,
+    leaseHeartbeatAt: input.now,
+    leaseExpiresAt: computeTaskLeaseExpiresAt(input.now),
+    startedAt: input.now,
+    completedAt: null,
+  };
+
+  state.tasks = [planningTask, ...state.tasks];
+  if (input.managerId) {
+    updateProjectAgent(state, input.managerId, {
+      currentTaskId: planningTask.id,
+    });
+  }
+}
+
+function createDelegationTasks(
+  state: ProjectStoreState,
+  input: {
+    projectId: string;
+    delegations: RuntimeManagerPlan["delegations"];
+    delegatedAgents: ProjectAgentRecord[];
+    stageLabel: string | null;
+    now: string;
+  },
+) {
+  const openTasks = state.tasks.filter(
+    (task) => task.projectId === input.projectId && !isProjectTaskTerminal(task.status),
+  );
+
+  if (openTasks.length > 0) {
+    state.tasks = state.tasks.map((task) =>
+      task.projectId === input.projectId && !isProjectTaskTerminal(task.status)
+        ? {
+            ...task,
+            status: "cancelled",
+            resultSummary:
+              task.resultSummary ||
+              "项目经理已按新的阶段判断重写任务图，这条未完成任务已由新的任务链接管。",
+            updatedAt: input.now,
+            completedAt: task.completedAt ?? input.now,
+          }
+        : task,
+    );
+  }
+
+  const nextTasks = input.delegations.map((delegation, index) => {
+    const owner = input.delegatedAgents[index] ?? null;
+    const taskId = `${input.projectId}-task-${crypto.randomUUID()}`;
+    return {
+      _owner: owner,
+      record: {
+        id: taskId,
+        projectId: input.projectId,
+        title: buildProjectTaskTitle(owner?.name ?? delegation.agentName, delegation.task),
+        description: delegation.task,
+        status: index === 0 ? "claimed" : "blocked",
+        ownerAgentId: owner?.id ?? null,
+        ownerAgentName: owner?.name ?? delegation.agentName,
+        stageLabel: input.stageLabel,
+        acceptanceCriteria: "交回一版足够让项目经理继续判断或让下一棒继续接力的阶段结果。",
+        queuedStatus: index === 0 ? null : ("ready" as const),
+        dependsOnTaskIds: [] as string[],
+        blockedByTaskId: null as string | null,
+        blockedReason: null as string | null,
+        lockScopePaths: extractTaskLockScopePaths(state, {
+          projectId: input.projectId,
+          title: buildProjectTaskTitle(owner?.name ?? delegation.agentName, delegation.task),
+          description: delegation.task,
+        }),
+        lockStatus: "none" as const,
+        lockBlockedByTaskId: null,
+        resultSummary: null,
+        artifactIds: [] as string[],
+        createdAt: input.now,
+        updatedAt: input.now,
+        claimedAt: index === 0 ? input.now : null,
+        recoveryAttemptCount: 0,
+        ownerReplacementCount: 0,
+        lastReassignedAt: null,
+        lastReassignmentReason: null,
+        leaseAcquiredAt: index === 0 ? input.now : null,
+        leaseHeartbeatAt: index === 0 ? input.now : null,
+        leaseExpiresAt: index === 0 ? computeTaskLeaseExpiresAt(input.now) : null,
+        startedAt: null,
+        completedAt: null,
+      } satisfies ProjectTaskRecord,
+    };
+  });
+
+  nextTasks.forEach((item, index) => {
+    if (index === 0) {
+      return;
+    }
+
+    const blocker = nextTasks[index - 1]?.record ?? null;
+
+    item.record.dependsOnTaskIds = blocker ? [blocker.id] : [];
+    item.record.blockedByTaskId = blocker?.id ?? null;
+    item.record.blockedReason = buildTaskBlockedReason(state, blocker?.id ?? null);
+  });
+
+  state.tasks = [
+    ...nextTasks.map((item) => item.record),
+    ...state.tasks,
+  ];
+
+  state.agents = state.agents.map((agent) => {
+    if (agent.projectId !== input.projectId) {
+      return agent;
+    }
+
+    const linkedTask = nextTasks.find((item) => item._owner?.id === agent.id)?.record ?? null;
+
+    return {
+      ...agent,
+      currentTaskId: linkedTask?.id ?? null,
+    };
+  });
+}
+
+function buildProjectTaskTitle(agentName: string, task: string) {
+  const compactTask = compactConversationExcerpt(task, 48);
+
+  return `${agentName} · ${compactTask}`;
+}
+
 function buildMemberReply(agent: ProjectAgentRecord, content: string) {
   const assignment = describeAgentAssignment(agent);
 
@@ -3567,6 +5107,7 @@ function readState(): ProjectStoreState {
 }
 
 function writeState(state: ProjectStoreState) {
+  synchronizeProjectGovernanceState(state, new Date().toISOString());
   store.write(state);
 }
 
@@ -3576,6 +5117,8 @@ function createInitialState(): ProjectStoreState {
     agents: [],
     events: [],
     artifacts: [],
+    reviews: [],
+    tasks: [],
     runs: [],
   };
 }
@@ -3598,6 +5141,46 @@ function normalizeProjectStoreState(parsed: Partial<ProjectStoreState>): Project
     agents,
     events: Array.isArray(parsed.events) ? parsed.events : [],
     artifacts: Array.isArray(parsed.artifacts) ? parsed.artifacts : [],
+    reviews: Array.isArray(parsed.reviews)
+      ? parsed.reviews.map((review) => ({
+          ...review,
+          requesterAgentId: review.requesterAgentId ?? null,
+          requesterAgentName: review.requesterAgentName ?? null,
+          reviewerAgentId: review.reviewerAgentId ?? null,
+          reviewerAgentName: review.reviewerAgentName ?? null,
+          blockingComments: review.blockingComments ?? null,
+          followUpTaskId: review.followUpTaskId ?? null,
+          completedAt: review.completedAt ?? null,
+        }))
+      : [],
+    tasks: Array.isArray(parsed.tasks)
+      ? parsed.tasks.map((task) => ({
+          ...task,
+          ownerAgentId: task.ownerAgentId ?? null,
+          ownerAgentName: task.ownerAgentName ?? null,
+          stageLabel: task.stageLabel ?? null,
+          acceptanceCriteria: task.acceptanceCriteria ?? null,
+          queuedStatus: task.queuedStatus ?? null,
+          dependsOnTaskIds: Array.isArray(task.dependsOnTaskIds) ? task.dependsOnTaskIds : [],
+          blockedByTaskId: task.blockedByTaskId ?? null,
+          blockedReason: task.blockedReason ?? null,
+          lockScopePaths: Array.isArray(task.lockScopePaths) ? task.lockScopePaths : [],
+          lockStatus: task.lockStatus ?? "none",
+          lockBlockedByTaskId: task.lockBlockedByTaskId ?? null,
+          resultSummary: task.resultSummary ?? null,
+          artifactIds: Array.isArray(task.artifactIds) ? task.artifactIds : [],
+          claimedAt: task.claimedAt ?? null,
+          recoveryAttemptCount: task.recoveryAttemptCount ?? 0,
+          ownerReplacementCount: task.ownerReplacementCount ?? 0,
+          lastReassignedAt: task.lastReassignedAt ?? null,
+          lastReassignmentReason: task.lastReassignmentReason ?? null,
+          leaseAcquiredAt: task.leaseAcquiredAt ?? null,
+          leaseHeartbeatAt: task.leaseHeartbeatAt ?? null,
+          leaseExpiresAt: task.leaseExpiresAt ?? null,
+          startedAt: task.startedAt ?? null,
+          completedAt: task.completedAt ?? null,
+        }))
+      : [],
     runs: Array.isArray(parsed.runs) ? parsed.runs : [],
   };
 }
@@ -3613,6 +5196,17 @@ function finalizeProjectRun(
   },
 ) {
   const runSummary = buildRunSummary(input.goal, input.approvalNote);
+  settleProjectReviews(state, {
+    projectId: input.projectId,
+    status: "approved",
+    updatedAt: input.now,
+    blockingComments: input.approvalNote,
+  });
+  settleOpenProjectTasks(state, {
+    projectId: input.projectId,
+    now: input.now,
+    nextStatus: "completed",
+  });
   const room = state.rooms.find((item) => item.id === input.projectId) ?? null;
   const teamConversationId = room ? ensureTeamConversation(state, room) : null;
 
@@ -3639,14 +5233,14 @@ function finalizeProjectRun(
     }
 
     if (agent.canDelegate) {
-      return { ...agent, status: "reviewing", blockedByAgentId: null };
+      return { ...agent, status: "reviewing", currentTaskId: null, blockedByAgentId: null };
     }
 
     if (agent.visibility === "backstage") {
-      return { ...agent, status: "idle", blockedByAgentId: null };
+      return { ...agent, status: "idle", currentTaskId: null, blockedByAgentId: null };
     }
 
-    return { ...agent, status: "reviewing", blockedByAgentId: null };
+    return { ...agent, status: "reviewing", currentTaskId: null, blockedByAgentId: null };
   });
 
   if (input.latestRunId) {
@@ -3693,6 +5287,7 @@ function finalizeProjectRun(
     updatedAt: input.now,
     phase: "completed",
   });
+  syncProjectArtifactCount(state, input.projectId);
   if (teamConversationId) {
     appendTeamConversationMessages(teamConversationId, [
       input.approvalNote
@@ -3863,4 +5458,108 @@ function upsertArtifactsAfterRun(
   }
 
   return nextArtifacts;
+}
+
+function upsertTaskResultArtifact(
+  currentArtifacts: ProjectArtifactRecord[],
+  input: {
+    projectId: string;
+    taskId: string;
+    taskTitle: string;
+    ownerName: string;
+    summary: string;
+    updatedAt: string;
+  },
+) {
+  const artifactTitle = `${input.ownerName} · ${stripTrailingSentencePunctuation(input.taskTitle)}`;
+  const existingArtifact =
+    currentArtifacts.find(
+      (artifact) => artifact.projectId === input.projectId && artifact.title === artifactTitle,
+    ) ?? null;
+
+  if (existingArtifact) {
+    return {
+      artifacts: currentArtifacts.map((artifact) =>
+        artifact.id === existingArtifact.id
+          ? {
+              ...artifact,
+              typeLabel: "Task Result",
+              summary: compactConversationExcerpt(input.summary, 220),
+              status: "ready" as const,
+              updatedAt: input.updatedAt,
+            }
+          : artifact,
+      ),
+      artifactId: existingArtifact.id,
+    };
+  }
+
+  const artifactId = `${input.projectId}-artifact-task-${crypto.randomUUID()}`;
+
+  return {
+    artifacts: [
+      {
+        id: artifactId,
+        projectId: input.projectId,
+        title: artifactTitle,
+        typeLabel: "Task Result",
+        summary: compactConversationExcerpt(input.summary, 220),
+        status: "ready" as const,
+        updatedAt: input.updatedAt,
+      },
+      ...currentArtifacts,
+    ],
+    artifactId,
+  };
+}
+
+function upsertCheckpointArtifact(
+  currentArtifacts: ProjectArtifactRecord[],
+  input: {
+    projectId: string;
+    decision: "waiting_user" | "waiting_approval";
+    summary: string;
+    updatedAt: string;
+  },
+) {
+  const artifactTitle = input.decision === "waiting_approval" ? "阶段总结" : "待补充事项";
+  const existingArtifact =
+    currentArtifacts.find(
+      (artifact) => artifact.projectId === input.projectId && artifact.title === artifactTitle,
+    ) ?? null;
+
+  if (existingArtifact) {
+    return {
+      artifacts: currentArtifacts.map((artifact) =>
+        artifact.id === existingArtifact.id
+          ? {
+              ...artifact,
+              typeLabel: input.decision === "waiting_approval" ? "Checkpoint" : "Input",
+              summary: compactConversationExcerpt(input.summary, 220),
+              status: input.decision === "waiting_approval" ? ("ready" as const) : ("draft" as const),
+              updatedAt: input.updatedAt,
+            }
+          : artifact,
+      ),
+      artifactId: existingArtifact.id,
+    };
+  }
+
+  const artifactId = `${input.projectId}-artifact-checkpoint-${crypto.randomUUID()}`;
+
+  return {
+    artifacts: [
+      {
+        id: artifactId,
+        projectId: input.projectId,
+        title: artifactTitle,
+        typeLabel: input.decision === "waiting_approval" ? "Checkpoint" : "Input",
+        summary: compactConversationExcerpt(input.summary, 220),
+        status: input.decision === "waiting_approval" ? ("ready" as const) : ("draft" as const),
+        updatedAt: input.updatedAt,
+      },
+      ...currentArtifacts,
+    ],
+    artifactId,
+  };
 }
