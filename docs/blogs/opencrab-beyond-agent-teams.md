@@ -4,13 +4,14 @@
 
 这篇文章不是一份纯功能说明，而是一篇技术路线博客。
 
-它想回答 5 个问题：
+它想回答 6 个问题：
 
 1. `直接对话`、`subagents`、`agent teams`、`人类团队协作`，本质上分别是什么
-2. 为什么 `subagents -> agent teams` 的演化，看起来越来越像真实的人类团队
-3. 当前 `agent teams` 和真实人类团队相比，还缺什么
-4. 在现阶段模型能力和工程技术瓶颈下，`OpenCrab` 能做到的团队模式上限大概是什么
-5. 基于这些判断，`OpenCrab` 为什么决定不做 `subagents`，而是直接面向更强的团队协作模式
+2. `OpenClaw` 的 multi-agents 到底属于哪一层，它为什么值得研究
+3. 为什么 `subagents -> agent teams` 的演化，看起来越来越像真实的人类团队
+4. 当前 `agent teams` 和真实人类团队相比，还缺什么
+5. 在现阶段模型能力和工程技术瓶颈下，`OpenCrab` 能做到的团队模式上限大概是什么
+6. 基于这些判断，`OpenCrab` 为什么决定不做 `subagents`，而是直接面向更强的团队协作模式
 
 ## 一句话结论
 
@@ -92,7 +93,56 @@
 
 这时系统开始从“委派工具”走向“组织系统”。
 
-### 4. 更像真实团队的数字组织
+### 4. OpenClaw Multi-Agents：不是 Subagents，也还不是 Agent Teams
+
+这里必须把 `OpenClaw` 单独拿出来讲，因为它很容易被误归类。
+
+很多人看到 `multi-agents` 这个词，会自然把它理解成：
+
+- `subagents`
+- 或 `agent teams`
+
+但我认为，`OpenClaw` 当前都不完全属于这两类。
+
+它更准确的归类应该是：
+
+`multiple isolated agents + deterministic routing`
+
+也就是：
+
+- 多个独立 agent 并存
+- 每个 agent 都有独立 workspace、session、auth、skills
+- 外部消息按照 account / peer / channel 规则，被稳定地路由到对应 agent
+
+它不像 `subagents` 的地方在于：
+
+- 没有一个天然居中的主线程在临时调用若干子 agent
+- 各 agent 不是“主助手的临时工”，而是长期存在的独立 brain
+
+它也不像典型 `agent teams` 的地方在于：
+
+- 它强调的是隔离、入口绑定和 routing
+- 而不是 lead、teammates、shared task list、持续协作和团队接力
+
+换句话说，`OpenClaw` 回答得更好的是：
+
+- 哪个入口触发了系统
+- 该路由给哪个 agent
+- 该 agent 用哪个 workspace / identity 工作
+
+而不是：
+
+- 多个 agent 如何围绕一个共同目标长期协作
+
+所以如果把它放在这条演化线上，我更愿意把它理解成：
+
+`一条位于 subagents 与 agent teams 之间、但方向侧重于 routing / isolation 的分支。`
+
+它不是“更强的团队系统”，而是：
+
+`更成熟的多入口、多身份、多工作区 agent 路由系统。`
+
+### 5. 更像真实团队的数字组织
 
 再往上走，就不是简单意义上的 `agent teams` 了。
 
@@ -105,26 +155,26 @@
 
 这也是 `OpenCrab` 真正想去的方向。
 
-## 二、四种模式的上限对比
+## 二、五种模式的上限对比
 
 下面这张表，不是在比“当前谁功能更多”，而是在比它们各自更接近什么组织形态。
 
 
-| 维度      | 直接对话    | Subagents  | Claude Agent Teams           | OpenCrab 目标极限模式                           | 人类团队协作                 |
-| ------- | ------- | ---------- | ---------------------------- | ----------------------------------------- | ---------------------- |
-| 本质      | 单助手工作流  | 主线程委派系统    | 多 session 协作系统               | 产品化数字团队工作台                                | 真实组织系统                 |
-| 组织形态    | 单中心     | 单中心 + 临时工人 | lead + teammates + task list | PM + runtime + task graph + 可见 frontstage | leader + 成员 + 正式/非正式协作 |
-| 成员独立性   | 无       | 有，但从属于主线程  | 高                            | 高                                         | 很高                     |
-| 用户可见性   | 中       | 低          | 中                            | 高                                         | 取决于组织工具                |
-| 共享任务系统  | 无       | 弱          | 强                            | 强                                         | 强，但未必规范                |
-| 成员间直接通信 | 无       | 几乎无        | 有                            | 应该有                                       | 天然有                    |
-| 自主领任务   | 无       | 无          | 有                            | 应该有，但受治理约束                                | 有                      |
-| 依赖管理    | 弱       | 弱          | 中到强                          | 强                                         | 强                      |
-| 质量治理    | 靠主线程    | 靠主线程       | lead + hooks                 | PM + reviewer + gate + checkpoint         | 流程 + 文化 + 经验           |
-| 异常恢复    | 中       | 中          | 中                            | 应该做到强                                     | 强                      |
-| 复盘能力    | 弱       | 弱          | 中                            | 强                                         | 很强                     |
-| 自我进化能力  | 弱       | 弱          | 弱到中                          | 中到强                                       | 很强                     |
-| 最适合     | 简单/顺序任务 | 可拆分小并行任务   | 并行研究、评审、讨论                   | 数字项目团队协作                                  | 复杂长期真实协作               |
+| 维度      | 直接对话    | Subagents  | OpenClaw Multi-Agents | Claude Agent Teams           | OpenCrab 目标极限模式                           | 人类团队协作                 |
+| ------- | ------- | ---------- | --------------------- | ---------------------------- | ----------------------------------------- | ---------------------- |
+| 本质      | 单助手工作流  | 主线程委派系统    | 多独立 agent 路由系统        | 多 session 协作系统               | 产品化数字团队工作台                                | 真实组织系统                 |
+| 组织形态    | 单中心     | 单中心 + 临时工人 | 多入口 + 多 brain + 路由   | lead + teammates + task list | PM + runtime + task graph + 可见 frontstage | leader + 成员 + 正式/非正式协作 |
+| 成员独立性   | 无       | 有，但从属于主线程  | 很高                    | 高                            | 高                                         | 很高                     |
+| 用户可见性   | 中       | 低          | 中低                    | 中                            | 高                                         | 取决于组织工具                |
+| 共享任务系统  | 无       | 弱          | 弱                      | 强                            | 强                                         | 强，但未必规范                |
+| 成员间直接通信 | 无       | 几乎无        | 有限或可选                | 有                            | 应该有                                       | 天然有                    |
+| 自主领任务   | 无       | 无          | 弱                      | 有                            | 应该有，但受治理约束                                | 有                      |
+| 依赖管理    | 弱       | 弱          | 弱                      | 中到强                          | 强                                         | 强                      |
+| 质量治理    | 靠主线程    | 靠主线程       | 靠隔离与路由边界             | lead + hooks                 | PM + reviewer + gate + checkpoint         | 流程 + 文化 + 经验           |
+| 异常恢复    | 中       | 中          | 中到强                   | 中                            | 应该做到强                                     | 强                      |
+| 复盘能力    | 弱       | 弱          | 弱                      | 中                            | 强                                         | 很强                     |
+| 自我进化能力  | 弱       | 弱          | 弱                      | 弱到中                          | 中到强                                       | 很强                     |
+| 最适合     | 简单/顺序任务 | 可拆分小并行任务   | 多入口 agent 分流、渠道绑定、长期个人 brain | 并行研究、评审、讨论                   | 数字项目团队协作                                  | 复杂长期真实协作               |
 
 
 ## 三、为什么 `subagents -> agent teams` 越来越像真实团队
@@ -176,7 +226,70 @@
 
 这也是为什么 `agent teams` 更像“组织系统”，而不只是“更复杂的 prompt”。
 
-## 四、当前 Agent Teams 与真实人类团队相比，还缺什么
+## 四、为什么 OpenClaw 很值得研究，但它不等于 Agent Teams
+
+我认为 `OpenClaw` 对 `OpenCrab` 的价值很大，但必须用正确方式理解。
+
+如果理解错了，就会出现一个典型误判：
+
+`以为只要做了 multi-agents routing，就等于做了 agent teams。`
+
+这是不对的。
+
+### 1. OpenClaw 强在“边界”和“路由”
+
+它真正成熟的地方，不是“团队协作外形”，而是：
+
+- 多入口统一 ingress
+- 多 agent 隔离
+- per-agent workspace / session / auth
+- deterministic routing
+- gateway 级安全边界
+
+这些能力对于一切长期运行的 agent 系统都很关键。
+
+### 2. OpenClaw 解决的是“谁接这条消息”，不是“团队如何围绕一个目标协作”
+
+这是我认为最关键的分界点。
+
+`OpenClaw` 问的是：
+
+- 哪个入口触发
+- 路由到哪个 agent
+- 这个 agent 用哪个 workspace / identity
+
+而 `agent teams` 问的是：
+
+- 谁是 lead
+- 谁负责哪个子任务
+- 任务如何接力
+- 依赖如何推进
+- 团队如何汇总、复盘和调整分工
+
+这两者都重要，但不是一回事。
+
+### 3. 对 OpenCrab 来说，OpenClaw 更像底层启发，而不是最终产品目标
+
+我会把它的启发总结成四点：
+
+- `隔离`
+- `路由`
+- `边界`
+- `多入口长期运行`
+
+但 `OpenCrab` 要做的，不是停在这里。
+
+`OpenCrab` 不是只想知道“哪条消息给哪个 agent”，而是想进一步回答：
+
+- 这些 agent 如何围绕同一个项目共同工作
+- 用户如何看见和干预这个团队
+- 团队如何在多轮协作后变得更稳定、更可恢复、更可复盘
+
+换句话说：
+
+`OpenClaw` 更像 team runtime 的前置基础设施思想，但它本身还不是我们要去的“数字团队产品形态”。`
+
+## 五、当前 Agent Teams 与真实人类团队相比，还缺什么
 
 这是最关键的一部分。
 
@@ -256,28 +369,29 @@
 
 这是现在绝大多数 `agent teams` 还不具备的。
 
-## 五、如果把“反思总结与自我进化”单独拉出来看
+## 六、如果把“反思总结与自我进化”单独拉出来看
 
 这件事值得单列，因为它几乎决定了“它到底像不像一个真正团队”。
 
 
-| 维度       | 直接对话 | Subagents | Claude Agent Teams | OpenCrab 目标极限模式 | 人类团队协作 |
-| -------- | ---- | --------- | ------------------ | --------------- | ------ |
-| 单轮任务复盘   | 弱    | 弱         | 中                  | 强               | 很强     |
-| 多轮连续复盘   | 弱    | 很弱        | 弱到中                | 中到强             | 很强     |
-| 从失败中调整流程 | 弱    | 弱         | 中                  | 强               | 很强     |
-| 调整角色分工   | 无    | 无         | 有限                 | 中到强             | 很强     |
-| 沉淀长期经验   | 弱    | 弱         | 中                  | 中到强             | 很强     |
-| 自发改进组织自身 | 无    | 无         | 很弱                 | 中               | 很强     |
+| 维度       | 直接对话 | Subagents | OpenClaw Multi-Agents | Claude Agent Teams | OpenCrab 目标极限模式 | 人类团队协作 |
+| -------- | ---- | --------- | --------------------- | ------------------ | --------------- | ------ |
+| 单轮任务复盘   | 弱    | 弱         | 弱                     | 中                  | 强               | 很强     |
+| 多轮连续复盘   | 弱    | 很弱        | 很弱                    | 弱到中                | 中到强             | 很强     |
+| 从失败中调整流程 | 弱    | 弱         | 弱                     | 中                  | 强               | 很强     |
+| 调整角色分工   | 无    | 无         | 无                     | 有限                 | 中到强             | 很强     |
+| 沉淀长期经验   | 弱    | 弱         | 弱到中                   | 中                  | 中到强             | 很强     |
+| 自发改进组织自身 | 无    | 无         | 很弱                    | 很弱                 | 中               | 很强     |
 
 
 如果单看“反思总结与自我进化”这件事，我的判断是：
 
-`人类团队 > OpenCrab 目标极限模式 > Claude Agent Teams > Subagents > 直接对话`
+`人类团队 > OpenCrab 目标极限模式 > Claude Agent Teams > OpenClaw Multi-Agents > Subagents > 直接对话`
 
 原因很简单：
 
 - `Claude agent teams` 的重点仍然是“把这轮任务协作完成”
+- `OpenClaw` 的重点仍然更偏 routing、隔离和长期工作区边界，而不是围绕共同目标的协作复盘
 - `OpenCrab` 如果做成产品化系统，就有机会把复盘真正沉淀成长期资产：
   - 团队记忆
   - 协作规则
@@ -288,7 +402,7 @@
 
 这就是产品系统相对纯 runtime 的巨大优势。
 
-## 六、为什么 OpenCrab 明确不做 Subagents 模式
+## 七、为什么 OpenCrab 明确不做 Subagents 模式
 
 这是一个非常明确的产品决策。
 
@@ -323,13 +437,13 @@
 
 所以在 `OpenCrab` 里，`subagents` 不是核心产品方向。
 
-## 七、OpenCrab 要做什么：不是复制 Claude Agent Teams，而是超越它
+## 八、OpenCrab 要做什么：不是复制 Claude Agent Teams，也不是复制 OpenClaw
 
 ### 决策 2
 
-`OpenCrab 要做的是领先于 Claude Agent Teams 的模式，是一个无限逼近人类真实团队协作的模式。`
+`OpenCrab` 要做的是领先于 Claude Agent Teams、也不同于 OpenClaw 的模式，是一个无限逼近人类真实团队协作的模式。
 
-这个判断很重要，因为它说明 `OpenCrab` 不是要做 Claude 那一套的中文皮肤版。
+这个判断很重要，因为它说明 `OpenCrab` 既不是要做 Claude 那一套的中文皮肤版，也不是要做 OpenClaw 的 gateway / routing 产品翻版。
 
 它要解决的是另一个问题：
 
@@ -354,11 +468,13 @@
 
 这时它就不只是“会协作”，而开始“会组织自己”。
 
-## 八、OpenCrab 相比 Claude Agent Teams 的独特机会
+## 九、OpenCrab 相比 Claude Agent Teams 与 OpenClaw 的独特机会
 
 这里不能只看当前能力，还要看产品潜力。
 
 `Claude agent teams` 更像“多智能体协作 runtime”。
+
+`OpenClaw` 更像“多 agent ingress / routing runtime”。
 
 `OpenCrab` 的机会在于，它可以把协作做成完整产品层：
 
@@ -375,9 +491,14 @@
 
 `一个真正可持续运转的数字工作组织。`
 
-这也是它理论上可以超过今天 Claude agent teams 的地方。
+这也是它理论上可以同时超过：
 
-## 九、但 OpenCrab 也不应该简单复制人类团队
+- 今天 `Claude agent teams` 的团队协作可见性上限
+- 以及 `OpenClaw` 的 routing-first 产品形态上限
+
+的地方。
+
+## 十、但 OpenCrab 也不应该简单复制人类团队
 
 这一点非常重要。
 
@@ -415,7 +536,7 @@
 
 `OpenCrab 不是要做“像人类一样低效的团队”，而是要做“比人类团队更高纪律、更低噪音、更可恢复的数字团队”。`
 
-## 十、当前 OpenCrab Team Runtime 处在哪个位置
+## 十一、当前 OpenCrab Team Runtime 处在哪个位置
 
 基于当前仓库实现，`OpenCrab` 已经明显超出了“单会话模拟多人台词”的阶段。
 
@@ -442,7 +563,7 @@
 - 组织学习和长期记忆还不够强
 - 自我进化能力仍处在早期
 
-## 十一、最终结论
+## 十二、最终结论
 
 如果把整个判断压缩成三句话：
 
@@ -463,6 +584,8 @@
 ## 参考资料
 
 - [Claude Code: Agent Teams](https://code.claude.com/docs/en/agent-teams)
+- [OpenClaw System Architecture](https://openclawlab.com/zh-cn/docs/concepts/system-architecture/)
+- [OpenClaw Multi-Agent Routing](https://openclawlab.com/en/docs/concepts/multi-agent/)
 - [OpenCrab Team Runtime 设计方案](/Users/sky/SkyProjects/opencrab/docs/team/multi-agent-design.md)
 - [OpenCrab 多智能体研究记录](/Users/sky/SkyProjects/opencrab/docs/team/multi-agent-research.md)
 - [OpenCrab 产品定位](/Users/sky/SkyProjects/opencrab/docs/product/product-positioning.md)

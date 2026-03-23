@@ -57,6 +57,7 @@ export type ProjectTaskRecord = {
   acceptanceCriteria: string | null;
   queuedStatus: ProjectTaskStatus | null;
   dependsOnTaskIds: string[];
+  inputArtifactIds: string[];
   blockedByTaskId: string | null;
   blockedReason: string | null;
   lockScopePaths: string[];
@@ -162,6 +163,15 @@ export type ProjectArtifactRecord = {
   typeLabel: string;
   summary: string;
   status: ProjectArtifactStatus;
+  sourceTaskId: string | null;
+  sourceTaskTitle: string | null;
+  ownerAgentId: string | null;
+  ownerAgentName: string | null;
+  reviewStatus: ProjectReviewStatus | null;
+  reviewerAgentId: string | null;
+  reviewerAgentName: string | null;
+  dependsOnArtifactIds: string[];
+  consumedByTaskIds: string[];
   updatedAt: string;
 };
 

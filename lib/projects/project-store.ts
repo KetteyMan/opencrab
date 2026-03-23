@@ -952,7 +952,11 @@ async function executeAgentTask(
       taskTitle:
         latestState.tasks.find((taskItem) => taskItem.id === latestAgent.currentTaskId)?.title ||
         `${agent.name} 的阶段结果`,
+      sourceTaskTitle:
+        latestState.tasks.find((taskItem) => taskItem.id === latestAgent.currentTaskId)?.title ||
+        `${agent.name} 的阶段结果`,
       ownerName: agent.name,
+      ownerAgentId: agent.id,
       summary: replyText,
       updatedAt: completedAt,
     });
@@ -3871,6 +3875,7 @@ function buildInitialProjectTasks(input: {
       acceptanceCriteria: "给出第一轮清晰分工或阶段计划。",
       queuedStatus: null,
       dependsOnTaskIds: [],
+      inputArtifactIds: input.initialArtifactIds ?? [],
       blockedByTaskId: null,
       blockedReason: null,
       lockScopePaths: [],
@@ -4133,6 +4138,7 @@ function synchronizeProjectGovernanceState(state: ProjectStoreState, now: string
 
   projectIds.forEach((projectId) => {
     refreshProjectTaskLocks(state, projectId, now);
+    synchronizeProjectArtifactGraph(state, projectId);
   });
 }
 
@@ -4303,6 +4309,10 @@ function unlockProjectTaskDependents(
         ...task,
         blockedByTaskId: nextOutstandingDependencyId,
         blockedReason: buildTaskBlockedReason(state, nextOutstandingDependencyId),
+        inputArtifactIds: mergeArtifactIds(
+          task.inputArtifactIds,
+          (state.tasks.find((candidate) => candidate.id === input.completedTaskId)?.artifactIds ?? []),
+        ),
         leaseAcquiredAt: null,
         leaseHeartbeatAt: null,
         leaseExpiresAt: null,
@@ -4318,6 +4328,10 @@ function unlockProjectTaskDependents(
         queuedStatus: null,
         blockedByTaskId: null,
         blockedReason: null,
+        inputArtifactIds: mergeArtifactIds(
+          task.inputArtifactIds,
+          (state.tasks.find((candidate) => candidate.id === input.completedTaskId)?.artifactIds ?? []),
+        ),
         claimedAt: null,
         leaseAcquiredAt: null,
         leaseHeartbeatAt: null,
@@ -4417,6 +4431,50 @@ function syncProjectArtifactCount(state: ProjectStoreState, projectId: string) {
         }
       : room,
   );
+}
+
+function synchronizeProjectArtifactGraph(
+  state: ProjectStoreState,
+  projectId: string,
+) {
+  const projectTasks = state.tasks.filter((task) => task.projectId === projectId);
+  const projectReviews = state.reviews.filter((review) => review.projectId === projectId);
+  const projectArtifacts = state.artifacts.filter((artifact) => artifact.projectId === projectId);
+  const taskById = new Map(projectTasks.map((task) => [task.id, task] as const));
+  const latestReviewByTaskId = new Map<string, ProjectReviewRecord>();
+
+  projectReviews.forEach((review) => {
+    const current = latestReviewByTaskId.get(review.taskId) ?? null;
+    if (!current || Date.parse(review.updatedAt) > Date.parse(current.updatedAt)) {
+      latestReviewByTaskId.set(review.taskId, review);
+    }
+  });
+
+  state.artifacts = state.artifacts.map((artifact) => {
+    if (artifact.projectId !== projectId) {
+      return artifact;
+    }
+
+    const sourceTask = artifact.sourceTaskId ? taskById.get(artifact.sourceTaskId) ?? null : null;
+    const latestReview = sourceTask ? latestReviewByTaskId.get(sourceTask.id) ?? null : null;
+    const consumedByTaskIds = projectTasks
+      .filter((task) => task.inputArtifactIds.includes(artifact.id))
+      .map((task) => task.id);
+    const dependsOnArtifactIds =
+      sourceTask?.inputArtifactIds?.filter((artifactId) => artifactId !== artifact.id) ?? artifact.dependsOnArtifactIds;
+
+    return {
+      ...artifact,
+      sourceTaskTitle: sourceTask?.title ?? artifact.sourceTaskTitle ?? null,
+      ownerAgentId: sourceTask?.ownerAgentId ?? artifact.ownerAgentId ?? null,
+      ownerAgentName: sourceTask?.ownerAgentName ?? artifact.ownerAgentName ?? null,
+      reviewStatus: latestReview?.status ?? artifact.reviewStatus ?? null,
+      reviewerAgentId: latestReview?.reviewerAgentId ?? artifact.reviewerAgentId ?? null,
+      reviewerAgentName: latestReview?.reviewerAgentName ?? artifact.reviewerAgentName ?? null,
+      dependsOnArtifactIds,
+      consumedByTaskIds,
+    };
+  });
 }
 
 function createProjectReview(
@@ -4575,9 +4633,10 @@ function createFollowUpTasksFromPendingReviews(
       acceptanceCriteria:
         sourceTask?.acceptanceCriteria ||
         "根据这次复核意见补充、修正并交回新的阶段结果。",
-      queuedStatus: blockedByTaskId ? ("reopened" as const) : null,
-      dependsOnTaskIds,
-      blockedByTaskId,
+    queuedStatus: blockedByTaskId ? ("reopened" as const) : null,
+    dependsOnTaskIds,
+    inputArtifactIds: sourceTask?.artifactIds ?? [],
+    blockedByTaskId,
       blockedReason: blockedByTaskId ? buildTaskBlockedReason(state, blockedByTaskId) : compactConversationExcerpt(review.blockingComments || input.note, 120),
       lockScopePaths: sourceTask?.lockScopePaths ?? [],
       lockStatus: "none" as const,
@@ -4743,6 +4802,7 @@ function createCheckpointTask(
         : "用户补充新的方向、约束或验收标准。",
     queuedStatus: null,
     dependsOnTaskIds: [] as string[],
+    inputArtifactIds: [] as string[],
     blockedByTaskId: null,
     blockedReason: null,
     lockScopePaths: [] as string[],
@@ -4770,6 +4830,10 @@ function createCheckpointTask(
     decision: input.decision,
     summary: input.summary,
     updatedAt: input.now,
+    sourceTaskId: checkpointTask.id,
+    sourceTaskTitle: checkpointTask.title,
+    ownerAgentId: input.managerId,
+    ownerAgentName: input.managerName,
   });
   state.artifacts = checkpointArtifact.artifacts;
   attachArtifactsToTask(state, checkpointTask.id, [checkpointArtifact.artifactId]);
@@ -4841,6 +4905,7 @@ function activateManagerPlanningTask(
     acceptanceCriteria: "形成第一轮可执行分工，或者明确当前应该进入的 checkpoint。",
     queuedStatus: null,
     dependsOnTaskIds: [] as string[],
+    inputArtifactIds: [] as string[],
     blockedByTaskId: null,
     blockedReason: null,
     lockScopePaths: [],
@@ -4917,6 +4982,7 @@ function createDelegationTasks(
         acceptanceCriteria: "交回一版足够让项目经理继续判断或让下一棒继续接力的阶段结果。",
         queuedStatus: index === 0 ? null : ("ready" as const),
         dependsOnTaskIds: [] as string[],
+        inputArtifactIds: [] as string[],
         blockedByTaskId: null as string | null,
         blockedReason: null as string | null,
         lockScopePaths: extractTaskLockScopePaths(state, {
@@ -5140,7 +5206,20 @@ function normalizeProjectStoreState(parsed: Partial<ProjectStoreState>): Project
     rooms,
     agents,
     events: Array.isArray(parsed.events) ? parsed.events : [],
-    artifacts: Array.isArray(parsed.artifacts) ? parsed.artifacts : [],
+    artifacts: Array.isArray(parsed.artifacts)
+      ? parsed.artifacts.map((artifact) => ({
+          ...artifact,
+          sourceTaskId: artifact.sourceTaskId ?? null,
+          sourceTaskTitle: artifact.sourceTaskTitle ?? null,
+          ownerAgentId: artifact.ownerAgentId ?? null,
+          ownerAgentName: artifact.ownerAgentName ?? null,
+          reviewStatus: artifact.reviewStatus ?? null,
+          reviewerAgentId: artifact.reviewerAgentId ?? null,
+          reviewerAgentName: artifact.reviewerAgentName ?? null,
+          dependsOnArtifactIds: Array.isArray(artifact.dependsOnArtifactIds) ? artifact.dependsOnArtifactIds : [],
+          consumedByTaskIds: Array.isArray(artifact.consumedByTaskIds) ? artifact.consumedByTaskIds : [],
+        }))
+      : [],
     reviews: Array.isArray(parsed.reviews)
       ? parsed.reviews.map((review) => ({
           ...review,
@@ -5162,6 +5241,7 @@ function normalizeProjectStoreState(parsed: Partial<ProjectStoreState>): Project
           acceptanceCriteria: task.acceptanceCriteria ?? null,
           queuedStatus: task.queuedStatus ?? null,
           dependsOnTaskIds: Array.isArray(task.dependsOnTaskIds) ? task.dependsOnTaskIds : [],
+          inputArtifactIds: Array.isArray(task.inputArtifactIds) ? task.inputArtifactIds : [],
           blockedByTaskId: task.blockedByTaskId ?? null,
           blockedReason: task.blockedReason ?? null,
           lockScopePaths: Array.isArray(task.lockScopePaths) ? task.lockScopePaths : [],
@@ -5426,6 +5506,15 @@ function upsertArtifactsAfterRun(
         ...artifact,
         status: input.phase === "completed" ? ("ready" as const) : ("draft" as const),
         summary: input.summary,
+        sourceTaskId: artifact.sourceTaskId ?? null,
+        sourceTaskTitle: artifact.sourceTaskTitle ?? null,
+        ownerAgentId: artifact.ownerAgentId ?? null,
+        ownerAgentName: artifact.ownerAgentName ?? null,
+        reviewStatus: artifact.reviewStatus ?? null,
+        reviewerAgentId: artifact.reviewerAgentId ?? null,
+        reviewerAgentName: artifact.reviewerAgentName ?? null,
+        dependsOnArtifactIds: artifact.dependsOnArtifactIds ?? [],
+        consumedByTaskIds: artifact.consumedByTaskIds ?? [],
         updatedAt: input.updatedAt,
       };
     }
@@ -5438,6 +5527,15 @@ function upsertArtifactsAfterRun(
           input.phase === "completed"
             ? "下一步建议：把 TeamRun 运行态和任务触发闭环接到真实多 Agent 编排器上。"
             : artifact.summary,
+        sourceTaskId: artifact.sourceTaskId ?? null,
+        sourceTaskTitle: artifact.sourceTaskTitle ?? null,
+        ownerAgentId: artifact.ownerAgentId ?? null,
+        ownerAgentName: artifact.ownerAgentName ?? null,
+        reviewStatus: artifact.reviewStatus ?? null,
+        reviewerAgentId: artifact.reviewerAgentId ?? null,
+        reviewerAgentName: artifact.reviewerAgentName ?? null,
+        dependsOnArtifactIds: artifact.dependsOnArtifactIds ?? [],
+        consumedByTaskIds: artifact.consumedByTaskIds ?? [],
         updatedAt: input.updatedAt,
       };
     }
@@ -5453,6 +5551,15 @@ function upsertArtifactsAfterRun(
       typeLabel: "Summary",
       summary: input.summary,
       status: input.phase === "completed" ? "ready" : "draft",
+      sourceTaskId: null,
+      sourceTaskTitle: null,
+      ownerAgentId: null,
+      ownerAgentName: null,
+      reviewStatus: null,
+      reviewerAgentId: null,
+      reviewerAgentName: null,
+      dependsOnArtifactIds: [],
+      consumedByTaskIds: [],
       updatedAt: input.updatedAt,
     });
   }
@@ -5466,7 +5573,9 @@ function upsertTaskResultArtifact(
     projectId: string;
     taskId: string;
     taskTitle: string;
+    sourceTaskTitle?: string;
     ownerName: string;
+    ownerAgentId?: string | null;
     summary: string;
     updatedAt: string;
   },
@@ -5486,6 +5595,10 @@ function upsertTaskResultArtifact(
               typeLabel: "Task Result",
               summary: compactConversationExcerpt(input.summary, 220),
               status: "ready" as const,
+              sourceTaskId: input.taskId,
+              sourceTaskTitle: input.sourceTaskTitle ?? input.taskTitle,
+              ownerAgentId: input.ownerAgentId ?? null,
+              ownerAgentName: input.ownerName,
               updatedAt: input.updatedAt,
             }
           : artifact,
@@ -5505,6 +5618,15 @@ function upsertTaskResultArtifact(
         typeLabel: "Task Result",
         summary: compactConversationExcerpt(input.summary, 220),
         status: "ready" as const,
+        sourceTaskId: input.taskId,
+        sourceTaskTitle: input.sourceTaskTitle ?? input.taskTitle,
+        ownerAgentId: input.ownerAgentId ?? null,
+        ownerAgentName: input.ownerName,
+        reviewStatus: null,
+        reviewerAgentId: null,
+        reviewerAgentName: null,
+        dependsOnArtifactIds: [],
+        consumedByTaskIds: [],
         updatedAt: input.updatedAt,
       },
       ...currentArtifacts,
@@ -5520,6 +5642,10 @@ function upsertCheckpointArtifact(
     decision: "waiting_user" | "waiting_approval";
     summary: string;
     updatedAt: string;
+    sourceTaskId?: string | null;
+    sourceTaskTitle?: string | null;
+    ownerAgentId?: string | null;
+    ownerAgentName?: string | null;
   },
 ) {
   const artifactTitle = input.decision === "waiting_approval" ? "阶段总结" : "待补充事项";
@@ -5537,6 +5663,10 @@ function upsertCheckpointArtifact(
               typeLabel: input.decision === "waiting_approval" ? "Checkpoint" : "Input",
               summary: compactConversationExcerpt(input.summary, 220),
               status: input.decision === "waiting_approval" ? ("ready" as const) : ("draft" as const),
+              sourceTaskId: input.sourceTaskId ?? artifact.sourceTaskId ?? null,
+              sourceTaskTitle: input.sourceTaskTitle ?? artifact.sourceTaskTitle ?? null,
+              ownerAgentId: input.ownerAgentId ?? artifact.ownerAgentId ?? null,
+              ownerAgentName: input.ownerAgentName ?? artifact.ownerAgentName ?? null,
               updatedAt: input.updatedAt,
             }
           : artifact,
@@ -5556,6 +5686,15 @@ function upsertCheckpointArtifact(
         typeLabel: input.decision === "waiting_approval" ? "Checkpoint" : "Input",
         summary: compactConversationExcerpt(input.summary, 220),
         status: input.decision === "waiting_approval" ? ("ready" as const) : ("draft" as const),
+        sourceTaskId: input.sourceTaskId ?? null,
+        sourceTaskTitle: input.sourceTaskTitle ?? null,
+        ownerAgentId: input.ownerAgentId ?? null,
+        ownerAgentName: input.ownerAgentName ?? null,
+        reviewStatus: null,
+        reviewerAgentId: null,
+        reviewerAgentName: null,
+        dependsOnArtifactIds: [],
+        consumedByTaskIds: [],
         updatedAt: input.updatedAt,
       },
       ...currentArtifacts,
