@@ -463,7 +463,6 @@
 ## 参考资料
 
 - [Claude Code: Agent Teams](https://code.claude.com/docs/en/agent-teams)
-- [OpenCrab Team Runtime 设计方案](/Users/sky/SkyProjects/opencrab/docs/multi-agent-design.md)
-- [OpenCrab 多智能体研究记录](/Users/sky/SkyProjects/opencrab/docs/multi-agent-research.md)
-- [OpenCrab 产品定位](/Users/sky/SkyProjects/opencrab/docs/product-positioning.md)
-
+- [OpenCrab Team Runtime 设计方案](/Users/sky/SkyProjects/opencrab/docs/team/multi-agent-design.md)
+- [OpenCrab 多智能体研究记录](/Users/sky/SkyProjects/opencrab/docs/team/multi-agent-research.md)
+- [OpenCrab 产品定位](/Users/sky/SkyProjects/opencrab/docs/product/product-positioning.md)

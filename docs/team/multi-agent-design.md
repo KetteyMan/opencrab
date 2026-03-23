@@ -2,7 +2,7 @@
 
 日期：2026-03-21  
 状态：已更新为 OpenClaw 对照后的实现方向  
-前置文档：[`docs/multi-agent-research.md`](./multi-agent-research.md)
+前置文档：[`docs/team/multi-agent-research.md`](./multi-agent-research.md)
 
 ## 1. 一句话定义
 

@@ -53,7 +53,7 @@ More precisely, OpenCrab is trying to become a Chinese-first, open-source, local
 
 For a fuller positioning write-up and comparison against OpenClaw, Codex, and Claude Cowork, see:
 
-- [Product Positioning](./docs/product-positioning.md) (Chinese-first)
+- [Product Positioning](./docs/product/product-positioning.md) (Chinese-first)
 
 ## Highlights
 
@@ -184,14 +184,15 @@ Additional notes:
 
 ## Documentation
 
-- [Product Positioning](./docs/product-positioning.md)
-- [Product Scope](./docs/product-scope.md)
-- [Architecture](./docs/architecture.md)
-- [Privacy And Data Boundaries](./docs/privacy-and-data.md)
-- [Operations Runbook](./docs/operations.md)
-- [Startup Behavior](./docs/startup-behavior.md)
-- [Development Guide](./docs/development.md)
-- [Codex Integration](./docs/codex-sdk-integration.md)
+- [Docs Index](./docs/README.md)
+- [Product Positioning](./docs/product/product-positioning.md)
+- [Product Scope](./docs/product/product-scope.md)
+- [Architecture](./docs/engineering/architecture.md)
+- [Privacy And Data Boundaries](./docs/engineering/privacy-and-data.md)
+- [Operations Runbook](./docs/engineering/operations.md)
+- [Startup Behavior](./docs/engineering/startup-behavior.md)
+- [Development Guide](./docs/engineering/development.md)
+- [Codex Integration](./docs/engineering/codex-sdk-integration.md)
 - [SECURITY](./SECURITY.md)
 - [CONTRIBUTING](./CONTRIBUTING.md)
 

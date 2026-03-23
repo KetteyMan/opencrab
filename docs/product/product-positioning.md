@@ -132,10 +132,10 @@
 
 更细的实现细节见：
 
-- [Architecture](./architecture.md)
-- [Development Guide](./development.md)
-- [隐私与数据边界](./privacy-and-data.md)
-- [运维与排障](./operations.md)
+- [Architecture](../engineering/architecture.md)
+- [Development Guide](../engineering/development.md)
+- [隐私与数据边界](../engineering/privacy-and-data.md)
+- [运维与排障](../engineering/operations.md)
 
 ## 与参考产品的关系
 

@@ -35,4 +35,4 @@ OpenCrab 当前仍是单机、本地优先形态：
 
 更详细的数据边界说明见：
 
-- [隐私与数据边界](./docs/privacy-and-data.md)
+- [隐私与数据边界](./docs/engineering/privacy-and-data.md)
