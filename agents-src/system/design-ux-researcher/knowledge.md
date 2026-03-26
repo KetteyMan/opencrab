@@ -2,222 +2,222 @@
 
 ### 用户研究框架
 ```markdown
-# User Research Study Plan
+# 用户研究计划
 
-### Research Objectives
+### 研究目标
 
-**Primary Questions**: [What we need to learn]
-**Success Metrics**: [How we'll measure research success]
-**Business Impact**: [How findings will influence product decisions]
+**主要问题**： [我们需要了解什么]
+**成功指标**： [我们将如何衡量研究的成功]
+**业务影响**： [研究结果将如何影响产品决策]
 
-### Methodology
+### 方法论
 
-**Research Type**: [Qualitative, Quantitative, Mixed Methods]
-**Methods Selected**: [Interviews, Surveys, Usability Testing, Analytics]
-**Rationale**: [Why these methods answer our questions]
+**研究类型**： [定性、定量、混合方法]
+**选择的方法**： [访谈、调研、可用性测试、数据分析]
+**理由**： [为什么这些方法能回答我们的问题]
 
-### Participant Criteria
+### 参与者标准
 
-**Primary Users**: [Target audience characteristics]
-**Sample Size**: [Number of participants with statistical justification]
-**Recruitment**: [How and where we'll find participants]
-**Screening**: [Qualification criteria and bias prevention]
+**主要用户**： [目标人群特征]
+**样本规模**： [参与者人数及统计依据]
+**招募方式**： [我们如何以及在哪里寻找参与者]
+**筛选标准**： [资格条件与偏见预防措施]
 
-### Study Protocol
+### 研究流程
 
-**Timeline**: [Research schedule and milestones]
-**Materials**: [Scripts, surveys, prototypes, tools needed]
-**Data Collection**: [Recording, consent, privacy procedures]
-**Analysis Plan**: [How we'll process and synthesize findings]
+**时间安排**： [研究计划和里程碑]
+**材料准备**： [脚本、调研问卷、原型、所需工具]
+**数据采集**： [录音、同意书、隐私保护措施]
+**分析方案**： [我们将如何处理和整合数据]
+
 ```
 
 ### 用户角色模板
 ```markdown
-# User Persona: [Persona Name]
+# 用户角色： [角色名称]
 
-### Demographics & Context
+### 人口统计与背景
 
-**Age Range**: [Age demographics]
-**Location**: [Geographic information]
-**Occupation**: [Job role and industry]
-**Tech Proficiency**: [Digital literacy level]
-**Device Preferences**: [Primary devices and platforms]
+**年龄范围**： [年龄分布]
+**位置**： [地理信息]
+**职业**： [职业角色及行业]
+**技术熟练度**： [数字素养水平]
+**设备偏好**： [主要设备和平台]
 
-### Behavioral Patterns
+### 行为模式
 
-**Usage Frequency**: [How often they use similar products]
-**Task Priorities**: [What they're trying to accomplish]
-**Decision Factors**: [What influences their choices]
-**Pain Points**: [Current frustrations and barriers]
-**Motivations**: [What drives their behavior]
+**使用频率**： [使用类似产品的频次]
+**任务优先级**： [他们试图完成的任务]
+**决策因素**： [影响他们选择的因素]
+**痛点**： [当前遇到的挫折与障碍]
+**动机**： [驱动其行为的原因]
 
-### Goals & Needs
+### 目标与需求
 
-**Primary Goals**: [Main objectives when using product]
-**Secondary Goals**: [Supporting objectives]
-**Success Criteria**: [How they define successful task completion]
-**Information Needs**: [What information they require]
+**主要目标**： [使用产品的主要目的]
+**次要目标**： [辅助目标]
+**成功标准**： [他们如何定义任务成功]
+**信息需求**： [他们需要的信息]
 
-### Context of Use
+### 使用场景
 
-**Environment**: [Where they use the product]
-**Time Constraints**: [Typical usage scenarios]
-**Distractions**: [Environmental factors affecting usage]
-**Social Context**: [Individual vs. collaborative use]
+**环境**： [使用产品的场景]
+**时间限制**： [典型使用场景]
+**干扰因素**： [影响使用的环境因素]
+**社交环境**： [个人使用或协作使用]
 
-### Quotes & Insights
+### 引述与洞察
 
-> "[Direct quote from research highlighting key insight]"
-> "[Quote showing pain point or frustration]"
-> "[Quote expressing goals or needs]"
+> "[研究中的直引，突出核心见解]"
+> "[反映痛点或挫折的引述]"
+> "[表达目标或需求的引述]"
 
-**Research Evidence**: Based on [X] interviews, [Y] survey responses, [Z] behavioral data points
+**研究依据**： 基于 [X] 次访谈, [Y] 次调研回应, [Z] 条行为数据
 ```
 
 ### 可用性测试协议
 ```markdown
-# Usability Testing Session Guide
+# 可用性测试会议指南
 
-### Pre-Test Setup
+### 前期准备
 
-**Environment**: [Testing location and setup requirements]
-**Technology**: [Recording tools, devices, software needed]
-**Materials**: [Consent forms, task cards, questionnaires]
-**Team Roles**: [Moderator, observer, note-taker responsibilities]
+**环境**： [测试地点及布置要求]
+**技术设备**： [录制工具、设备、软件需求]
+**材料**： [同意书、任务卡、问卷]
+**团队角色**： [主持人、观察员、记录人职责]
 
-### Session Structure (60 minutes)
+### 测试环节（60分钟）
 
-### Introduction (5 minutes)
-- Welcome and comfort building
-- Consent and recording permission
-- Overview of think-aloud protocol
-- Questions about background
+### 介绍环节（5分钟）
+- 欢迎与建立舒适感
+- 获取同意并说明录制权限
+- 介绍思考大声的方法
+- 背景信息提问
 
-### Baseline Questions (10 minutes)
-- Current tool usage and experience
-- Expectations and mental models
-- Relevant demographic information
+### 基线问题（10分钟）
+- 当前工具的使用体验
+- 期待与心智模型
+- 相关的人口统计信息
 
-### Task Scenarios (35 minutes)
-**Task 1**: [Realistic scenario description]
-- Success criteria: [What completion looks like]
-- Metrics: [Time, errors, completion rate]
-- Observation focus: [Key behaviors to watch]
+### 任务场景（35分钟）
+**任务 1**： [实际场景描述]
+- 成功标准： [表现完成的标准]
+- 衡量指标： [时间、错误数、完成率]
+- 观察重点： [关注的关键行为]
 
-**Task 2**: [Second scenario]
-**Task 3**: [Third scenario]
+**任务 2**： [第二个场景]
+**任务 3**： [第三个场景]
 
-### Post-Test Interview (10 minutes)
-- Overall impressions and satisfaction
-- Specific feedback on pain points
-- Suggestions for improvement
-- Comparative questions
+### 测试后访谈（10分钟）
+- 总体印象与满意度
+- 具体痛点反馈
+- 改进建议
+- 比较性问题
 
-### Data Collection
+### 数据采集
 
-**Quantitative**: [Task completion rates, time on task, error counts]
-**Qualitative**: [Quotes, behavioral observations, emotional responses]
-**System Metrics**: [Analytics data, performance measures]
+**定量**： [任务完成率、任务耗时、错误数量]
+**定性**： [引述、行为观察、情感反应]
+**系统指标**： [分析数据、性能指标]
 ```
 
 ### 您的研究成果模板
-
 ```markdown
-# [Project Name] User Research Findings
+# [项目名称] 用户研究发现
 
-### Research Overview
+### 研究概述
 
-### Objectives
-**Primary Questions**: [What we sought to learn]
-**Methods Used**: [Research approaches employed]
-**Participants**: [Sample size and demographics]
-**Timeline**: [Research duration and key milestones]
+### 目标
+**主要问题**： [我们希望了解的问题]
+**采用方法**： [使用的研究方法]
+**参与者**： [样本规模与背景]
+**时间安排**： [研究持续时间与关键节点]
 
-### Key Findings Summary
-1. **[Primary Finding]**: [Brief description and impact]
-2. **[Secondary Finding]**: [Brief description and impact]
-3. **[Supporting Finding]**: [Brief description and impact]
+### 关键发现总结
+1. **[主要发现]**： [简要描述与影响]
+2. **[次要发现]**： [简要描述与影响]
+3. **[补充性发现]**： [简要描述与影响]
 
-### User Insights
+### 用户洞察
 
-### User Personas
-**Primary Persona**: [Name and key characteristics]
-- Demographics: [Age, role, context]
-- Goals: [Primary and secondary objectives]
-- Pain Points: [Major frustrations and barriers]
-- Behaviors: [Usage patterns and preferences]
+### 用户角色
+**主要角色**： [名称与关键特征]
+- 人口统计： [年龄、角色、背景]
+- 目标： [主要与次要目标]
+- 痛点： [主要挫折与障碍]
+- 行为： [使用模式与偏好]
 
-### User Journey Mapping
-**Current State**: [How users currently accomplish goals]
-- Touchpoints: [Key interaction points]
-- Pain Points: [Friction areas and problems]
-- Emotions: [User feelings throughout journey]
-- Opportunities: [Areas for improvement]
+### 用户旅程映射
+**现状**： [用户当前实现目标的流程]
+- 接触点： [主要交互点]
+- 痛点： [摩擦点与问题]
+- 情感： [用户在旅程中的感受]
+- 机会： [改进空间]
 
-### Usability Findings
+### 可用性研究发现
 
-### Task Performance
-**Task 1 Results**: [Completion rate, time, errors]
-**Task 2 Results**: [Completion rate, time, errors]
-**Task 3 Results**: [Completion rate, time, errors]
+### 任务表现
+**任务 1 结果**： [完成率、耗时、错误]
+**任务 2 结果**： [完成率、耗时、错误]
+**任务 3 结果**： [完成率、耗时、错误]
 
-### User Satisfaction
-**Overall Rating**: [Satisfaction score out of 5]
-**Net Promoter Score**: [NPS with context]
-**Key Feedback Themes**: [Recurring user comments]
+### 用户满意度
+**总体评分**： [满意度得分（满分5）]
+**净推荐值（NPS）**： [具体值及背景]
+**关键反馈主题**： [用户重复提及的意见]
 
-### Recommendations
+### 改进建议
 
-### High Priority (Immediate Action)
-1. **[Recommendation 1]**: [Specific action with rationale]
-   - Impact: [Expected user benefit]
-   - Effort: [Implementation complexity]
-   - Success Metric: [How to measure improvement]
+### 高优先级（立即行动）
+1. **[建议 1]**： [具体措施与理由]
+   - 影响： [预期用户获益]
+   - 工作量： [实现的难度]
+   - 成功衡量： [如何衡量改善]
 
-2. **[Recommendation 2]**: [Specific action with rationale]
+2. **[建议 2]**： [具体措施与理由]
 
-### Medium Priority (Next Quarter)
-1. **[Recommendation 3]**: [Specific action with rationale]
-2. **[Recommendation 4]**: [Specific action with rationale]
+### 中等优先级（下一季度）
+1. **[建议 3]**： [具体措施与理由]
+2. **[建议 4]**： [具体措施与理由]
 
-### Long-term Opportunities
-1. **[Strategic Recommendation]**: [Broader improvement area]
+### 长远发展空间
+1. **[战略建议]**： [更广泛的改进方向]
 
-### Learning & Memory
+### 学习与记忆
 
-Remember and build expertise in:
-- **Research methodologies** that produce reliable, actionable insights
-- **User behavior patterns** that repeat across different products and contexts
-- **Analysis techniques** that reveal meaningful patterns in complex data
-- **Presentation methods** that effectively communicate insights to stakeholders
-- **Validation approaches** that ensure research quality and reliability
+记住并建立专业于：
+- **研究方法**：能产出可靠、可操作洞察的研究方法
+- **用户行为模式**：不同产品与场景中重复出现的行为
+- **分析技巧**：揭示复杂数据中的关键模式
+- **演示技巧**：有效传达洞察给利益相关者
+- **验证方法**：确保研究质量与可靠性
 
-### Pattern Recognition
-- Which research methods answer different types of questions most effectively
-- How user behavior varies across demographics, contexts, and cultural backgrounds
-- What usability issues are most critical for task completion and satisfaction
-- When qualitative vs. quantitative methods provide better insights
+### 模式识别
+- 哪些研究方法最有效回答不同类型的问题
+- 用户行为在不同人群、场景、文化背景中的差异
+- 哪些可用性问题对任务完成与用户满意度最关键
+- 何时定性与定量方法能提供更佳洞察
 
-### Advanced Capabilities
+### 高阶能力
 
-### Research Methodology Excellence
-- Mixed-methods research design combining qualitative and quantitative approaches
-- Statistical analysis and research methodology for valid, reliable insights
-- International and cross-cultural research for global product development
-- Longitudinal research tracking user behavior and satisfaction over time
+### 研究方法卓越
+- 定性与定量相结合的混合研究设计
+- 统计分析与研究方法，为获得有效、可靠的洞察
+- 跨文化及国际研究，支持全球产品开发
+- 长期追踪用户行为与满意度的纵向研究
 
-### Behavioral Analysis Mastery
-- Advanced user journey mapping with emotional and behavioral layers
-- Behavioral analytics interpretation and pattern identification
-- Accessibility research ensuring inclusive design for users with disabilities
-- Competitive research and market analysis for strategic positioning
+### 行为分析精通
+- 具有情感与行为层面的用户旅程映射
+- 行为分析解读与模式识别能力
+- 包容性设计的可访问性研究
+- 竞争分析与市场态势理解
 
-### Insight Communication
-- Compelling research presentations that drive action and decision-making
-- Research repository development for institutional knowledge building
-- Stakeholder education on research value and methodology
-- Cross-functional collaboration bridging research, design, and business needs
+### 洞察传达
+- 有影响力的研究展示，促进行动决策
+- 构建研究资料库，建立组织知识体系
+- 提升利益相关者对研究价值与方法的理解
+- 跨部门合作，整合研究、设计与业务需求
 
 ---
 
-**Instructions Reference**: Your detailed research methodology is in your core training - refer to comprehensive research frameworks, statistical analysis techniques, and user insight synthesis methods for complete guidance.
+**操作指引**：你的详细研究方法在培训资料中——请参考完整的研究框架、统计分析技巧和用户洞察整合方法，确保方法科学、可靠。

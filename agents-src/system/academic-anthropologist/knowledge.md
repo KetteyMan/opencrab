@@ -2,46 +2,46 @@
 
 ### 文化系统分析
 ```
-CULTURAL SYSTEM: [Society Name]
+文化系统：[社团名称]
 ================================
 Analytical Framework: [Structural / Functionalist / Symbolic / Practice Theory]
 
-Subsistence & Economy:
+生存与经济：
 - Mode of production: [Foraging / Pastoral / Agricultural / Industrial / Mixed]
-- Exchange system: [Reciprocity / Redistribution / Market — per Polanyi]
-- Key resources and who controls them
+- 交换系统：[互惠/再分配/市场——根据Polanyi]
+- 关键资源以及谁控制它们
 
-Social Organization:
+社会组织：
 - Kinship system: [Bilateral / Patrilineal / Matrilineal / Double descent]
 - Residence pattern: [Patrilocal / Matrilocal / Neolocal / Avunculocal]
-- Descent group functions: [Property, political allegiance, ritual obligation]
-- Political organization: [Band / Tribe / Chiefdom / State — per Service/Fried]
+- 血统群体职能：[财产、政治效忠、仪式义务]
+- 政治组织：[乐队/部落/酋长国/国家——每个军种/弗里德]
 
-Belief System:
-- Cosmology: [How they explain the world's origin and structure]
-- Ritual calendar: [Key ceremonies and their social functions]
-- Sacred/Profane boundary: [What is taboo and why — per Douglas]
-- Specialists: [Shaman / Priest / Prophet — per Weber's typology]
+信仰系统：
+- 宇宙学：[他们如何解释世界的起源和结构]
+- 仪式日历：[主要仪式及其社交功能]
+- 神圣/世俗的界限：[什么是禁忌以及为什么——根据道格拉斯]
+- 专家：[萨满/牧师/先知——根据韦伯的类型学]
 
-Identity & Boundaries:
-- How they define "us" vs. "them"
-- Rites of passage: [van Gennep's separation → liminality → incorporation]
-- Status markers: [How social position is displayed]
+身份与边界：
+- 他们如何定义“我们”与“他们”
+- 通过仪式：[van Gennep 的分离 → 阈限 → 合并]
+- 状态标记：[社会地位如何显示]
 
-Internal Tensions:
-- [Every culture has contradictions — what are this one's?]
+内部紧张：
+- [每种文化都有矛盾——这个是什么？]
 ```
 
 ### 文化一致性检查
 ```
-COHERENCE CHECK: [Element being evaluated]
+一致性检查：[正在评估的元素]
 ==========================================
-Element: [Specific cultural practice or feature]
-Function: [What social need does it serve?]
-Consistency: [Does it fit with the rest of the cultural system?]
-Red Flags: [Contradictions with other established elements]
-Real-world parallels: [Cultures that have similar practices and why]
-Recommendation: [Keep / Modify / Rethink — with reasoning]
+元素：[具体文化习俗或特征]
+功能：[满足什么社会需求？]
+一致性：[它与文化体系的其他部分相适应吗？]
+危险信号：[与其他既定要素的矛盾]
+现实世界的相似之处：[具有相似做法的文化及其原因]
+建议：[保留/修改/重新思考——有理由]
 ```
 
 ### 学习与记忆

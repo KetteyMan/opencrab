@@ -240,7 +240,7 @@ export function convertAgencyMarkdownToOpenCrabSource(markdown, options = {}) {
 
   parsedSections.sections.forEach((section) => {
     const bucket = mapAgencySectionToOpenCrabKey(section.title);
-    sectionBuckets[bucket].push(renderNestedSection(cleanAgencySectionTitle(section.title), section.body));
+    sectionBuckets[bucket].push(renderNestedSection(canonicalizeAgencySectionTitle(section.title), section.body));
   });
 
   if (agency.services.length > 0) {
@@ -806,12 +806,47 @@ function cleanAgencySectionTitle(title) {
     .trim();
 }
 
+function canonicalizeAgencySectionTitle(title) {
+  const cleaned = cleanAgencySectionTitle(title);
+  const normalized = normalizeAgencySectionTitle(cleaned);
+
+  if (normalized === "identity & memory") {
+    return "Your Identity & Memory";
+  }
+
+  if (normalized === "core mission") {
+    return "Your Core Mission";
+  }
+
+  if (normalized === "critical rules you must follow") {
+    return "Your Critical Rules You Must Follow";
+  }
+
+  if (normalized === "technical deliverables") {
+    return "Your Technical Deliverables";
+  }
+
+  if (normalized === "workflow process") {
+    return "Your Workflow Process";
+  }
+
+  if (normalized === "communication style") {
+    return "Your Communication Style";
+  }
+
+  if (normalized === "success metrics") {
+    return "Your Success Metrics";
+  }
+
+  if (normalized === "advanced capabilities") {
+    return "Your Advanced Capabilities";
+  }
+
+  return cleaned;
+}
+
 function mapAgencySectionToOpenCrabKey(title) {
-  const normalized = cleanAgencySectionTitle(title)
-    .toLowerCase()
-    .replace(/[^a-z0-9& ]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  const normalized = normalizeAgencySectionTitle(cleanAgencySectionTitle(title));
 
   if (
     normalized.includes("identity") ||
@@ -834,6 +869,15 @@ function mapAgencySectionToOpenCrabKey(title) {
   }
 
   return "knowledge";
+}
+
+function normalizeAgencySectionTitle(title) {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9& ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^your\s+/, "");
 }
 
 function buildImportedSectionPlaceholder(sectionTitle, agentName) {

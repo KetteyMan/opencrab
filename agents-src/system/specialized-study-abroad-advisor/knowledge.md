@@ -3,153 +3,153 @@
 ### 择校报告模板
 
 ```markdown
-# School Selection Report
+# 学校选择报告
 
-### Student Profile Summary
+### 学生概况总结
 
-- GPA: X.XX / 4.0 (Major GPA: X.XX)
-- Standardized Tests: GRE XXX / GMAT XXX / SAT XXXX
-- Language Scores: TOEFL XXX / IELTS X.X
-- Key Experiences: [1-3 most competitive experiences]
-- Target Direction: [Major + career goal]
-- Application Level: Undergraduate / Master's / PhD
-- Target Countries: [Country/region list]
-- Budget Range: [Annual total budget]
+- GPA: X.XX / 4.0 (专业 GPA: X.XX)
+- 标准化考试成绩: GRE XXX / GMAT XXX / SAT XXXX
+- 语言成绩: TOEFL XXX / IELTS X.X
+- 关键经历: [1-3 个最具竞争力的经历]
+- 目标方向: [专业 + 职业目标]
+- 申请层级: 本科 / 硕士 / 博士
+- 目标国家/地区: [国家/地区列表]
+- 预算范围: [年度总预算]
 
-### School Selection Plan
+### 学校选择计划
 
-### Reach Schools (Admission Probability 20-40%)
-| School | Country | Program | Duration | Admission Reference | Annual Cost | Deadline |
+### 达到门槛学校（录取概率20-40%）
+| 学校 | 国家 | 项目 | 时长 | 录取参考 | 年度费用 | 截止日期 |
 |--------|---------|---------|----------|-------------------|-------------|----------|
 
-### Target Schools (Admission Probability 40-70%)
-| School | Country | Program | Duration | Admission Reference | Annual Cost | Deadline |
+### 目标学校（录取概率40-70%）
+| 学校 | 国家 | 项目 | 时长 | 录取参考 | 年度费用 | 截止日期 |
 |--------|---------|---------|----------|-------------------|-------------|----------|
 
-### Safety Schools (Admission Probability 70-90%)
-| School | Country | Program | Duration | Admission Reference | Annual Cost | Deadline |
+### 保底学校（录取概率70-90%）
+| 学校 | 国家 | 项目 | 时长 | 录取参考 | 年度费用 | 截止日期 |
 |--------|---------|---------|----------|-------------------|-------------|----------|
 
-### School Selection Rationale
+### 择校理由
 
-- [Overall strategy and country combination logic]
-- [Risk assessment and backup plans]
+- [整体策略及国家组合逻辑]
+- [风险评估与备选方案]
 
-### Cost Comparison
+### 费用对比
 
-| Country | Tuition Range | Living Costs/Year | Scholarship Opportunities | Post-Graduation Work Visa Policy |
-|---------|--------------|-------------------|--------------------------|----------------------------------|
+| 国家 | 学费范围 | 生活费 / 年 | 奖学金机会 | 毕业后工作签证政策 |
+|---------|--------------|------------------|-------------------------|-------------------------------|
 ```
 
 ### 多国申请时间表模板
 
 ```markdown
-# Multi-Country Application Timeline (Fall Enrollment)
+# 多国申请时间表（秋季入学）
 
-### March-May (Year Before): Positioning & Planning
+### 三月至五月（前一年度）：定位与规划
 
-- [ ] Complete profile assessment and preliminary school selection
-- [ ] Determine country combination strategy
-- [ ] Create standardized test plan
-- [ ] Begin profile enhancement (apply for summer internships/research/overseas summer research)
+- [ ] 完成个人资料评估及初步学校筛选
+- [ ] 确定国家组合策略
+- [ ] 制定标准化考试计划
+- [ ] 开始完善个人资料（申请暑期实习/科研/海外夏研）
 
-### June-August (Year Before): Testing & Materials
+### 六月至八月（前一年度）：考试与资料准备
 
-- [ ] Complete language exams (TOEFL/IELTS)
-- [ ] Complete GRE/GMAT (if needed)
-- [ ] Summer internship/research in progress
-- [ ] Begin organizing essay materials (experience inventory + core stories)
-- [ ] UK/HK+Singapore: Some programs open in September — prepare early
+- [ ] 完成语言考试（TOEFL/IELTS）
+- [ ] 完成GRE/GMAT（如需）
+- [ ] 暑期实习/科研进行中
+- [ ] 开始整理申请文章资料（经历清单 + 核心故事）
+- [ ] 英国/HK + 新加坡：部分项目9月开放 — 提前准备
 
-### September-October (Year Before): Essay Sprint
+### 九月至十月（前一年度）：文章冲刺
 
-- [ ] Finalize school list
-- [ ] Complete main essay first draft (PS/SOP)
-- [ ] Contact recommenders, provide key talking points
-- [ ] UK/Hong Kong: First round of rolling admissions opens — submit early
-- [ ] School-specific supplemental essay drafts
+- [ ] 确定学校名单
+- [ ] 完成主文稿（PS/SOP）
+- [ ] 联系推荐人，提供核心要点
+- [ ] 英国/香港：滚动录取第一轮开始 — 提早提交
+- [ ] 针对不同学校的补充文书草稿
 
-### November-December (Year Before): First Batch Submissions
+### 十一月至十二月（前一年度）：第一批申请
 
-- [ ] US: Submit Early / Round 1 applications
-- [ ] UK: Submit main batch
-- [ ] Hong Kong/Singapore: Submit main batch
-- [ ] Confirm all recommendation letters have been submitted
-- [ ] Prepare for interviews
+- [ ] 美国：提前申请 / 第一轮申请提交
+- [ ] 英国：提交主申请批次
+- [ ] 香港/新加坡：提交主申请批次
+- [ ] 确认所有推荐信已提交
+- [ ] 准备面试
 
-### January-February (Application Year): Second Batch + Interviews
+### 一月至二月（申请年度）：第二批 + 面试
 
-- [ ] US: Submit Round 2
-- [ ] Canada: Most program deadlines
-- [ ] Australia: Flexible submission based on semester system
-- [ ] Interview preparation and mock practice
-- [ ] UK/HK+Singapore results start arriving
+- [ ] 美国：第二轮申请提交
+- [ ] 加拿大：大部分项目截止
+- [ ] 澳大利亚：根据学期制度弹性提交
+- [ ] 面试准备与模拟练习
+- [ ] 英国/HK + 新加坡：结果陆续到达
 
-### March-May (Application Year): Decision Time
+### 三月至五月（申请年度）：决策阶段
 
-- [ ] Compile all offers, multi-dimensional comparison (academics, career, cost, city, visa/residency)
-- [ ] Waitlist response strategy
-- [ ] Confirm enrollment, pay deposit
-- [ ] Visa preparation (processes differ by country — allow ample time)
-- [ ] Housing and pre-departure preparation
+- [ ] 汇总所有录取通知书，进行多维度比较（学术、职业、成本、城市、签证/居留）
+- [ ] 排名等候名单应对策略
+- [ ] 确认入学，缴纳押金
+- [ ] 签证准备（不同国家流程不同 — 提早预留时间）
+- [ ] 住宿与出发前准备
 ```
 
 ### 论文诊断框架
 
 ```markdown
-# Essay Diagnostic
+# 论文诊断
 
-### Core Narrative Check
+### 核心叙事检查
 
-- [ ] Is there a clear throughline? Can you summarize who this person is in one sentence after reading?
-- [ ] Is the opening compelling? (Not "I have always been passionate about...")
-- [ ] Is the logical chain between experiences and goals coherent?
-- [ ] Why this field? (Is the motivation authentic and credible?)
-- [ ] Why this program/school? (Is it specifically tailored?)
+- [ ] 是否有清晰的主线？阅读后能用一句话总结此人是谁吗？
+- [ ] 开头是否吸引人？（不是“我一直热衷于...”）
+- [ ] 经验与目标之间的逻辑链是否连贯？
+- [ ] 为什么选择这个领域？（动机是否真实可信？）
+- [ ] 为什么选择这个项目/学校？（是否有针对性？）
 
-### Content Quality Check
+### 内容质量检查
 
-- [ ] Are experiences described specifically? (With data, details, and reflection)
-- [ ] Does it avoid resume-style listing? (Not "Then I did X, then I did Y")
-- [ ] Does it demonstrate growth and insight? (Not just what you did, but what you learned)
-- [ ] Is the ending strong? (Not generic "I hope to contribute")
+- [ ] 经验描述是否具体？（有数据、细节和反思）
+- [ ] 是否避免简历式列举？（不是“然后我做了X，然后我做了Y”）
+- [ ] 是否展现成长与洞察？（不仅仅描述经历，还包括学到的东西）
+- [ ] 结尾是否有力度？（避免“我希望能做出贡献”过于空泛）
 
-### Technical Quality Check
+### 语言技术检查
 
-- [ ] Does length meet requirements? (US SOP typically 500-1000 words, UK PS 4,000 characters)
-- [ ] Is grammar and word choice natural?
-- [ ] Are paragraph transitions smooth?
-- [ ] Is it customized for the target school?
+- [ ] 长度是否符合要求？（美国 SOP 通常500-1000字，英国PS 4000字符）
+- [ ] 语法和用词是否自然？
+- [ ] 段落过渡是否流畅？
+- [ ] 是否针对目标学校进行了个性化定制？
 
-### Country-Specific Essay Requirements
+### 国家特定的文章要求
 
-- [ ] US: Each school may have unique essay prompts
-- [ ] UK Master's: Many programs require a research proposal
-- [ ] UK Undergraduate: UCAS PS — one statement for all schools, 80% academic focus
-- [ ] Hong Kong: Some programs require a research plan
-- [ ] Europe: Motivation letter style leans more toward career motivation
+- [ ] 美国：每所学校可能有独特的题目要求
+- [ ] 英国硕士：许多项目要求研究计划
+- [ ] 英国本科：UCAS PS — 一份陈述适用于所有学校，80%关注学术
+- [ ] 香港：部分项目需要研究计划
+- [ ] 欧洲：动机信风格更偏向职业动机
 ```
 
 ### 报价比较决策矩阵
 
 ```markdown
-# Offer Comparison Matrix
+# 录取比较矩阵
 
-| Dimension | Weight | School A | School B | School C |
+| 维度 | 权重 | 学校A | 学校B | 学校C |
 |-----------|--------|----------|----------|----------|
-| Program Ranking/Reputation | X% | | | |
-| Curriculum Fit | X% | | | |
-| Employment Data/Alumni Network | X% | | | |
-| Total Cost (Tuition + Living) | X% | | | |
-| Scholarships/TA/RA | X% | | | |
-| City/Location | X% | | | |
-| Post-Graduation Work Visa/Residency | X% | | | |
-| Personal Preference/Gut Feeling | X% | | | |
-| **Weighted Total** | 100% | | | |
+| 项目排名/声誉 | X% | | | |
+| 课程匹配 | X% | | | |
+| 就业数据/校友网络 | X% | | | |
+| 总费用（学费 + 生活费） | X% | | | |
+| 奖学金/助教/助研 | X% | | | |
+| 城市/位置 | X% | | | |
+| 毕业后工作签证/居留 | X% | | | |
+| 个人偏好/直觉 | X% | | | |
+| **加权总分** | 100% | | | |
 
-### Key Considerations
+### 关键考量因素
 
-- [What is the single most important decision factor?]
-- [How does this choice affect the long-term career path?]
-- [Are there unquantifiable but important factors?]
+- [决定因素中最重要的一项是什么？]
+- [这个选择对未来职业路径有何影响？]
+- [是否存在无法量化但重要的因素？]
 ```

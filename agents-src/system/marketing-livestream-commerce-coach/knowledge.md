@@ -3,179 +3,170 @@
 ### 直播脚本模板
 
 ```markdown
-# Single-Product Walkthrough Script (5 minutes per product)
+# 单品讲解脚本（每个产品5分钟）
 
-### Minute 1: Retention + Pain Point Setup
+### 第1分钟：留存 + 痛点设置
 
-"Don't scroll away! This next product is today's showstopper - it sold out
-instantly last time we featured it. Anyone here who's dealt with [pain point scenario]?
-If that's you, type 1 in the chat!"
-(Wait for engagement, read comments)
-"I see so many of you with this exact problem. This product was made to solve it."
+"不要往后滑！接下来这个产品是今天的重头戏 — 它上次当我们推荐时瞬间卖断货。这里有遇到过 [痛点场景] 的朋友吗？如果是你，请在弹幕中输入1！"
+（等待互动，阅读评论）
+"我看到你们中很多人正面临这个问题。这个产品就是为了解决它而设计的。"
 
-### Minutes 2-3: Product Introduction + Trust Building
+### 第2-3分钟：产品介绍 + 建立信任
 
-"Take a look (show product) - this [product name] is made with [brand story/ingredients/craftsmanship].
-The biggest difference between this and ordinary XXX is [key differentiator 1] and [key differentiator 2].
-I've been using it for [duration], and honestly [personal experience]."
-(Weave in demonstrations/trials/comparisons)
-"It's not just me saying this - look (show sales figures/reviews/certifications)."
+"请看（展示产品）— 这个 [产品名称] 是由 [品牌故事/成分/工艺] 制成。和普通的 XXX 相比，它最大的区别在于 [关键差异1] 和 [关键差异2]。"
+"我已经使用它 [时长]，说实话 [个人体验]。"
+（穿插演示/试用/对比）
+"这不仅仅是我一个人的感觉 — 看看（展示销售数据/评论/认证）."
 
-### Minute 4: Price Reveal + Urgency Close
+### 第4分钟：价格揭示 + 紧迫促销
 
-"Retail/official store price is XXX yuan. But our livestream deal today -
-hold on, don't look at the price yet! First, check out what's included: [gift 1], [gift 2], [gift 3].
-The gifts alone are worth XX yuan.
-Today in our livestream, it's only - XXX yuan! (pause)
-And we only have [quantity] units! 3, 2, 1 - link is up!"
+"零售/官方售价是 XXX 元。但我们直播的优惠今天 — 等一下，还不要看价格！先来看一下包含了什么：[礼品1]、[礼品2]、[礼品3]。"
+"这些礼品单独价值 XX 元。"
+"今天在直播间，价格只要 — XXX 元！ （停顿）"
+"而且我们只有 [数量] 件！3，2，1 — 链接已上线！"
 
-### Minute 5: Follow-Up + Transition
+### 第5分钟：后续跟进 + 转场
 
-"If you already grabbed it, type 'got it' so I can see!
-Still missed out? Let me ask the ops team to release XX more units.
-(Read names of buyers) Congrats!
-Alright, the next product is even bigger - anyone who's been asking about XXX, pay attention!"
+"如果你已经抢到啦， 请打“已抢”让我看到！"
+"还没抢到的？我让运营团队再放出 xx 件。"
+（念出买家的名字）恭喜！"
+"好啦，接下来的产品更精彩 — 有在问 XXX 的朋友请注意啦！"
 ```
 
 ### 前川战役策略模板
 
 ```markdown
-# Qianchuan Campaign Full-Process SOP
+# 前川战役全流程SOP
 
-### Account Setup
+### 账号设置
 
-- Maintain at least 3 ad accounts in rotation to avoid single-account spending bottlenecks
-- Build 5-8 campaigns per account for simultaneous testing
-- Campaign naming convention: date_audience_creative-type_bid, e.g., "0312_beauty-interest_talking-head-A_35"
+- 保持轮换至少3个广告账号，避免单个账号出预算瓶颈
+- 每个账号建设5-8个广告组，用于同步测试
+- 广告命名规范：date_audience_creative-type_bid，例如 "0312_beauty-interest_talking-head-A_35"
 
-### Targeting Strategy
+### 定向策略
 
-| Phase | Targeting Method | Notes |
-|-------|-----------------|-------|
-| Cold start | System recommended + behavioral interest | Let the system explore; don't over-restrict |
-| Scale-up | Creator lookalike + LaiKa targeting | Target users similar to competitor live rooms |
-| Mature | Custom audience packs + DMP | Build lookalikes from your actual buyer profiles |
+| 阶段 | 定向方式 | 说明 |
+|-------|--------------|-------|
+| 冷启动 | 系统推荐 + 行为兴趣 | 让系统主动探索；不要过度限制 |
+| 放大规模 | 内容创作者相似人 + 来卡定向 | 定向相似于竞争主播直播间的用户 |
+| 成熟期 | 自定义人群包 + DMP | 根据实际购买用户画像建模相似人 |
 
-### Bidding Strategy
+### 出价策略
 
-- CPA bidding (recommended for beginners): target ROI / AOV. E.g., AOV 100 yuan, target ROI 3, bid 33 yuan
-- Deep conversion bidding: suitable for high-AOV, long-consideration categories
-- Per-campaign budget = bid x 20 to give the system enough exploration room
-- Don't touch new campaigns for the first 6 hours; let the system complete its learning phase
+- CPA出价（建议新手）: 目标ROI / AOV。例如，AOV 100元，目标ROI 3，出价33元
+- 深度转化出价：适用于高AOV、长考察路径类别
+- 每个广告组预算 = 出价 x 20，为系统探索留足空间
+- 初期6小时内不要调整新广告，等待系统完成学习期
 
-### Creative Strategy
+### 创意策略
 
-- Talking-head creatives (most stable conversion): host on camera discussing pain points + value props
-- Product showcase creatives (for visually impactful categories): unboxing / trials / before-after comparisons
-- Compilation creatives (lowest cost): livestream highlight clips + subtitles + BGM
-- Creative refresh cycle: swap underperforming creatives after 3 days; prepare iterations of winning creatives before they decay
+- 讲解类（最稳转化）：主播对镜头讲痛点+价值点
+- 产品展示（视觉冲击强）：开箱/试用/前后对比
+- 合辑类（成本最低）：直播亮点短剪+字幕+配乐
+- 创意更新：3天后换掉表现差的，优胜创意在下次循环前持续迭代优化
 
-### ROI Monitoring & Adjustments
+### ROI监控与调整
 
-- Check campaign data every 2 hours
-- ROI > 120% of target: increase budget by 30%
-- ROI between 80%-120% of target: hold steady
-- ROI < 80% of target: reduce budget or kill campaign
-- Any campaign spending over 500 yuan with zero conversions: kill immediately
+- 每2小时查看一次数据
+- ROI > 120%目标：增加预算30%
+- ROI 80%-120%目标：保持不变
+- ROI < 80%目标：减预算或暂停广告
+- 任何单个广告花费超过500元且无转化：立即停止
 ```
 
 ### 直播室数据查看仪表板
 
 ```markdown
-# Livestream Daily Data Report Template
+# 直播日常数据报告模板
 
-### Core Metrics
+### 核心指标
 
-| Metric | Today | Yesterday | Change | Target |
+| 指标 | 今日 | 昨日 | 变动 | 目标 |
 |--------|-------|-----------|--------|--------|
-| Stream duration | h | h | | 6h |
-| Total viewers | | | | |
-| Peak concurrent | | | | |
-| Average concurrent | | | | |
-| Avg watch time | s | s | | >60s |
-| New followers | | | | |
-| Engagement rate | % | % | | >5% |
+| 直播时长 | 小时 | 小时 | | 6小时 |
+| 观看总人数 | | | | |
+| 高峰同时在线 | | | | |
+| 平均同时在线 | | | | |
+| 平均观看时长 | 秒 | 秒 | | >60秒 |
+| 新增粉丝 | | | | |
+| 互动率 | % | % | | >5% |
 
-### Sales Data
+### 销售数据
 
-| Metric | Today | Yesterday | Change | Target |
+| 指标 | 今日 | 昨日 | 变动 | 目标 |
 |--------|-------|-----------|--------|--------|
 | GMV | ¥ | ¥ | | |
-| Orders | | | | |
+| 订单数 | | | | |
 | AOV | ¥ | ¥ | | |
-| GPM (GMV per 1K views) | ¥ | ¥ | | >¥800 |
-| UV value | ¥ | ¥ | | >¥1.5 |
-| Payment conversion rate | % | % | | >3% |
+| 毛利（GMV/1000观看量） | ¥ | ¥ | | >¥800 |
+| UV价值 | ¥ | ¥ | | >¥1.5 |
+| 支付转化率 | % | % | | >3% |
 
-### Traffic Breakdown
+### 流量分布
 
-| Source | Share | Viewers | Conv. Rate | Notes |
+| 来源 | 占比 | 观看人数 | 转化率 | 备注 |
 |--------|-------|---------|------------|-------|
-| Organic recommendations | % | | % | Recommendation feed |
-| Short video referrals | % | | % | Teaser videos |
-| Qianchuan paid | % | | % | Paid campaigns |
-| Followers tab | % | | % | Follower revisits |
-| Search | % | | % | Search entries |
-| Other | % | | % | Shares, etc. |
+| 自然推荐 | % | | % | 推荐源流 |
+| 短视频导流 | % | | % | 预告视频 |
+| 前川付费 | % | | % | 付费推广 |
+| 粉丝Tab | % | | % | 粉丝回访 |
+| 搜索 | % | | % | 搜索入口 |
+| 其他 | % | | % | 分享等 |
 
-### Conversion Funnel
+### 转化漏斗
 
-Impressions: ___
-  -> Entered live room: ___ (entry rate ___%)
-    -> Watched >30s: ___ (retention rate ___%)
-      -> Clicked shopping cart: ___ (product click rate ___%)
-        -> Created order: ___ (order rate ___%)
-          -> Completed payment: ___ (payment rate ___%)
+曝光：___
+  -> 进入直播间：___（进入率___%）
+    -> 观看>30秒：___（留存率___%）
+      -> 点击购物车：___（商品点击率___%）
+        -> 创建订单：___（下单转化率___%）
+          -> 完成支付：___（支付完成率___%）
 
-### Top 5 Products
+###热销前五产品
 
-| Rank | Product | Units | Revenue | Click Rate | Conv. Rate | Return Rate |
-|------|---------|-------|---------|------------|------------|-------------|
+| 排名 | 产品 | 件数 | 交易额 | 点击率 | 转化率 | 回头率 |
+|-------|---------|-------|---------|------------|------------|-------------|
 | 1 | | | ¥ | % | % | % |
 | 2 | | | ¥ | % | % | % |
 | 3 | | | ¥ | % | % | % |
 | 4 | | | ¥ | % | % | % |
 | 5 | | | ¥ | % | % | % |
 
-### Diagnosis
+### 诊断建议
 
-- Traffic issues:
-- Conversion issues:
-- Script execution issues:
-- Tomorrow's optimization priorities:
+- 流量问题：
+- 转化问题：
+- 脚本执行问题：
+- 明天的优化重点：
 ```
 
 ### 有机流量放大手册
 
 ```markdown
-# Organic Traffic Core Methodology
+# 有机流量核心方法论
 
-### Traffic Formula
+### 流量公式
 
-Organic recommendation traffic = f(watch time, engagement rate, conversion rate, follower revisit rate)
+有机推荐流量 = f(观看时长、互动率、转化率、粉丝回访率)
 
-### Tactics Mapped to Metrics
+### 指标对应策略
 
-### Increasing Watch Time (target >60s)
-- Lucky bags / raffles: run one every 15-20 minutes with "follow + comment" entry requirements
-- Hold-and-release scripting: "I've been negotiating with the brand on this one for ages,
-  the price isn't locked in yet. Take a look and tell me if it's worth it -
-  if you think so, type 'want'" (hold for 2-3 minutes before revealing the price,
-  keep reinforcing product value throughout)
-- Suspense teasers: "There's one product later that's the absolute lowest price of
-  the entire stream, but I can't tell you which one yet. Guess in the chat -
-  guess right and I'll send you one for free"
+### 增加观看时长（目标 >60秒）
+- 幸运袋/抽奖：每15-20分钟做一次，要求“关注+评论”进入
+- 持续持仓脚本：“我已经跟品牌谈了好久，这个价格还没锁定，先给你们看看，告诉我值不值得——觉得值的话，打‘想要’”
+（等待2-3分钟再公布价格，过程中不断强调产品价值）
+- 悬念预告：“今天晚些时候会有一个产品，整个直播里最低价，但我还不能告诉你是哪一个，猜猜看——猜对了我就送你一个免费”
 
-### Increasing Engagement Rate (target >5%)
-- High-frequency prompts: "If you've used this before, type 1. If you haven't, type 2"
-- Choice-based engagement: "Which shade looks better, A or B?
-  Type A if you like A, type B if you like B!"
-- Like challenges: "Get the likes to 100K and I'll drop the price! Go go go!"
-- Name callouts: "Welcome XXX to the live room, thanks for the follow"
+### 增加互动率（目标 >5%）
+- 高频引导：“用过的打1，没有用的打2”
+- 选择互动：“A 和 B 哪个颜色更好？喜欢A就打A，喜欢B就打B！”
+- 点赞挑战：“点赞破10万，我就降价！快去点赞！”
+- 呼喊名字：“欢迎 XXX 加入直播，感谢关注！”
 
-### Increasing Conversion Rate (target >3%)
-- Scarcity and urgency: "Only XX units left - once they're gone, that's it for today"
-- Price anchoring: reveal retail price first -> then promo price -> then stack on gifts -> finally reveal livestream price
-- Social proof: "XX people have already ordered - you all move fast"
-- Countdown close: "3, 2, 1 - link is up! Order within 5 seconds and I'll throw in an extra XXX"
+### 提升转化率（目标 >3%）
+- 稀缺与紧迫：“只剩 XX 件了，卖完今天就没有了”
+- 价格锚定：先公布零售价 -> 促销价 -> 拼礼品 -> 最后直播价
+- 社会证明：“XX人已经下单了，你们都行动得很快”
+- 倒计时促成：“3，2，1，链接已上线！5秒内下单再送一个 XXX”
 ```

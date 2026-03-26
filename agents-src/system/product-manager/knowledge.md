@@ -3,101 +3,101 @@
 ### 产品需求文件（PRD）
 
 ```markdown
-# PRD: [Feature / Initiative Name]
-**Status**: Draft | In Review | Approved | In Development | Shipped
-**Author**: [PM Name]  **Last Updated**: [Date]  **Version**: [X.X]
-**Stakeholders**: [Eng Lead, Design Lead, Marketing, Legal if needed]
+# PRD：[功能/倡议名称]
+**状态**：草案|回顾中 |已批准 |开发中 |已发货
+**作者**：[PM 姓名] **最后更新**：[日期] **版本**：[X.X]
+**利益相关者**：[工程主管、设计主管、营销、法律（如果需要）]
 
 ---
 
-### 1. Problem Statement
+### 1.问题陈述
 
-What specific user pain or business opportunity are we solving?
-Who experiences this problem, how often, and what is the cost of not solving it?
+我们正在解决哪些具体的用户痛点或商业机会？
+谁遇到过这个问题，出现的频率如何，不解决这个问题的成本是多少？
 
-**Evidence:**
-- User research: [interview findings, n=X]
-- Behavioral data: [metric showing the problem]
-- Support signal: [ticket volume / theme]
-- Competitive signal: [what competitors do or don't do]
-
----
-
-### 3. Non-Goals
-
-Explicitly state what this initiative will NOT address in this iteration.
-- We are not redesigning the onboarding flow (separate initiative, Q4)
-- We are not supporting mobile in v1 (analytics show <8% mobile usage for this feature)
-- We are not adding admin-level configuration until we validate the base behavior
+**证据：**
+- 用户研究：[访谈结果，n=X]
+- 行为数据：[显示问题的指标]
+- 支持信号：[门票量/主题]
+- 竞争信号：[竞争对手做什么或不做什么]
 
 ---
 
-### 4. User Personas & Stories
+### 3. 非目标
 
-**Primary Persona**: [Name] — [Brief context, e.g., "Mid-market ops manager, 200-employee company, uses the product daily"]
-
-Core user stories with acceptance criteria:
-
-**Story 1**: As a [persona], I want to [action] so that [measurable outcome].
-**Acceptance Criteria**:
-- [ ] Given [context], when [action], then [expected result]
-- [ ] Given [edge case], when [action], then [fallback behavior]
-- [ ] Performance: [action] completes in under [X]ms for [Y]% of requests
-
-**Story 2**: As a [persona], I want to [action] so that [measurable outcome].
-**Acceptance Criteria**:
-- [ ] Given [context], when [action], then [expected result]
+明确说明本次迭代中该计划不会解决的问题。
+- 我们不会重新设计入职流程（单独举措，第四季度）
+- 我们在 v1 中不支持移动设备（分析显示此功能的移动设备使用率<8%）
+- 在验证基本行为之前，我们不会添加管理级配置
 
 ---
 
-### 5. Solution Overview
+### 4. 用户角色和故事
 
-[Narrative description of the proposed solution — 2–4 paragraphs]
-[Include key UX flows, major interactions, and the core value being delivered]
-[Link to design mocks / Figma when available]
+**主要角色**：[姓名] — [简要背景，例如“中端市场运营经理，拥有 200 名员工的公司，每天使用该产品”]
 
-**Key Design Decisions:**
-- [Decision 1]: We chose [approach A] over [approach B] because [reason]. Trade-off: [what we give up].
-- [Decision 2]: We are deferring [X] to v2 because [reason].
+具有接受标准的核心用户故事：
+
+**故事 1**：作为一个[角色]，我想要[采取行动]，以便[可衡量的结果]。
+**验收标准**：
+- [ ] 给定[上下文]，当[动作]时，则[预期结果]
+- [ ] 给定[边缘情况]，当[操作]时，然后[后备行为]
+- [ ] 性能：[Y]% 的请求在 [X] 毫秒内完成[操作]
+
+**故事 2**：作为一个[角色]，我想要[采取行动]以便[可衡量的结果]。
+**验收标准**：
+- [ ] 给定[上下文]，当[动作]时，则[预期结果]
 
 ---
 
-### 6. Technical Considerations
+### 5. 解决方案概述
 
-**Dependencies**:
-- [System / team / API] — needed for [reason] — owner: [name] — timeline risk: [High/Med/Low]
+[拟议解决方案的叙述性描述 - 2-4 段]
+[包括关键的用户体验流程、主要交互以及所交付的核心价值]
+[设计模型/Figma 的链接（如果可用）]
 
-**Known Risks**:
-| Risk | Likelihood | Impact | Mitigation |
+**关键设计决策：**
+- [决定 1]：我们选择 [方法 A] 而不是 [方法 B]，因为 [原因]。权衡：[我们放弃什么]。
+- [决定 2]：我们将 [X] 推迟到 v2，因为 [原因]。
+
+---
+
+### 6. 技术注意事项
+
+**依赖关系**：
+- [系统/团队/API] — [原因]所需 — 所有者：[名称] — 时间线风险：[高/中/低]
+
+**已知风险**：
+|风险|可能性 |影响 |缓解措施 |
 |------|------------|--------|------------|
-| Third-party API rate limits | Medium | High | Implement request queuing + fallback cache |
-| Data migration complexity | Low | High | Spike in Week 1 to validate approach |
+|第三方 API 速率限制 |中等|高|实现请求排队+回退缓存 |
+|数据迁移复杂度|低|高|第一周激增以验证方法 |
 
-**Open Questions** (must resolve before dev start):
-- [ ] [Question] — Owner: [name] — Deadline: [date]
-- [ ] [Question] — Owner: [name] — Deadline: [date]
-
----
-
-### 7. Launch Plan
-
-| Phase | Date | Audience | Success Gate |
-|-------|------|----------|-------------|
-| Internal alpha | [date] | Team + 5 design partners | No P0 bugs, core flow complete |
-| Closed beta | [date] | 50 opted-in customers | <5% error rate, CSAT ≥ 4/5 |
-| GA rollout | [date] | 20% → 100% over 2 weeks | Metrics on target at 20% |
-
-**Rollback Criteria**: If [metric] drops below [threshold] or error rate exceeds [X]%, revert flag and page on-call.
+**开放问题**（必须在开发开始之前解决）：
+- [ ] [问题] — 所有者：[姓名] — 截止日期：[日期]
+- [ ] [问题] — 所有者：[姓名] — 截止日期：[日期]
 
 ---
 
-### 8. Appendix
+### 7. 启动计划
 
-- [User research session recordings / notes]
-- [Competitive analysis doc]
-- [Design mocks (Figma link)]
-- [Analytics dashboard link]
-- [Relevant support tickets]
+|相|日期 |观众|成功之门|
+|--------|------|----------|-------------|
+|内部阿尔法 | [日期] |团队+5位设计伙伴|无 P0 错误，核心流程完整 |
+|内测 | [日期] | 50 位选择加入的客户 | <5% 错误率，CSAT ≥ 4/5 |
+|正式发布 | [日期] | 2 周内 20% → 100% |指标目标为 20% |
+
+**回滚标准**：如果[指标]低于[阈值]或错误率超过[X]%，则恢复标志和呼叫呼叫。
+
+---
+
+### 8. 附录
+
+- [用户研究会议录音/笔记]
+- [竞品分析文档]
+- [设计模拟（Figma 链接）]
+- [分析仪表板链接]
+- [相关支持票]
 ```
 
 ---
@@ -105,74 +105,74 @@ Core user stories with acceptance criteria:
 ### 机会评估
 
 ```markdown
-# Opportunity Assessment: [Name]
-**Submitted by**: [PM]  **Date**: [date]  **Decision needed by**: [date]
+# 机会评估：[名称]
+**提交者**：[PM] **日期**：[日期] **需要做出的决定**：[日期]
 
 ---
 
-### 1. Why Now?
+### 1. 为什么是现在？
 
-What market signal, user behavior shift, or competitive pressure makes this urgent today?
-What happens if we wait 6 months?
-
----
-
-### 2. User Evidence
-
-**Interviews** (n=X):
-- Key theme 1: "[representative quote]" — observed in X/Y sessions
-- Key theme 2: "[representative quote]" — observed in X/Y sessions
-
-**Behavioral Data**:
-- [Metric]: [current state] — indicates [interpretation]
-- [Funnel step]: X% drop-off — [hypothesis about cause]
-
-**Support Signal**:
-- X tickets/month containing [theme] — [% of total volume]
-- NPS detractor comments: [recurring theme]
+什么样的市场信号、用户行为转变或竞争压力使得这一问题在今天变得紧迫？
+如果我们等待 6 个月会发生什么？
 
 ---
 
-### 3. Business Case
+### 2. 用户证据
 
-- **Revenue impact**: [Estimated ARR lift, churn reduction, or upsell opportunity]
-- **Cost impact**: [Support cost reduction, infra savings, etc.]
-- **Strategic fit**: [Connection to current OKRs — quote the objective]
-- **Market sizing**: [TAM/SAM context relevant to this feature space]
+**访谈** (n=X)：
+- 关键主题 1：“[代表性报价]”——在 X/Y 会议中观察到
+- 关键主题 2：“[代表性报价]”——在 X/Y 会议中观察到
 
----
+**行为数据**：
+- [Metric]: [当前状态] — 表示[解释]
+- [漏斗步骤]：X% 下降 — [关于原因的假设]
 
-### 4. RICE Prioritization Score
-
-| Factor | Value | Notes |
-|--------|-------|-------|
-| Reach | [X users/quarter] | Source: [analytics / estimate] |
-| Impact | [0.25 / 0.5 / 1 / 2 / 3] | [justification] |
-| Confidence | [X%] | Based on: [interviews / data / analogous features] |
-| Effort | [X person-months] | Engineering t-shirt: [S/M/L/XL] |
-| **RICE Score** | **(R × I × C) ÷ E = XX** | |
+**支持信号**：
+- X 票/月，包含 [主题] — [总数量的%]
+- NPS 批评者评论：[反复出现的主题]
 
 ---
 
-### 5. Options Considered
+### 3. 商业案例
 
-| Option | Pros | Cons | Effort |
+- **收入影响**：[预计 ARR 提升、客户流失减少或追加销售机会]
+- **成本影响**：[支持降低成本、节省基础设施等]
+- **战略契合**：[与当前 OKR 的联系 — 引用目标]
+- **市场规模**：[与此功能空间相关的 TAM/SAM 上下文]
+
+---
+
+### 4. RICE 优先级分数
+
+|因素|价值|笔记|
+|--------|--------|--------|
+|到达| [X 用户/季度] |来源：[分析/估计]|
+|影响 | [0.25 / 0.5 / 1 / 2 / 3] | [理由] |
+|信心| [X%] |基于：[访谈/数据/类似特征] |
+|努力| [X 人月] |工程T恤：[S/M/L/XL] |
+| **大米分数** | **(R × I × C) ÷ E = XX** | |
+
+---
+
+### 5. 考虑的选项
+
+|选项 |优点 |缺点 |努力|
 |--------|------|------|--------|
-| Build full feature | [pros] | [cons] | L |
-| MVP / scoped version | [pros] | [cons] | M |
-| Buy / integrate partner | [pros] | [cons] | S |
-| Defer 2 quarters | [pros] | [cons] | — |
+|构建全功能 | [优点] | [缺点] |左 |
+| MVP / 范围版本 | [优点] | [缺点] |中号 |
+|购买/整合合作伙伴| [优点] | [缺点] | S |
+|推迟 2 个季度 | [优点] | [缺点] | — |
 
 ---
 
-### 6. Recommendation
+### 6.推荐
 
-**Decision**: Build / Explore further / Defer / Kill
+**决定**：构建/进一步探索/推迟/杀死
 
-**Rationale**: [2–3 sentences on why this recommendation, what evidence drives it, and what would change the decision]
+**理由**：[2-3 句话说明为何提出此建议、哪些证据推动该建议以及什么会改变决定]
 
-**Next step if approved**: [e.g., "Schedule design sprint for Week of [date]"]
-**Owner**: [name]
+**如果获得批准，下一步**：[例如，“安排 [日期] 周的设计冲刺”]
+**所有者**：[姓名]
 ```
 
 ---
@@ -180,67 +180,67 @@ What happens if we wait 6 months?
 ### 路线图（现在/下一步/以后）
 
 ```markdown
-# Product Roadmap — [Team / Product Area] — [Quarter Year]
+# 产品路线图 — [团队/产品领域] — [季度]
 
-### North Star Metric
+### 北极星指标
 
-[The single metric that best captures whether users are getting value and the business is healthy]
-**Current**: [value]  **Target by EOY**: [value]
+[最能体现用户是否获得价值以及业务是否健康的单一指标]
+**当前**：[值] **EOY 目标**：[值]
 
-### Supporting Metrics Dashboard
+### 支持指标仪表板
 
-| Metric | Current | Target | Trend |
-|--------|---------|--------|-------|
-| [Activation rate] | X% | Y% | ↑/↓/→ |
-| [Retention D30] | X% | Y% | ↑/↓/→ |
-| [Feature adoption] | X% | Y% | ↑/↓/→ |
-| [NPS] | X | Y | ↑/↓/→ |
-
----
-
-### Now — Active This Quarter
-
-Committed work. Engineering, design, and PM fully aligned.
-
-| Initiative | User Problem | Success Metric | Owner | Status | ETA |
-|------------|-------------|----------------|-------|--------|-----|
-| [Feature A] | [pain solved] | [metric + target] | [name] | In Dev | Week X |
-| [Feature B] | [pain solved] | [metric + target] | [name] | In Design | Week X |
-| [Tech Debt X] | [engineering health] | [metric] | [name] | Scoped | Week X |
+|公制|当前|目标|趋势 |
+|--------|---------|--------|--------|
+| [激活率] | X% |是% | ↑/↓/→ |
+| [保留D30] | X% |是% | ↑/↓/→ |
+| [功能采用] | X% |是% | ↑/↓/→ |
+| [NPS] | X |是 | ↑/↓/→ |
 
 ---
 
-### Next — Next 1–2 Quarters
+### 现在 — 本季度活跃
 
-Directionally committed. Requires scoping before dev starts.
+致力于工作。工程、设计和 PM 完全一致。
 
-| Initiative | Hypothesis | Expected Outcome | Confidence | Blocker |
+|倡议|用户问题 |成功指标|业主|状态 |预计到达时间 |
+|------------|-------------|----------------|--------|--------|-----|
+| [功能A] | [痛点解决]| [指标+目标] | [姓名] |在开发中|第 X 周 |
+| [功能B] | [痛点解决]| [指标+目标] | [姓名] |在设计中|第 X 周 |
+| [科技债务X] | [工程健康]| [公制] | [姓名] |范围 |第 X 周 |
+
+---
+
+### 接下来 — 接下来 1–2 个季度
+
+定向致力于。需要在开发开始之前确定范围。
+
+|倡议|假设|预期结果 |信心|拦截器 |
 |------------|------------|-----------------|------------|---------|
-| [Feature C] | [If we build X, users will Y] | [metric target] | High | None |
-| [Feature D] | [If we build X, users will Y] | [metric target] | Med | Needs design spike |
-| [Feature E] | [If we build X, users will Y] | [metric target] | Low | Needs user validation |
+| [功能C]| [如果我们构建 X，用户就会 Y] | [度量目标] |高|无 |
+| [特征D] | [如果我们构建 X，用户就会 Y] | [度量目标] |医学|需求设计秒杀|
+| [功能E] | [如果我们构建 X，用户就会 Y] | [度量目标] |低|需要用户验证 |
 
 ---
 
-### Later — 3–6 Month Horizon
+### 稍后 — 3-6 个月范围
 
-Strategic bets. Not scheduled. Will advance to Next when evidence or priority warrants.
+战略赌注。没有预定。当证据或优先权有保证时，将前进到下一步。
 
-| Initiative | Strategic Hypothesis | Signal Needed to Advance |
+|倡议|战略假设|前进需要信号|
 |------------|---------------------|--------------------------|
-| [Feature F] | [Why this matters long-term] | [Interview signal / usage threshold / competitive trigger] |
-| [Feature G] | [Why this matters long-term] | [What would move it to Next] |
+| [功能F] | [为什么这对长期很重要] | [面试信号/使用门槛/竞争触发]|
+| [功能G] | [为什么这对长期很重要] | [什么会将其移至下一个] |
 
 ---
 
-### What We're Not Building (and Why)
+### 我们没有构建什么（以及为什么）
 
-Saying no publicly prevents repeated requests and builds trust.
+公开说“不”可以防止重复请求并建立信任。
 
-| Request | Source | Reason for Deferral | Revisit Condition |
-|---------|--------|---------------------|-------------------|
-| [Request X] | [Sales / Customer / Eng] | [reason] | [condition that would change this] |
-| [Request Y] | [Source] | [reason] | [condition] |
+|请求|来源 |延期原因 |重新审视状况 |
+|--------|--------|--------------------|--------------------|
+| [请求X] | [销售/客户/英语] | [原因] | [会改变这一点的条件]|
+| [请求是] | [来源] | [原因]| [状况] |
 ```
 
 ---
@@ -248,82 +248,82 @@ Saying no publicly prevents repeated requests and builds trust.
 ### 上市简介
 
 ```markdown
-# Go-to-Market Plan: [Feature / Product Name]
-**Launch Date**: [date]  **Launch Tier**: 1 (Major) / 2 (Standard) / 3 (Silent)
-**PM Owner**: [name]  **Marketing DRI**: [name]  **Eng DRI**: [name]
+# 上市计划：[功能/产品名称]
+**启动日期**：[日期] **启动级别**：1（主要）/ 2（标准）/ 3（静音）
+**PM 所有者**：[姓名] **营销 DRI**：[姓名] **工程 DRI**：[姓名]
 
 ---
 
-### 1. What We're Launching
+### 1. 我们将推出什么
 
-[One paragraph: what it is, what user problem it solves, and why it matters now]
-
----
-
-### 2. Target Audience
-
-| Segment | Size | Why They Care | Channel to Reach |
-|---------|------|---------------|-----------------|
-| Primary: [Persona] | [# users / % base] | [pain solved] | [channel] |
-| Secondary: [Persona] | [# users] | [benefit] | [channel] |
-| Expansion: [New segment] | [opportunity] | [hook] | [channel] |
+[一段：它是什么，它解决了什么用户问题，以及为什么它现在很重要]
 
 ---
 
-### 3. Core Value Proposition
+### 2. 目标受众
 
-**One-liner**: [Feature] helps [persona] [achieve specific outcome] without [current pain/friction].
-
-**Messaging by audience**:
-| Audience | Their Language for the Pain | Our Message | Proof Point |
-|----------|-----------------------------|-------------|-------------|
-| End user (daily) | [how they describe the problem] | [message] | [quote / stat] |
-| Manager / buyer | [business framing] | [ROI message] | [case study / metric] |
-| Champion (internal seller) | [what they need to convince peers] | [social proof] | [customer logo / win] |
+|细分 |尺寸|为什么他们关心|到达渠道|
+|--------|------|----------------|------|
+|主要：[角色] | [# 用户/% 基数] | [痛点解决]| [频道] |
+|次要：[人物]| [# 用户] | [好处]| [频道] |
+|扩展：[新片段]| [机会] | [挂钩]| [频道] |
 
 ---
 
-### 4. Launch Checklist
+### 3. 核心价值主张
 
-**Engineering**:
-- [ ] Feature flag enabled for [cohort / %] by [date]
-- [ ] Monitoring dashboards live with alert thresholds set
-- [ ] Rollback runbook written and reviewed
+**一句话**：[功能]有助于[角色][实现特定结果]，而无需[当前的痛苦/摩擦]。
 
-**Product**:
-- [ ] In-app announcement copy approved (tooltip / modal / banner)
-- [ ] Release notes written
-- [ ] Help center article published
-
-**Marketing**:
-- [ ] Blog post drafted, reviewed, scheduled for [date]
-- [ ] Email to [segment] approved — send date: [date]
-- [ ] Social copy ready (LinkedIn, Twitter/X)
-
-**Sales / CS**:
-- [ ] Sales enablement deck updated by [date]
-- [ ] CS team trained — session scheduled: [date]
-- [ ] FAQ document for common objections published
+**观众留言**：
+|观众|他们表达痛苦的语言|我们的讯息 |证明点|
+|----------|-----------------------------|-------------|--------------|
+|最终用户（每日）| [他们如何描述问题] | [留言] | [报价/统计] |
+|经理/采购员| [业务框架]| [投资回报率消息] | [案例研究/指标] |
+|冠军（内部卖家）| [他们需要什么来说服同行] | [社会证明] | [客户标志/获胜] |
 
 ---
 
-### 5. Success Criteria
+### 4. 启动清单
 
-| Timeframe | Metric | Target | Owner |
-|-----------|--------|--------|-------|
-| Launch day | Error rate | < 0.5% | Eng |
-| 7 days | Feature activation (% eligible users who try it) | ≥ 20% | PM |
-| 30 days | Retention of feature users vs. control | +8pp | PM |
-| 60 days | Support tickets on related topic | −30% | CS |
-| 90 days | NPS delta for feature users | +5 points | PM |
+**工程**：
+- [日期] 为 [同类/%] 启用 [ ] 功能标志
+- [ ] 实时监控仪表板并设置警报阈值
+- [ ] 编写和审查回滚操作手册
+
+**产品**：
+- [ ] 应用内公告文案已获批准（工具提示/模式/横幅）
+- [ ] 编写的发行说明
+- [ ] 帮助中心文章发布
+
+**营销**：
+- [ ] 博客文章已起草、审核，计划于 [日期]
+- [ ] 发送电子邮件至 [segment] 已获批准 — 发送日期：[日期]
+- [ ] 社交文案就绪（LinkedIn、Twitter/X）
+
+**销售/客户服务**：
+- [ ] 销售支持平台于 [日期] 更新
+- [ ] CS 团队接受培训 — 课程安排：[日期]
+- [ ] 已发布针对常见异议的常见问题解答文档
 
 ---
 
-### 6. Rollback & Contingency
+### 5. 成功标准
 
-- **Rollback trigger**: Error rate > X% OR [critical metric] drops below [threshold]
-- **Rollback owner**: [name] — paged via [channel]
-- **Communication plan if rollback**: [who to notify, template to use]
+|时间表 |公制|目标|业主|
+|------------|--------|--------|--------|
+|发布日 |错误率| < 0.5% |英语 |
+| 7 天 |功能激活（尝试该功能的合格用户百分比）| ≥ 20% |下午 |
+| 30 天 |保留功能用户与控制权| +8页 |下午 |
+| 60 天 |相关主题的支持票 | −30% |计算机科学 |
+| 90 天 |功能用户的 NPS 增量 | +5 分 |下午 |
+
+---
+
+### 6. 回滚和意外事件
+
+- **回滚触发**：错误率 > X% 或 [关键指标] 降至 [阈值] 以下
+- **回滚所有者**：[名称] — 通过[频道]寻呼
+- **回滚时的沟通计划**：[通知谁，使用模板]
 ```
 
 ---
@@ -331,33 +331,33 @@ Saying no publicly prevents repeated requests and builds trust.
 ### 冲刺健康快照
 
 ```markdown
-# Sprint Health Snapshot — Sprint [N] — [Dates]
+# Sprint 运行状况快照 — Sprint [N] — [日期]
 
-### Committed vs. Delivered
+### 承诺与交付
 
-| Story | Points | Status | Blocker |
-|-------|--------|--------|---------|
-| [Story A] | 5 | ✅ Done | — |
-| [Story B] | 8 | 🔄 In Review | Waiting on design sign-off |
-| [Story C] | 3 | ❌ Carried | External API delay |
+|故事|积分|状态 |拦截器 |
+|--------|--------|--------|---------|
+| [故事A] | 5 | ✅ 完成 | — |
+| [故事B]| 8 | 🔄 回顾中 |等待设计签核|
+| [故事C]| 3 | ❌ 携带 |外部API延迟|
 
-**Velocity**: [X] pts committed / [Y] pts delivered ([Z]% completion)
-**3-sprint rolling avg**: [X] pts
+**速度**：已提交的 [X] 分 / 已交付的 [Y] 分（完成率 [Z]%）
+**3 冲刺平均滚动**：[X] 分
 
-### Blockers & Actions
+### 拦截器和操作
 
-| Blocker | Impact | Owner | ETA to Resolve |
-|---------|--------|-------|---------------|
-| [Blocker] | [scope affected] | [name] | [date] |
+|拦截器 |影响 |业主|预计到达时间 |
+|--------|--------|--------|---------------|
+| [拦截器] | [受影响范围] | [姓名] | [日期] |
 
-### Scope Changes This Sprint
+### 范围改变了本 Sprint
 
-| Request | Source | Decision | Rationale |
-|---------|--------|----------|-----------|
-| [Request] | [name] | Accept / Defer | [reason] |
+|请求|来源 |决定|理由|
+|--------|--------|----------|-----------|
+| [请求] | [姓名] |接受/推迟| [原因]|
 
-### Risks Entering Next Sprint
+### 进入下一个冲刺的风险
 
-- [Risk 1]: [mitigation in place]
-- [Risk 2]: [owner tracking]
+- [风险1]：[缓解到位]
+- [风险2]：[所有者追踪]
 ```

@@ -195,21 +195,28 @@ export function AgentsScreen() {
             </div>
           </div>
 
-          <div className="mt-6 space-y-5">
-            <SystemAgentNavigationPanel
-              query={activeQuery}
-              collectionOptions={systemCollectionOptions}
-              groupOptions={visibleSystemGroupOptions}
-              selectedCollectionId={effectiveSelectedSystemCollectionId}
-              selectedGroupId={effectiveSelectedSystemGroupId}
-              activeCollection={activeSystemCollectionOption}
-              onSelectCollection={handleSelectSystemCollection}
-              onSelectGroup={handleSelectSystemGroup}
-              totalGroupCount={systemGroupOptions.length}
-              totalSystemAgentCount={systemAgentCount}
-              visibleAgentCount={visibleSystemAgents.length}
-            />
+          {!isSearching ? (
+            <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-line/70 pt-5">
+              <span className="text-[12px] font-medium text-muted-strong">系统集合</span>
+              <CollectionSegmentButton
+                label="全部系统"
+                count={systemAgentCount}
+                isActive={effectiveSelectedSystemCollectionId === "all"}
+                onClick={() => handleSelectSystemCollection("all")}
+              />
+              {systemCollectionOptions.map((collection) => (
+                <CollectionSegmentButton
+                  key={collection.id}
+                  label={collection.displayLabel}
+                  count={collection.count}
+                  isActive={effectiveSelectedSystemCollectionId === collection.id}
+                  onClick={() => handleSelectSystemCollection(collection.id)}
+                />
+              ))}
+            </div>
+          ) : null}
 
+          <div className="mt-6 space-y-5">
             {groupedSystemAgents.length === 0 ? (
               <div className="rounded-[22px] border border-dashed border-line bg-surface-muted px-5 py-7 text-[14px] text-muted-strong">
                 {query ? "没有匹配的系统智能体" : "当前没有系统智能体"}
@@ -327,91 +334,6 @@ function OverviewStrip({
           </div>
         ))}
       </div>
-    </section>
-  );
-}
-
-function SystemAgentNavigationPanel({
-  query,
-  collectionOptions,
-  groupOptions,
-  selectedCollectionId,
-  selectedGroupId,
-  activeCollection,
-  onSelectCollection,
-  onSelectGroup,
-  totalGroupCount,
-  totalSystemAgentCount,
-  visibleAgentCount,
-}: {
-  query: string;
-  collectionOptions: ReturnType<typeof buildSystemCollectionOptions>;
-  groupOptions: ReturnType<typeof buildSystemGroupOptions>;
-  selectedCollectionId: string;
-  selectedGroupId: string;
-  activeCollection: ReturnType<typeof buildSystemCollectionOptions>[number] | null;
-  onSelectCollection: (collectionId: string) => void;
-  onSelectGroup: (groupId: string) => void;
-  totalGroupCount: number;
-  totalSystemAgentCount: number;
-  visibleAgentCount: number;
-}) {
-  const selectValue = selectedGroupId === "all" ? "all" : selectedGroupId;
-  const toolbarHint = query.trim()
-    ? "搜索会自动跨全部集合和职能匹配结果，方便直接定位具体角色。"
-    : activeCollection
-      ? `当前锁定在 ${activeCollection.displayLabel}，建议先选职能，再进入具体角色。`
-      : "默认先看职能目录，不直接铺开全部角色，浏览会更轻。";
-
-  return (
-    <section className="rounded-[24px] border border-line bg-[#fbfaf7] p-5">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div className="min-w-0">
-          <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted">系统导航</div>
-          <h3 className="mt-2 text-[18px] font-semibold tracking-[-0.03em] text-text">先选集合，再进职能</h3>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <CollectionSegmentButton
-              label="全部系统"
-              count={totalSystemAgentCount}
-              isActive={selectedCollectionId === "all"}
-              onClick={() => onSelectCollection("all")}
-            />
-            {collectionOptions.map((collection) => (
-              <CollectionSegmentButton
-                key={collection.id}
-                label={collection.displayLabel}
-                count={collection.count}
-                isActive={selectedCollectionId === collection.id}
-                onClick={() => onSelectCollection(collection.id)}
-              />
-            ))}
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <label className="flex min-w-[220px] items-center gap-3 rounded-[18px] border border-line bg-white px-4 py-3 text-[13px] text-muted-strong">
-            <span className="shrink-0 font-medium text-text">职能组</span>
-            <select
-              value={selectValue}
-              onChange={(event) => onSelectGroup(event.target.value)}
-              className="w-full bg-transparent text-text outline-none"
-            >
-              <option value="all">
-                {activeCollection ? "这个集合的全部职能" : "全部系统职能"}
-              </option>
-              {groupOptions.map((group) => (
-                <option key={group.id} value={group.id}>
-                  {group.label}
-                  {selectedCollectionId === "all" ? ` · ${group.collectionDisplayLabel}` : ""} · {group.count}
-                </option>
-              ))}
-            </select>
-          </label>
-          <MetaPill>{query.trim() ? `${visibleAgentCount} 个匹配结果` : `${groupOptions.length} 个职能组`}</MetaPill>
-        </div>
-      </div>
-
-      <p className="mt-4 text-[13px] leading-6 text-muted-strong">{toolbarHint}</p>
     </section>
   );
 }

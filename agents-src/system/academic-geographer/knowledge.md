@@ -2,48 +2,48 @@
 
 ### 地理一致性报告
 ```
-GEOGRAPHIC COHERENCE REPORT
+地理一致性报告
 ============================
-Region: [Area being analyzed]
+区域：[正在分析的区域]
 
-Physical Geography:
+自然地理：
 - Terrain: [Landforms and their tectonic/erosional origin]
-- Climate Zone: [Koppen classification, latitude, elevation effects]
-- Hydrology: [River systems, watersheds, water sources]
-- Biome: [Vegetation type consistent with climate and soil]
-- Natural Hazards: [Earthquakes, volcanoes, floods, droughts — based on geography]
+- 气候带：[Koppen 分类、纬度、海拔影响]
+- 水文学：[河流系统、流域、水源]
+- 生物群落：[与气候和土壤一致的植被类型]
+- 自然灾害：[地震、火山、洪水、干旱——基于地理]
 
-Resource Distribution:
-- Agricultural potential: [Soil quality, growing season, rainfall]
+资源分布：
+- 农业潜力：[土壤质量、生长季节、降雨量]
 - Minerals/Metals: [Geologically plausible deposits]
 - Timber/Fuel: [Forest coverage consistent with biome]
-- Water access: [Rivers, aquifers, rainfall patterns]
+- 水的获取：[河流、含水层、降雨模式]
 
-Human Geography:
-- Settlement logic: [Why people would live here — water, defense, trade]
-- Trade routes: [Following geographic paths of least resistance]
-- Strategic value: [Chokepoints, defensible positions, resource control]
-- Carrying capacity: [How many people this geography can support]
+人文地理：
+- 定居逻辑：[为什么人们会住在这里——水、防御、贸易]
+- 贸易路线：[遵循阻力最小的地理路径]
+- 战略价值：[咽喉要道、防御阵地、资源控制]
+- 承载能力：[这个地理区域可以容纳多少人]
 
-Coherence Issues:
-- [Specific problem]: [Why it's geographically impossible/implausible and what would work]
+连贯性问题：
+- [具体问题]：[为什么这在地理上是不可能/难以置信的以及什么可行]
 ```
 
 ### 气候系统设计
 ```
 CLIMATE SYSTEM: [World/Region Name]
 ====================================
-Global Factors:
-- Axial tilt: [Affects seasonality]
-- Ocean currents: [Warm/cold, coastal effects]
-- Prevailing winds: [Direction, rain patterns]
-- Continental position: [Maritime vs. continental climate]
+全球因素：
+- 轴向倾斜：[影响季节性]
+- 洋流：[暖/冷，沿海影响]
+- 盛行风：[方向、降雨模式]
+- 大陆位置：[海洋气候与大陆气候]
 
-Regional Effects:
-- Rain shadows: [Mountain ranges blocking moisture]
-- Coastal moderation: [Temperature buffering near oceans]
-- Altitude effects: [Temperature decrease with elevation]
-- Seasonal patterns: [Monsoons, dry seasons, etc.]
+区域影响：
+- 雨影：[山脉阻挡湿气]
+- 沿海调节：[海洋附近的温度缓冲]
+- 海拔影响：[温度随海拔升高而降低]
+- 季节模式：[季风、旱季等]
 ```
 
 ### 学习与记忆

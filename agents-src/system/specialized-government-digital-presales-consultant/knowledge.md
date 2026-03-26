@@ -3,192 +3,192 @@
 ### 技术提案大纲模板
 
 ```markdown
-# [Project Name] Technical Proposal
+# [项目名称] 技术方案
 
-### Chapter 1: Project Overview
+### 第一章：项目概述
 
-### 1.1 Project Background
-- Policy background (aligned with national/provincial/municipal policy documents)
-- Business background (core problems facing the client)
-- Construction objectives (quantifiable target metrics)
+### 1.1 项目背景
+- 政策背景（符合国家/省/市政策文件）
+- 业务背景（客户面临的核心问题）
+- 建设目标（可量化的指标目标）
 
-### 1.2 Scope of Construction
-- Overall construction content summary table
-- Relationship with the client's existing systems
+### 1.2 建设范围
+- 建设内容总体摘要表
+- 与客户现有系统的关系
 
-### 1.3 Construction Principles
-- Coordinated planning, intensive construction
-- Secure and controllable, independently reliable (Xinchuang requirements)
-- Open sharing, collaborative linkage
-- People-oriented, convenient and efficient
+### 1.3 建设原则
+- 协调规划，集约建设
+- 安全可控，自主可依（Xinchuang 需求）
+- 开放共享，协作联动
+- 以人为本，便捷高效
 
-### Chapter 2: Overall Design
+### 第二章：总体设计
 
-### 2.1 Overall Architecture
-- Technical architecture diagram (layered: infrastructure / data / platform / application / presentation)
-- Business architecture diagram (process perspective)
-- Data architecture diagram (data flow perspective)
+### 2.1 全局架构
+- 技术架构图（分层：基础设施 / 数据 / 平台 / 应用 / 展示）
+- 业务架构图（流程视角）
+- 数据架构图（数据流视角）
 
-### 2.2 Technology Roadmap
-- Technology selection and rationale
-- Xinchuang adaptation plan
-- Integration plan with existing systems
+### 2.2 技术路线图
+- 技术选型及理由
+- Xinchuang 适配方案
+- 与现有系统的集成计划
 
-### Chapter 3: Detailed Design
+### 第三章：详细设计
 
-### 3.1 [Subsystem 1] Detailed Design
-- Feature list
-- Business processes
-- Interface design
-- Data model
-### 3.2 [Subsystem 2] Detailed Design
-(Same structure as above)
+### 3.1 [子系统一] 详细设计
+- 功能清单
+- 业务流程
+- 界面设计
+- 数据模型
+### 3.2 [子系统二] 详细设计
+（与上述结构相同）
 
-### Chapter 4: Security Assurance Plan
+### 第四章：安全保障方案
 
-### 4.1 Security Architecture Design
-### 4.2 Dengbao Level 3 Compliance Design
-### 4.3 Cryptographic Application Plan (Guomi Algorithms)
-### 4.4 Data Security & Privacy Protection
+### 4.1 安全架构设计
+### 4.2 灯保三级合规设计
+### 4.3 密码应用方案（国密算法）
+### 4.4 数据安全与隐私保护
 
-### Chapter 5: Project Implementation Plan
+### 第五章：项目实施计划
 
-### 5.1 Implementation Methodology
-### 5.2 Project Organization & Staffing
-### 5.3 Implementation Schedule & Milestones
-### 5.4 Risk Management
-### 5.5 Training Plan
-### 5.6 Acceptance Criteria
+### 5.1 实施方法论
+### 5.2 项目组织与人员安排
+### 5.3 实施时间表与里程碑
+### 5.4 风险管理
+### 5.5 培训方案
+### 5.6 验收标准
 
-### Chapter 6: Operations & Maintenance Plan
+### 第六章：运维保障方案
 
-### 6.1 O&M Framework
-### 6.2 SLA Commitments
-### 6.3 Emergency Response Plan
+### 6.1 运维架构
+### 6.2 服务水平协议（SLA）承诺
+### 6.3 紧急响应预案
 
-### Chapter 7: Reference Cases
+### 第七章：典型案例
 
-### 7.1 [Benchmark Case 1]
-- Project background
-- Scope of construction
-- Results achieved (data-driven)
-### 7.2 [Benchmark Case 2]
+### 7.1 [标杆案例一]
+- 项目背景
+- 建设范围
+- 取得成果（数据驱动）
+### 7.2 [标杆案例二]
 ```
 
 ### 投标文件清单
 
 ```markdown
-# Bid Document Checklist
+# 投标文件清单
 
-### Qualifications (Disqualification Items — verify each one)
+### 资格证明（不合格项 — 请逐项核查）
 
-- [ ] Business license (scope of operations covers bid requirements)
-- [ ] Relevant certifications (CMMI, ITSS, system integration qualifications, etc.)
-- [ ] Dengbao assessment qualifications (if the bidder must hold them)
-- [ ] Xinchuang adaptation certification / compatibility reports
-- [ ] Financial audit reports for the past 3 years
-- [ ] Declaration of no major legal violations
-- [ ] Social insurance / tax payment certificates
-- [ ] Power of attorney (if not signed by the legal representative)
-- [ ] Consortium agreement (if bidding as a consortium)
+- [ ] 营业执照（经营范围涵盖投标需求）
+- [ ] 相关证书（CMMI、ITSS、系统集成资质等）
+- [ ] 灯保评估资格证（投标人须持有）
+- [ ] Xinchuang 适配认证/兼容性报告
+- [ ] 近3年财务审计报告
+- [ ] 无重大法律违规声明
+- [ ] 社会保险/税务缴纳证明
+- [ ] 授权委托书（非法定代表人签署）
+- [ ] 联合体协议（如以联合体投标）
 
-### Technical Proposal
+### 技术方案
 
-- [ ] Does it respond point-by-point to the bid document's technical requirements?
-- [ ] Are architecture diagrams complete and clear (overall / network topology / deployment)?
-- [ ] Does the Xinchuang plan specify product models and compatibility details?
-- [ ] Are Dengbao/Miping designs covered in a dedicated chapter?
-- [ ] Does the implementation plan include a Gantt chart and milestones?
-- [ ] Does the project team section include personnel resumes and certifications?
-- [ ] Are case studies supported by contracts / acceptance reports?
+- [ ] 是否逐项响应投标文件中的技术要求？
+- [ ] 架构图是否完整清晰（整体 / 网络拓扑 / 部署）
+- [ ] Xinchuang 方案是否标明产品型号及兼容性细节？
+- [ ] 灯保/密评设计是否涵盖专门章节？
+- [ ] 实施方案是否含有甘特图与里程碑节点？
+- [ ] 项目团队部分是否包含人员简历及资质证书？
+- [ ] 案例支持是否有合同/验收报告为凭证？
 
-### Commercial
+### 商务部分
 
-- [ ] Is the quoted price within the budget control limit?
-- [ ] Does the pricing breakdown match the bill of materials in the technical proposal?
-- [ ] Do payment terms respond to the bid document's requirements?
-- [ ] Does the warranty period meet requirements?
-- [ ] Is there risk of unreasonably low pricing?
+- [ ] 报价是否控制在预算范围内？
+- [ ] 价格构成是否与技术方案中的物料清单对应？
+- [ ] 付款条款是否符合投标文件要求？
+- [ ] 保修期是否满足要求？
+- [ ] 是否存在低于成本的风险？
 
-### Formatting
+### 格式要求
 
-- [ ] Continuous page numbering, table of contents matches content
-- [ ] All signatures and stamps are complete (including spine stamps)
-- [ ] Correct number of originals / copies
-- [ ] Sealing meets requirements
-- [ ] Bid bond has been paid
-- [ ] Electronic version matches the print version
+- [ ] 页码连续、目录与内容对应
+- [ ] 所有签字及公章齐全（含封面章）
+- [ ] 正副本数量符合要求
+- [ ] 密封符合规定
+- [ ] 投标保证金已缴纳
+- [ ] 电子版与纸质版一致
 ```
 
 ### 登宝新创合规矩阵
 
 ```markdown
-# Compliance Check Matrix
+# 合规检查矩阵
 
-### Dengbao 2.0 Level 3 Key Controls
+### 灯保 2.0 三级重点控制
 
-| Security Domain | Control Requirement | Proposed Measure | Product/Component | Status |
-|-----------------|-------------------|------------------|-------------------|--------|
-| Secure Communications | Network architecture security | Security zone segmentation, VLAN isolation | Firewall / switches | |
-| Secure Communications | Transmission security | SM4 encrypted transmission | Guomi VPN gateway | |
-| Secure Boundary | Boundary protection | Access control policies | Next-gen firewall | |
-| Secure Boundary | Intrusion prevention | IDS/IPS deployment | Intrusion detection system | |
-| Secure Computing | Identity authentication | Two-factor authentication | Guomi CA + dynamic token | |
-| Secure Computing | Data integrity | SM3 checksum verification | Guomi middleware | |
-| Secure Computing | Data backup & recovery | Local + offsite backup | Backup appliance | |
-| Security Mgmt Center | Centralized management | Unified security management platform | SIEM/SOC platform | |
-| Security Mgmt Center | Audit management | Centralized log collection & analysis | Log audit system | |
+| 安全域 | 控制要求 | 拟采取措施 | 产品/组件 | 状态 |
+|---------|------------|--------------|--------------|--------|
+| 安全通信 | 网络架构安全 | 安全区域划分，VLAN隔离 | 防火墙 / 交换机 | |
+| 安全通信 | 传输安全 | SM4加密传输 | 国密VPN网关 | |
+| 安全边界 | 边界保护 | 访问控制策略 | 新一代防火墙 | |
+| 安全边界 | 入侵防护 | IDS/IPS布署 | 入侵检测系统 | |
+| 安全计算 | 身份验证 | 双因素认证 | 国密CA + 动态令牌 | |
+| 安全计算 | 数据完整性 | SM3校验码验证 | 国密中间件 | |
+| 安全计算 | 数据备份与恢复 | 本地+异地备份 | 备份设备 | |
+| 安全管理中心 | 集中管理 | 统一安全管理平台 | SIEM/SOC平台 | |
+| 安全管理中心 | 审计管理 | 集中日志采集分析 | 审计系统 | |
 
-### Xinchuang Adaptation Checklist
+### Xinchuang 适配核查表
 
-| Layer | Component | Current Product | Xinchuang Alternative | Compatibility Test | Priority |
-|-------|-----------|----------------|----------------------|-------------------|----------|
-| Chip | CPU | Intel Xeon | Kunpeng 920 / Phytium S2500 | | P0 |
-| OS | Server OS | CentOS 7 | UnionTech UOS V20 / Kylin V10 | | P0 |
-| Database | RDBMS | MySQL / Oracle | DM8 (Dameng) / KingbaseES | | P0 |
-| Middleware | App Server | Tomcat | TongWeb (TongTech) / BES (BaoLanDe) | | P1 |
-| Middleware | Message Queue | RabbitMQ | Domestic alternative | | P2 |
-| Office | Office Suite | MS Office | WPS / Yozo Office | | P1 |
+| 层级 | 组件 | 当前产品 | Xinchuang 替代方案 | 兼容性测试 | 优先级 |
+|---------|-----------|----------------|------------------|--------------|---------|
+| 芯片 | CPU | Intel Xeon | 昆仑通道 920 / 飞腾 S2500 | | P0 |
+| 操作系统 | 服务器操作系统 | CentOS 7 | 统信UOS V20 / 麒麟V10 | | P0 |
+| 数据库 | 关系型数据库 | MySQL / Oracle | DM8（达梦） / 金仓ES | | P0 |
+| 中间件 | 应用服务器 | Tomcat | 通用Web（通T）/ 贝斯（宝Lan德） | | P1 |
+| 中间件 | 消息队列 | RabbitMQ | 国内替代方案 | | P2 |
+| 办公软件 | 办公套件 | MS Office | WPS / Yozo Office | | P1 |
 ```
 
 ### 机会评估模板
 
 ```markdown
-# Opportunity Assessment
+# 机会评估
 
-### Basic Information
+### 基本信息
 
-- Project Name:
-- Client Organization:
-- Budget Amount:
-- Funding Source: (Fiscal appropriation / Special fund / Local government bond / PPP)
-- Estimated Bid Timeline:
-- Project Category: (New build / Upgrade / O&M)
+- 项目名称：
+- 客户单位：
+- 预算金额：
+- 资金来源： （财政拨款 / 专项资金 / 地方政府债券 / PPP）
+- 预估投标时间：
+- 项目类别： （新建 / 升级 / 运行维护）
 
-### Competitive Analysis
+### 竞争情况分析
 
-| Dimension | Our Team | Competitor A | Competitor B |
-|-----------|----------|-------------|-------------|
-| Technical solution fit | | | |
-| Similar project cases | | | |
-| Local service capability | | | |
-| Client relationship foundation | | | |
-| Price competitiveness | | | |
-| Xinchuang compatibility | | | |
-| Qualification completeness | | | |
+| 维度 | 我方团队 | 竞争者A | 竞争者B |
+|--------|--------------|--------------|--------------|
+| 技术方案契合度 | | | |
+| 类似项目案例 | | | |
+| 本地服务能力 | | | |
+| 客户关系基础 | | | |
+| 价格竞争力 | | | |
+| Xinchuang 适配情况 | | | |
+| 资质完备程度 | | | |
 
-### Opportunity Scoring
+### 机会评分
 
-- Project authenticity score (1-5): (Is there a real budget? Is there a clear timeline?)
-- Our competitiveness score (1-5):
-- Client relationship score (1-5):
-- Investment vs. return assessment: (Estimated presales investment vs. expected project profit)
-- Overall recommendation: (Go all in / Selective participation / Recommend pass)
+- 项目真实度得分（1-5）：（是否有明确预算？时间节点清晰？）
+- 我方竞争力得分（1-5）：
+- 客户关系得分（1-5）：
+- 投资与回报评估： （预售投资和预期项目利润）
+- 综合建议： （全力以赴 / 重点参与 / 建议放弃）
 
-### Risk Flags
+### 风险提示
 
-- [ ] Are there obvious directional clauses favoring a competitor?
-- [ ] Has the client's funding been secured?
-- [ ] Is the project timeline realistic?
-- [ ] Are there mandatory Xinchuang requirements where we haven't completed adaptation?
+- [ ] 是否存在明显偏向竞争对手的导向条款？
+- [ ] 客户资金是否已落实？
+- [ ] 项目时间节点是否合理？
+- [ ] 是否存在未完成适配的硬性 Xinchuang 要求？
 ```
