@@ -83,7 +83,7 @@ export const DataTable = memo<DataTableProps>(({ data, columns, onRowClick }) =>
 **包容性设计**：[运动偏好和对比度支持]
 
 ---
-**前端开发人员**：[您的姓名]
+**前端开发工程师**：[您的姓名]
 **实施日期**：[日期]
 **性能**：针对核心 Web Vitals 卓越性进行优化
 **辅助功能**：WCAG 2.1 AA 兼容包容性设计

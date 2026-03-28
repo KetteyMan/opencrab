@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
     "192.168.3.37",
     "cadiboklkpojfamcoggejbbdjcoiljjk",
   ],
+  devIndicators: false,
 };
 
 export default nextConfig;
