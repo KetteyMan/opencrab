@@ -25,6 +25,8 @@ The generated PNGs keep the SVG transparency, so they work well on light and dar
 
 The white-background PNGs are flattened onto a solid white canvas for platforms that do not handle transparency well.
 
-The rounded white-background PNGs keep the same sizing but replace the hard canvas edges with transparent outer corners and a white rounded rectangle, which works better for badges, download cards, and app listings.
+The rounded white-background PNGs shrink the crab mark slightly and add more breathing room, which works better for badges, download cards, and app listings.
 
 The circular avatar PNGs use a white circular badge with transparent outer corners, which works well for profile images and app listings that should read as round instead of square.
+
+The desktop app icon source is generated separately with an even smaller mark ratio so the macOS Dock and Finder icon do not feel oversized next to other apps.

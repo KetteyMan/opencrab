@@ -7,6 +7,7 @@ OUTPUT_DIR="$ROOT_DIR/public/branding/png"
 WHITE_OUTPUT_DIR="$ROOT_DIR/public/branding/png-white"
 WHITE_ROUNDED_OUTPUT_DIR="$ROOT_DIR/public/branding/png-white-rounded"
 CIRCLE_OUTPUT_DIR="$ROOT_DIR/public/branding/png-circle"
+APP_OUTPUT_DIR="$ROOT_DIR/public/branding/png-app"
 MARK_SOURCE="$ROOT_DIR/public/opencrab-mark.svg"
 LOGO_SOURCE="$ROOT_DIR/public/opencrab-logo.svg"
 
@@ -19,6 +20,7 @@ mkdir -p "$OUTPUT_DIR"
 mkdir -p "$WHITE_OUTPUT_DIR"
 mkdir -p "$WHITE_ROUNDED_OUTPUT_DIR"
 mkdir -p "$CIRCLE_OUTPUT_DIR"
+mkdir -p "$APP_OUTPUT_DIR"
 
 mark_sizes=(16 32 48 64 128 180 192 256 512 1024)
 logo_sizes=(
@@ -41,7 +43,7 @@ for pair in "${logo_sizes[@]}"; do
     --out "$OUTPUT_DIR/opencrab-logo-${width}x${height}.png" >/dev/null
 done
 
-python3 - "$OUTPUT_DIR" "$WHITE_OUTPUT_DIR" "$WHITE_ROUNDED_OUTPUT_DIR" "$CIRCLE_OUTPUT_DIR" <<'PY'
+python3 - "$OUTPUT_DIR" "$WHITE_OUTPUT_DIR" "$WHITE_ROUNDED_OUTPUT_DIR" "$CIRCLE_OUTPUT_DIR" "$APP_OUTPUT_DIR" <<'PY'
 from pathlib import Path
 import sys
 
@@ -51,9 +53,11 @@ source_dir = Path(sys.argv[1])
 target_dir = Path(sys.argv[2])
 rounded_dir = Path(sys.argv[3])
 circle_dir = Path(sys.argv[4])
+app_dir = Path(sys.argv[5])
 target_dir.mkdir(parents=True, exist_ok=True)
 rounded_dir.mkdir(parents=True, exist_ok=True)
 circle_dir.mkdir(parents=True, exist_ok=True)
+app_dir.mkdir(parents=True, exist_ok=True)
 
 
 def visible_content(image: Image.Image) -> Image.Image:
@@ -61,6 +65,22 @@ def visible_content(image: Image.Image) -> Image.Image:
     if not alpha_bbox:
         return image
     return image.crop(alpha_bbox)
+
+
+def centered_scaled_content(
+    source: Image.Image,
+    canvas_size: tuple[int, int],
+    target_ratio: float,
+) -> tuple[Image.Image, tuple[int, int]]:
+    width, height = canvas_size
+    content = visible_content(source)
+    target_side = max(1, round(min(width, height) * target_ratio))
+    scale = min(target_side / content.width, target_side / content.height)
+    scaled_width = max(1, round(content.width * scale))
+    scaled_height = max(1, round(content.height * scale))
+    scaled = content.resize((scaled_width, scaled_height), Image.Resampling.LANCZOS)
+    offset = ((width - scaled_width) // 2, (height - scaled_height) // 2)
+    return scaled, offset
 
 for source_path in sorted(source_dir.glob("*.png")):
     image = Image.open(source_path).convert("RGBA")
@@ -70,8 +90,9 @@ for source_path in sorted(source_dir.glob("*.png")):
 
     width, height = image.size
     min_side = min(width, height)
-    inset = max(1, round(min_side * 0.03))
-    radius = max(2, round(min_side * 0.18))
+    is_mark = source_path.name.startswith("opencrab-mark-")
+    inset = max(1, round(min_side * (0.06 if is_mark else 0.03)))
+    radius = max(2, round(min_side * (0.22 if is_mark else 0.18)))
 
     rounded = Image.new("RGBA", image.size, (0, 0, 0, 0))
     card = Image.new("RGBA", image.size, (0, 0, 0, 0))
@@ -82,8 +103,11 @@ for source_path in sorted(source_dir.glob("*.png")):
         fill=(255, 255, 255, 255),
     )
     rounded = Image.alpha_composite(rounded, card)
-    content = visible_content(image)
-    content_offset = ((width - content.width) // 2, (height - content.height) // 2)
+    if is_mark:
+        content, content_offset = centered_scaled_content(image, image.size, 0.64)
+    else:
+        content = visible_content(image)
+        content_offset = ((width - content.width) // 2, (height - content.height) // 2)
     rounded.alpha_composite(content, content_offset)
     rounded.save(rounded_dir / source_path.name)
 
@@ -118,6 +142,27 @@ for source_path in sorted(source_dir.glob("opencrab-mark-*.png")):
     avatar.alpha_composite(icon, icon_offset)
 
     avatar.save(circle_dir / source_path.name)
+
+source_app_path = source_dir / "opencrab-mark-1024.png"
+if source_app_path.exists():
+    image = Image.open(source_app_path).convert("RGBA")
+    width, height = image.size
+    min_side = min(width, height)
+
+    app_icon = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    card = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    card_draw = ImageDraw.Draw(card)
+    inset = max(1, round(min_side * 0.08))
+    radius = max(2, round(min_side * 0.24))
+    card_draw.rounded_rectangle(
+        (inset, inset, width - inset, height - inset),
+        radius=radius,
+        fill=(255, 255, 255, 255),
+    )
+    app_icon = Image.alpha_composite(app_icon, card)
+    content, content_offset = centered_scaled_content(image, image.size, 0.58)
+    app_icon.alpha_composite(content, content_offset)
+    app_icon.save(app_dir / "opencrab-app-icon-1024.png")
 PY
 
 cat <<'EOF'
@@ -127,4 +172,5 @@ Generated PNG brand assets:
 - white-background copies: public/branding/png-white/
 - white rounded-rectangle copies: public/branding/png-white-rounded/
 - circular avatar copies: public/branding/png-circle/
+- desktop app icon source: public/branding/png-app/
 EOF
