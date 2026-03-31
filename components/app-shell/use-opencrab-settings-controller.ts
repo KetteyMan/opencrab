@@ -356,7 +356,7 @@ export function useOpenCrabSettingsController(
       );
       return null;
     }
-  }, [input]);
+  }, [applyRuntimeConnectionSnapshot, input]);
 
   const refreshRuntimeReadiness = useCallback(async () => {
     input.onError(null);

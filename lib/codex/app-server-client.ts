@@ -15,7 +15,7 @@ type AppServerNotificationMessage = {
 };
 
 type PendingRequest = {
-  resolve: (value: any) => void;
+  resolve: (value: unknown) => void;
   reject: (reason?: unknown) => void;
 };
 

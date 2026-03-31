@@ -1,6 +1,5 @@
 import { Codex } from "@openai/codex-sdk";
-import { existsSync, readFileSync } from "node:fs";
-import path from "node:path";
+import { readFileSync } from "node:fs";
 import type { AgentProfileDetail } from "@/lib/agents/types";
 import { createCodexAppServerClient } from "@/lib/codex/app-server-client";
 import { buildChromeDevtoolsMcpConfig, ensureBrowserSession } from "@/lib/codex/browser-session";
@@ -9,7 +8,6 @@ import {
   normalizeCodexTransportNoiseMessage,
 } from "@/lib/codex/stream-noise";
 import {
-  execCodexCommand,
   resolveCodexExecutablePath,
 } from "@/lib/codex/executable";
 import {

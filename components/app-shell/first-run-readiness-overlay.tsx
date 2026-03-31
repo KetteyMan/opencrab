@@ -17,9 +17,11 @@ export function FirstRunReadinessOverlay() {
   } = useOpenCrabApp();
   const hasShownBlockingStateRef = useRef(false);
   const overlayCardRef = useRef<HTMLDivElement | null>(null);
+  const completionTimeoutRef = useRef<number | null>(null);
   const [showCompletionState, setShowCompletionState] = useState(false);
 
   const isBlocking = Boolean(isHydrated && runtimeReadiness && !runtimeReadiness.ready);
+  const runtimeReady = Boolean(runtimeReadiness?.ready);
   const isWaitingBrowserAuth =
     chatGptConnectionStatus?.stage === "waiting_browser_auth" ||
     chatGptConnectionStatus?.stage === "connecting";
@@ -29,9 +31,8 @@ export function FirstRunReadinessOverlay() {
       return;
     }
 
-    if (!runtimeReadiness.ready) {
+    if (!runtimeReady) {
       hasShownBlockingStateRef.current = true;
-      setShowCompletionState(false);
       return;
     }
 
@@ -39,17 +40,29 @@ export function FirstRunReadinessOverlay() {
       return;
     }
 
-    setShowCompletionState(true);
-    hasShownBlockingStateRef.current = false;
+    const showTimeoutId = window.setTimeout(() => {
+      setShowCompletionState(true);
+      hasShownBlockingStateRef.current = false;
 
-    const timeoutId = window.setTimeout(() => {
-      setShowCompletionState(false);
-    }, 2400);
+      if (completionTimeoutRef.current !== null) {
+        window.clearTimeout(completionTimeoutRef.current);
+      }
+
+      completionTimeoutRef.current = window.setTimeout(() => {
+        setShowCompletionState(false);
+        completionTimeoutRef.current = null;
+      }, 2400);
+    }, 0);
 
     return () => {
-      window.clearTimeout(timeoutId);
+      window.clearTimeout(showTimeoutId);
+
+      if (completionTimeoutRef.current !== null) {
+        window.clearTimeout(completionTimeoutRef.current);
+        completionTimeoutRef.current = null;
+      }
     };
-  }, [isHydrated, runtimeReadiness]);
+  }, [isHydrated, runtimeReadiness, runtimeReady]);
 
   useEffect(() => {
     if (!isBlocking || isWaitingBrowserAuth) {
