@@ -1,15 +1,21 @@
 const { execFileSync, spawn } = require("node:child_process");
 const { existsSync } = require("node:fs");
 const path = require("node:path");
+const {
+  DEFAULT_OPENCRAB_DESKTOP_PORT,
+  buildOpenCrabRuntimeEnv,
+  isOpenCrabAppUrl,
+  normalizeOpenCrabBaseUrl,
+  parsePositiveInt,
+} = require("../lib/runtime/runtime-network-config.shared.js");
 
 const OPENCRAB_ROOT = path.resolve(__dirname, "..");
 const DEFAULT_BUNDLE_ROOT = path.join(OPENCRAB_ROOT, ".opencrab-desktop", "runtime");
-const DEFAULT_PORT = 3400;
 const DEFAULT_TIMEOUT_MS = 60_000;
 const DEFAULT_POLL_INTERVAL_MS = 500;
 
 function resolveDesktopRuntimeConfig(env = process.env, input = {}) {
-  const attachedBaseUrl = normalizeBaseUrl(env.OPENCRAB_DESKTOP_TARGET_URL);
+  const attachedBaseUrl = normalizeOpenCrabBaseUrl(env.OPENCRAB_DESKTOP_TARGET_URL);
 
   if (attachedBaseUrl) {
     return {
@@ -33,9 +39,9 @@ function resolveDesktopRuntimeConfig(env = process.env, input = {}) {
 }
 
 function resolveDevelopmentDesktopRuntimeConfig(env, input) {
-  const port = parsePositiveInt(env.OPENCRAB_DESKTOP_PORT, DEFAULT_PORT);
+  const port = parsePositiveInt(env.OPENCRAB_DESKTOP_PORT, DEFAULT_OPENCRAB_DESKTOP_PORT);
   const baseUrl =
-    normalizeBaseUrl(env.OPENCRAB_DESKTOP_BASE_URL) || `http://127.0.0.1:${port}`;
+    normalizeOpenCrabBaseUrl(env.OPENCRAB_DESKTOP_BASE_URL) || `http://127.0.0.1:${port}`;
   const runtimeScript = env.OPENCRAB_DESKTOP_RUNTIME_SCRIPT?.trim() || "dev";
   const proxyEnv = resolveDesktopProxyEnv(env, input);
 
@@ -49,9 +55,13 @@ function resolveDevelopmentDesktopRuntimeConfig(env, input) {
     args: ["run", runtimeScript, "--", "--port", String(port)],
     env: {
       ...proxyEnv,
-      OPENCRAB_APP_ORIGIN: baseUrl,
-      OPENCRAB_RESOURCE_ROOT: OPENCRAB_ROOT,
-      OPENCRAB_EXECUTION_ROOT: OPENCRAB_ROOT,
+      ...buildOpenCrabRuntimeEnv({
+        appOrigin: baseUrl,
+        port,
+        resourceRoot: OPENCRAB_ROOT,
+        executionRoot: OPENCRAB_ROOT,
+        fallbackPort: DEFAULT_OPENCRAB_DESKTOP_PORT,
+      }),
     },
     timeoutMs: parsePositiveInt(env.OPENCRAB_DESKTOP_START_TIMEOUT_MS, DEFAULT_TIMEOUT_MS),
     pollIntervalMs: parsePositiveInt(
@@ -62,9 +72,9 @@ function resolveDevelopmentDesktopRuntimeConfig(env, input) {
 }
 
 function resolveProductionDesktopRuntimeConfig(env, input) {
-  const port = parsePositiveInt(env.OPENCRAB_DESKTOP_PORT, DEFAULT_PORT);
+  const port = parsePositiveInt(env.OPENCRAB_DESKTOP_PORT, DEFAULT_OPENCRAB_DESKTOP_PORT);
   const baseUrl =
-    normalizeBaseUrl(env.OPENCRAB_DESKTOP_BASE_URL) || `http://127.0.0.1:${port}`;
+    normalizeOpenCrabBaseUrl(env.OPENCRAB_DESKTOP_BASE_URL) || `http://127.0.0.1:${port}`;
   const bundleRoot = resolveDesktopBundleRoot(env, input);
   const proxyEnv = resolveDesktopProxyEnv(env, input);
   const helperExecutable = resolveDesktopHelperExecutable(input);
@@ -85,13 +95,15 @@ function resolveProductionDesktopRuntimeConfig(env, input) {
     requiredPaths: helperExecutable ? [serverEntrypoint, helperExecutable] : [serverEntrypoint],
     env: {
       ...proxyEnv,
-      NODE_ENV: "production",
-      HOSTNAME: "127.0.0.1",
-      PORT: String(port),
+      ...buildOpenCrabRuntimeEnv({
+        appOrigin: baseUrl,
+        port,
+        nodeEnv: "production",
+        resourceRoot: bundleRoot,
+        executionRoot: bundleRoot,
+        fallbackPort: DEFAULT_OPENCRAB_DESKTOP_PORT,
+      }),
       ELECTRON_RUN_AS_NODE: "1",
-      OPENCRAB_APP_ORIGIN: baseUrl,
-      OPENCRAB_RESOURCE_ROOT: bundleRoot,
-      OPENCRAB_EXECUTION_ROOT: bundleRoot,
     },
     timeoutMs: parsePositiveInt(env.OPENCRAB_DESKTOP_START_TIMEOUT_MS, DEFAULT_TIMEOUT_MS),
     pollIntervalMs: parsePositiveInt(
@@ -292,32 +304,8 @@ function defaultLaunchRuntimeProcess(runtimeConfig) {
   };
 }
 
-function normalizeBaseUrl(value) {
-  const raw = value?.trim();
-
-  if (!raw) {
-    return null;
-  }
-
-  try {
-    const url = new URL(raw);
-    return `${url.protocol}//${url.host}`;
-  } catch {
-    return null;
-  }
-}
-
 function isAppUrl(urlValue, baseUrl) {
-  try {
-    return new URL(urlValue).origin === new URL(baseUrl).origin;
-  } catch {
-    return false;
-  }
-}
-
-function parsePositiveInt(value, fallback) {
-  const parsed = Number.parseInt(value || "", 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  return isOpenCrabAppUrl(urlValue, baseUrl);
 }
 
 function attachRuntimeLogs(stream, label) {
@@ -442,7 +430,7 @@ function sleep(ms) {
 module.exports = {
   createRuntimeManager,
   isAppUrl,
-  normalizeBaseUrl,
+  normalizeBaseUrl: normalizeOpenCrabBaseUrl,
   resolveDesktopProxyEnv,
   resolveDesktopBundleRoot,
   resolveDesktopRuntimeConfig,

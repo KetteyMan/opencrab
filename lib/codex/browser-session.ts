@@ -26,6 +26,9 @@ import {
   getOpenCrabNodeExecutable,
 } from "@/lib/runtime/node-exec";
 import { resolveBrowserMcpInvocation } from "@/lib/codex/browser-mcp-executable";
+import runtimeNetworkConfig from "@/lib/runtime/runtime-network-config.shared.js";
+
+const { resolveOpenCrabAppOrigin } = runtimeNetworkConfig;
 
 const DEFAULT_MANAGED_DEBUG_PORT = Number.parseInt(
   process.env.OPENCRAB_CHROME_DEBUG_PORT || "9333",
@@ -36,7 +39,7 @@ const MANAGED_DEBUG_PORT = Number.isFinite(DEFAULT_MANAGED_DEBUG_PORT)
   : 9333;
 const MANAGED_BROWSER_URL = `http://127.0.0.1:${MANAGED_DEBUG_PORT}`;
 const MANAGED_USER_DATA_DIR = OPENCRAB_CHROME_PROFILE_DIR;
-const APP_ORIGIN = process.env.OPENCRAB_APP_ORIGIN || "http://127.0.0.1:3000";
+const APP_ORIGIN = resolveOpenCrabAppOrigin(process.env);
 const MCP_PROXY_URL = `${APP_ORIGIN}/api/codex/browser-mcp`;
 const BROWSER_WARMUP_COOLDOWN_MS = 5 * 60_000;
 const BROWSER_TOOL_PROBE_TIMEOUT_MS = 8_000;

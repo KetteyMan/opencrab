@@ -14,6 +14,7 @@ import type {
   SkillsCatalogResponse,
   SnapshotMutationResult,
   RuntimeReadinessResponse,
+  RuntimeConnectionSnapshotResponse,
   TaskDetailResponse,
   TaskListResponse,
   TaskSchedule,
@@ -107,6 +108,12 @@ export async function getCodexBrowserSessionStatus() {
 
 export async function getRuntimeReadiness() {
   return request<RuntimeReadinessResponse>("/api/runtime/readiness", {
+    method: "GET",
+  });
+}
+
+export async function getRuntimeConnectionSnapshot() {
+  return request<RuntimeConnectionSnapshotResponse>("/api/runtime/connection-state", {
     method: "GET",
   });
 }

@@ -30,6 +30,8 @@ docs/
 
 ### 想看工程实现与运行边界
 
+- [从 Git 安装 OpenCrab](./engineering/install-from-git.md)
+- [Install OpenCrab From Git](./engineering/install-from-git-en.md)
 - [Web / Desktop 双端升级唯一操作指南](./engineering/web-desktop-upgrade-operations-guide.md)
 - [Desktop Smoke And Release Checklist](./engineering/desktop-smoke-and-release-checklist.md)
 - [Architecture](./engineering/architecture.md)

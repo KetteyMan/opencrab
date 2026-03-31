@@ -25,11 +25,9 @@ import {
   deleteFolder as deleteFolderResource,
   getAgents as getAgentsResource,
   getAppSnapshot,
-  getChatGptConnectionStatus as getChatGptConnectionStatusResource,
   getCodexBrowserSessionStatus as getCodexBrowserSessionStatusResource,
   getCodexOptions as getCodexOptionsResource,
-  getCodexStatus as getCodexStatusResource,
-  getRuntimeReadiness as getRuntimeReadinessResource,
+  getRuntimeConnectionSnapshot as getRuntimeConnectionSnapshotResource,
   deleteAgent as deleteAgentResource,
   updateAgent as updateAgentResource,
   updateConversation,
@@ -54,6 +52,7 @@ import type {
   CodexReasoningEffort,
   CodexSandboxMode,
   CodexStatusResponse,
+  RuntimeConnectionSnapshotResponse,
   RuntimeReadinessResponse,
   UploadedAttachment,
 } from "@/lib/resources/opencrab-api-types";
@@ -225,6 +224,16 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
     useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const applyRuntimeConnectionSnapshot = useCallback(
+    (snapshot: RuntimeConnectionSnapshotResponse) => {
+      setCodexStatus(snapshot.codexStatus);
+      setChatGptConnectionStatus(snapshot.chatGptConnectionStatus);
+      setBrowserSessionStatus(snapshot.browserSessionStatus);
+      setRuntimeReadiness(snapshot.runtimeReadiness);
+    },
+    [],
+  );
+
   const applySnapshot = useCallback((snapshot: AppSnapshot) => {
     startTransition(() => {
       setFolders((current) =>
@@ -297,6 +306,7 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
     onChatGptConnectionStatusChange: setChatGptConnectionStatus,
     onBrowserSessionStatusChange: setBrowserSessionStatus,
     onRuntimeReadinessChange: setRuntimeReadiness,
+    onRuntimeConnectionSnapshotChange: applyRuntimeConnectionSnapshot,
     onError: setErrorMessage,
     onChatGptPendingChange: setIsChatGptConnectionPending,
   });
@@ -389,13 +399,10 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
 
     async function hydrateCodexMeta() {
       try {
-        const [codexOptions, status, browserStatus, chatGptConnection, readiness] =
+        const [codexOptions, runtimeConnectionSnapshot] =
           await Promise.all([
             getCodexOptionsResource(),
-            getCodexStatusResource(),
-            getCodexBrowserSessionStatusResource(),
-            getChatGptConnectionStatusResource(),
-            getRuntimeReadinessResource(),
+            getRuntimeConnectionSnapshotResource(),
           ]);
 
         if (!active) {
@@ -403,10 +410,7 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
         }
 
         setCodexModels(codexOptions.models);
-        setCodexStatus(status);
-        setBrowserSessionStatus(browserStatus);
-        setChatGptConnectionStatus(chatGptConnection);
-        setRuntimeReadiness(readiness);
+        applyRuntimeConnectionSnapshot(runtimeConnectionSnapshot);
         reconcileModelSelection(codexOptions.models, codexOptions.defaultModel);
       } catch (error) {
         if (active) {
@@ -457,7 +461,7 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
     return () => {
       active = false;
     };
-  }, [applySnapshot, hydrateFromSnapshot, reconcileModelSelection]);
+  }, [applyRuntimeConnectionSnapshot, applySnapshot, hydrateFromSnapshot, reconcileModelSelection]);
 
   useEffect(() => {
     const stage = chatGptConnectionStatus?.stage;
@@ -473,19 +477,13 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
       }
 
       try {
-        const [chatGptConnection, status, readiness] = await Promise.all([
-          getChatGptConnectionStatusResource(),
-          getCodexStatusResource(),
-          getRuntimeReadinessResource(),
-        ]);
+        const snapshot = await getRuntimeConnectionSnapshotResource();
 
         if (!active) {
           return;
         }
 
-        setChatGptConnectionStatus(chatGptConnection);
-        setCodexStatus(status);
-        setRuntimeReadiness(readiness);
+        applyRuntimeConnectionSnapshot(snapshot);
       } catch {
         // Keep polling quiet. The visible connection card already shows the last good state.
       }
@@ -514,7 +512,7 @@ export function OpenCrabProvider({ children }: OpenCrabProviderProps) {
       window.removeEventListener("focus", handleWindowFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [chatGptConnectionStatus?.stage]);
+  }, [applyRuntimeConnectionSnapshot, chatGptConnectionStatus?.stage]);
 
   const refreshBrowserSessionStatus = useCallback(async () => {
     try {

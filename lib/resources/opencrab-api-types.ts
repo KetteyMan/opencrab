@@ -115,6 +115,13 @@ export type CodexBrowserSessionStatus = {
   message: string;
 };
 
+export type RuntimeConnectionSnapshotResponse = {
+  codexStatus: CodexStatusResponse;
+  chatGptConnectionStatus: ChatGptConnectionStatusResponse;
+  browserSessionStatus: CodexBrowserSessionStatus;
+  runtimeReadiness: RuntimeReadinessResponse;
+};
+
 export type UploadedAttachment = AttachmentItem;
 
 export type SnapshotMutationResult = {
