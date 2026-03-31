@@ -17,7 +17,7 @@
 </p>
 
 OpenCrab 是一个中文优先、本地优先、chat-native 的开源 AI 工作台。  
-当前 `OpenCrab for Mac` 已经发布，你可以直接下载桌面 App：`[OpenCrab Desktop v0.1.0](https://github.com/KetteyMan/opencrab/releases/tag/v0.1.0)`。
+当前 `OpenCrab for Mac` 已经发布，你可以直接下载桌面 App：[OpenCrab Desktop v0.1.0](https://github.com/KetteyMan/opencrab/releases/tag/v0.1.0)。
 
 - 官网：[opencrab-ai.com](https://opencrab-ai.com)
 - 联系邮箱：[sky@opencrab-ai.com](mailto:sky@opencrab-ai.com)
